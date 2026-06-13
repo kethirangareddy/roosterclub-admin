@@ -4,7 +4,7 @@ import { Gavel, Check, X, Trash2 } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo } from '../ui';
 
 const STATUS_BADGE: Record<string,string> = {
-  pending:'b-warn', approved:'b-ok', live:'b-ok', ended:'b-mut', rejected:'b-danger',
+  pending:'b-warn', approved:'b-ok', live:'b-ok', ended:'b-mut', cancelled:'b-danger',
 };
 
 export default function Auctions({ onChange }:{ onChange?:()=>void }){
@@ -53,7 +53,7 @@ export default function Auctions({ onChange }:{ onChange?:()=>void }){
                   <td><div className="row-acts">
                     {r.status==='pending' && <>
                       <button className="btn ok sm" onClick={()=>setStatus(r.id,'approved')}><Check size={13}/> Approve</button>
-                      <button className="btn ghost sm" onClick={()=>setStatus(r.id,'rejected')}><X size={13}/> Reject</button>
+                      <button className="btn ghost sm" onClick={()=>setStatus(r.id,'cancelled')}><X size={13}/> Reject</button>
                     </>}
                     <button className="btn danger sm" onClick={()=>remove(r.id)}><Trash2 size={13}/> Delete</button>
                   </div></td>

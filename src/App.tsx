@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, Stethoscope, BookOpen, Bird, Siren,
-  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag
+  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck
 } from 'lucide-react';
 import Login from './Login';
 import Featured from './sections/Featured';
@@ -20,13 +20,15 @@ import Shop from './sections/Shop';
 import Announcements from './sections/Announcements';
 import Auctions from './sections/Auctions';
 import Reports from './sections/Reports';
+import Kyc from './sections/Kyc';
 
-type Key = 'dash'|'approvals'|'reports'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'boosts'|'users'|'announce'|'auctions';
+type Key = 'dash'|'approvals'|'reports'|'kyc'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'boosts'|'users'|'announce'|'auctions';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
   { key:'approvals', label:'Approvals', Icon:Inbox },
   { key:'reports', label:'Reports', Icon:Flag },
+  { key:'kyc', label:'Verifications', Icon:ShieldCheck },
   { key:'featured', label:'Featured', Icon:Star },
   { key:'livefeed', label:'Live Feed', Icon:Truck },
   { key:'shop', label:'Shop', Icon:Store },
@@ -66,7 +68,8 @@ export default function App(){
     const pendV=await supabase.from('vets').select('id',{count:'exact',head:true}).eq('approved',false);
     const pendA=await supabase.from('auctions').select('id',{count:'exact',head:true}).eq('status','pending');
     const pendR=await supabase.from('reports').select('id',{count:'exact',head:true}).eq('status','open');
-    setCounts({ approvals:pendL.count||0, reports:pendR.count||0, featured:pendFeat.count||0, livefeed:pendF.count||0, disease:pendD.count||0, vets:pendV.count||0, auctions:pendA.count||0 });
+    const pendK=await supabase.from('kyc_submissions').select('id',{count:'exact',head:true}).eq('status','pending');
+    setCounts({ approvals:pendL.count||0, reports:pendR.count||0, kyc:pendK.count||0, featured:pendFeat.count||0, livefeed:pendF.count||0, disease:pendD.count||0, vets:pendV.count||0, auctions:pendA.count||0 });
   }
   useEffect(()=>{ if(isAdmin) refreshCounts(); },[isAdmin,view]);
 
@@ -82,7 +85,7 @@ export default function App(){
 
   const sections:Record<Key,JSX.Element>={
     dash:<Dashboard go={setView}/>, approvals:<Approvals onChange={refreshCounts}/>,
-    reports:<Reports onChange={refreshCounts}/>,
+    reports:<Reports onChange={refreshCounts}/>, kyc:<Kyc onChange={refreshCounts}/>,
     featured:<Featured onChange={refreshCounts}/>,
     livefeed:<LiveFeed onChange={refreshCounts}/>, shop:<Shop/>, vets:<Vets onChange={refreshCounts}/>,
     kukuta:<Kukuta/>, breeds:<Breeds/>, disease:<Disease onChange={refreshCounts}/>,
