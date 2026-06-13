@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Megaphone, Send } from 'lucide-react';
 import { Field, Empty, Loading, timeAgo } from '../ui';
+import { STATES, districtsFor } from '../locations';
 
 export default function Announcements(){
   const [rows,setRows]=useState<any[]>([]);
@@ -55,10 +56,18 @@ export default function Announcements(){
           <Field label="Message"><textarea rows={3} style={{width:'100%',resize:'vertical'}} value={body} maxLength={240}
             onChange={e=>setBody(e.target.value)} placeholder="Keep it short and useful — these go to everyone."/></Field>
           <div className="grid2">
-            <Field label="State (optional)"><input style={{width:'100%'}} value={state}
-              onChange={e=>setState(e.target.value)} placeholder="Leave blank = all states"/></Field>
-            <Field label="District (optional)"><input style={{width:'100%'}} value={district}
-              onChange={e=>setDistrict(e.target.value)} placeholder="Leave blank = whole state"/></Field>
+            <Field label="State (optional)">
+              <select style={{width:'100%'}} value={state} onChange={e=>{ setState(e.target.value); setDistrict(''); }}>
+                <option value="">All states</option>
+                {STATES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="District (optional)">
+              <select style={{width:'100%'}} value={district} onChange={e=>setDistrict(e.target.value)} disabled={!state}>
+                <option value="">{state ? 'Whole state' : 'Pick a state first'}</option>
+                {districtsFor(state).map(d=><option key={d} value={d}>{d}</option>)}
+              </select>
+            </Field>
           </div>
           <div className="muted" style={{fontSize:12}}>Tip: leave both blank to reach all users. District requires a State.</div>
           <div>

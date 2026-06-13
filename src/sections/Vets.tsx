@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
-import { Stethoscope, Plus, Star } from 'lucide-react';
+import { Stethoscope, Plus, Star, Check } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, inr } from '../ui';
+import { STATES, districtsFor } from '../locations';
 
 const BLANK={ name:'',speciality:'',years_experience:0,consultation_charge:0,phone:'',
-  state:'',district:'',mandal:'',is_open:true,is_featured:false,featured_position:null as number|null };
+  state:'',district:'',mandal:'',is_open:true,is_featured:false,featured_position:null as number|null,
+  approved:true };
 
-export default function Vets(){
+export default function Vets({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [edit,setEdit]=useState<any|null>(null);
@@ -14,6 +16,7 @@ export default function Vets(){
   async function load(){
     setLoading(true);
     const { data }=await supabase.from('vets').select('*')
+      .order('approved',{ascending:true})            // pending requests first
       .order('is_featured',{ascending:false}).order('featured_position',{ascending:true,nullsFirst:false})
       .order('created_at',{ascending:false});
     setRows(data||[]); setLoading(false);
@@ -25,32 +28,37 @@ export default function Vets(){
     for(const f of ['name','phone','state','district','mandal'] as const){
       if(!String(v[f]||'').trim()){ alert('Required: name, phone, state, district and mandal.'); return; }
     }
-    const id=v.id; delete v.id; delete v.created_at;
+    const id=v.id; delete v.id; delete v.created_at; delete v.user_id;
     v.years_experience=Number(v.years_experience)||0;
     v.consultation_charge=Number(v.consultation_charge)||0;
     v.featured_position=v.is_featured?(Number(v.featured_position)||1):null;
     const { error }= id ? await supabase.from('vets').update(v).eq('id',id)
                         : await supabase.from('vets').insert(v);
     if(error){ alert(error.message); return; }
-    setEdit(null); load();
+    setEdit(null); load(); onChange?.();
+  }
+  async function approve(id:string){
+    await supabase.from('vets').update({ approved:true }).eq('id',id); load(); onChange?.();
   }
   async function remove(id:string){
-    if(!confirm('Remove this vet?')) return;
-    await supabase.from('vets').delete().eq('id',id); load();
+    if(!confirm('Remove this doctor from the app? This cannot be undone.')) return;
+    await supabase.from('vets').delete().eq('id',id); load(); onChange?.();
   }
+
+  const pending = rows.filter(r=>!r.approved).length;
 
   return (
     <>
-      <h1 className="h1">Veterinary</h1>
-      <p className="sub">Admin-listed poultry vets. Top 3 featured slots appear first in the app.</p>
+      <h1 className="h1">Doctors</h1>
+      <p className="sub">You can add doctors yourself, and people can request to be listed — requests stay hidden until you approve them. Top 3 featured slots appear first in the app.</p>
       <div className="card">
         <div className="card-h">
-          <h2><Stethoscope size={16}/> Vets ({rows.length})</h2>
-          <button className="btn" onClick={()=>setEdit({...BLANK})}><Plus size={15}/> Add vet</button>
+          <h2><Stethoscope size={16}/> Doctors ({rows.length}){pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>
+          <button className="btn" onClick={()=>setEdit({...BLANK})}><Plus size={15}/> Add doctor</button>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No vets yet. Add your first one."/>:(
+        {loading?<Loading/>:rows.length===0?<Empty text="No doctors yet. Add your first one."/>:(
           <table>
-            <thead><tr><th>Name</th><th>Speciality</th><th>Exp.</th><th>Charge</th><th>Phone</th><th>Location</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Speciality</th><th>Exp.</th><th>Charge</th><th>Phone</th><th>Location</th><th>Listing</th><th></th></tr></thead>
             <tbody>
               {rows.map(r=>(
                 <tr key={r.id}>
@@ -60,8 +68,11 @@ export default function Vets(){
                   <td>{inr(r.consultation_charge)}</td>
                   <td className="muted">{r.phone||'—'}</td>
                   <td className="muted">{loc(r)}</td>
-                  <td><span className={'badge '+(r.is_open?'b-ok':'b-mut')}>{r.is_open?'Open':'Closed'}</span></td>
+                  <td>{r.approved
+                    ? <span className="badge b-ok">Live</span>
+                    : <span className="badge b-warn">Pending request</span>}</td>
                   <td><div className="row-acts">
+                    {!r.approved && <button className="btn ok sm" onClick={()=>approve(r.id)}><Check size={13}/> Approve</button>}
                     <button className="btn ghost sm" onClick={()=>setEdit({...r})}>Edit</button>
                     <button className="btn danger sm" onClick={()=>remove(r.id)}>Delete</button>
                   </div></td>
@@ -73,7 +84,7 @@ export default function Vets(){
       </div>
 
       {edit && (
-        <Modal title={edit.id?'Edit vet':'Add vet'} onClose={()=>setEdit(null)}
+        <Modal title={edit.id?'Edit doctor':'Add doctor'} onClose={()=>setEdit(null)}
           footer={<><button className="btn ghost" onClick={()=>setEdit(null)}>Cancel</button>
                     <button className="btn" onClick={save}>Save</button></>}>
           <Field label="Name"><input style={{width:'100%'}} value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></Field>
@@ -84,8 +95,18 @@ export default function Vets(){
           </div>
           <Field label="Phone"><input style={{width:'100%'}} value={edit.phone||''} onChange={e=>setEdit({...edit,phone:e.target.value})}/></Field>
           <div className="grid2">
-            <Field label="State"><input style={{width:'100%'}} value={edit.state||''} onChange={e=>setEdit({...edit,state:e.target.value})}/></Field>
-            <Field label="District"><input style={{width:'100%'}} value={edit.district||''} onChange={e=>setEdit({...edit,district:e.target.value})}/></Field>
+            <Field label="State">
+              <select style={{width:'100%'}} value={edit.state||''} onChange={e=>setEdit({...edit,state:e.target.value,district:''})}>
+                <option value="">Select state</option>
+                {STATES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="District">
+              <select style={{width:'100%'}} value={edit.district||''} onChange={e=>setEdit({...edit,district:e.target.value})} disabled={!edit.state}>
+                <option value="">{edit.state?'Select district':'Pick a state first'}</option>
+                {districtsFor(edit.state||'').map(d=><option key={d} value={d}>{d}</option>)}
+              </select>
+            </Field>
           </div>
           <Field label="Mandal"><input style={{width:'100%'}} value={edit.mandal||''} onChange={e=>setEdit({...edit,mandal:e.target.value})}/></Field>
           <div className="grid2">
