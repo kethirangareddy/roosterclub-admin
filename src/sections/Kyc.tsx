@@ -30,14 +30,15 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
 
   async function decide(r:any, approveIt:boolean){
     if(!confirm(approveIt
-      ? 'Approve and give the verified badge? The Aadhaar & selfie files will be deleted after.'
-      : 'Reject this verification? The files will be deleted.')) return;
+      ? 'Approve and give the verified badge? The Aadhaar photo is deleted; the selfie is kept on file for safety.'
+      : 'Reject this verification? The Aadhaar photo is deleted; the selfie is kept on file for safety.')) return;
     if(approveIt){
       const { error }=await supabase.from('users').update({ aadhaar_verified:true }).eq('id',r.user_id);
       if(error){ alert(error.message); return; }
     }
-    await supabase.from('kyc_submissions').update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString() }).eq('id',r.id);
-    await supabase.storage.from('kyc').remove([r.aadhaar_path, r.selfie_path]);
+    // Delete ONLY the Aadhaar (unlawful to retain long-term); keep the selfie as the verification/fraud trail.
+    if(r.aadhaar_path) await supabase.storage.from('kyc').remove([r.aadhaar_path]);
+    await supabase.from('kyc_submissions').update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString(), aadhaar_path:null }).eq('id',r.id);
     load(); onChange?.();
   }
 
@@ -46,7 +47,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   return (
     <>
       <h1 className="h1">Verifications</h1>
-      <p className="sub">Aadhaar verification requests. Check the Aadhaar against the selfie, call the user to confirm, then Approve to give the blue verified badge. Files are deleted once you decide.</p>
+      <p className="sub">KYC verification requests. Check the Aadhaar against the selfie, call the user to confirm, then Approve to give the blue verified badge. The Aadhaar photo is deleted once you decide; the selfie is kept on file for safety.</p>
       <div className="card">
         <div className="card-h">
           <h2><ShieldCheck size={16}/> Requests{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>

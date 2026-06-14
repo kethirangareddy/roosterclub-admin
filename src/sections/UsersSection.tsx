@@ -32,8 +32,9 @@ export default function UsersSection(){
   useEffect(()=>{ load(); },[]);
 
   async function setBadge(id:string, badge:string){
+    // badge_source:'admin' protects a hand-set badge from the nightly earned-badge cron; clearing the badge clears the source too (lets the auto-system take over again).
     const { error }=await supabase.from('users')
-      .update({ badge:badge||null, badge_awarded_at:badge?new Date().toISOString():null }).eq('id',id);
+      .update({ badge:badge||null, badge_source:badge?'admin':null, badge_awarded_at:badge?new Date().toISOString():null }).eq('id',id);
     if(error){ alert('Could not save badge: '+error.message); return; }
     setRows(r=>r.map(x=>x.id===id?{...x,badge:badge||null}:x));
   }
