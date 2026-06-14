@@ -21,7 +21,7 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
   useEffect(()=>{ load(); },[tab]);
 
   async function mark(id:string,status:string){
-    await supabase.from('reports').update({ status, reviewed_at:new Date().toISOString() }).eq('id',id); load(); onChange?.();
+    const { error }=await supabase.from('reports').update({ status, reviewed_at:new Date().toISOString() }).eq('id',id); if(error){ alert('Could not update report: '+error.message); return; } load(); onChange?.();
   }
   async function removeListing(r:any){
     if(!r.listing?.id){ alert('Listing already removed.'); await mark(r.id,'actioned'); return; }

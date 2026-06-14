@@ -69,7 +69,7 @@ export default function Boosts(){
         </div>
         {loading?<Loading/>:rows.length===0?<Empty text="No boosts logged yet."/>:(
           <table>
-            <thead><tr><th>Listing</th><th>Seller</th><th>Level</th><th>Paid</th><th>UPI ref</th><th>State</th><th>Logged</th><th></th></tr></thead>
+            <thead><tr><th>Listing</th><th>Seller</th><th>Level</th><th>Paid</th><th>UPI ref</th><th>Status</th><th>Logged</th><th></th></tr></thead>
             <tbody>
               {rows.map(b=>{
                 const live=b.activated_at && b.expires_at && new Date(b.expires_at)>new Date();

@@ -20,14 +20,16 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
   useEffect(()=>{ load(); },[tab]);
 
   async function set(id:string, approval_status:string){
-    await supabase.from('listings').update({ approval_status }).eq('id',id);
+    const { error }=await supabase.from('listings').update({ approval_status }).eq('id',id);
+    if(error){ alert('Could not update listing: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id || tab==='all'));
     if(tab==='all') load();
     onChange();
   }
   async function remove(id:string){
     if(!confirm('Permanently delete this listing?')) return;
-    await supabase.from('listings').delete().eq('id',id);
+    const { error }=await supabase.from('listings').delete().eq('id',id);
+    if(error){ alert('Could not delete: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
 

@@ -26,12 +26,14 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
   useEffect(()=>{ load(); },[tab]);
 
   async function approve(id:string){
-    await supabase.from('live_feed_sellers').update({ approved:true }).eq('id',id);
+    const { error }=await supabase.from('live_feed_sellers').update({ approved:true }).eq('id',id);
+    if(error){ alert('Could not approve: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
   async function remove(id:string){
     if(!confirm('Remove this live-feed seller?')) return;
-    await supabase.from('live_feed_sellers').delete().eq('id',id);
+    const { error }=await supabase.from('live_feed_sellers').delete().eq('id',id);
+    if(error){ alert('Could not delete: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
   async function save(){

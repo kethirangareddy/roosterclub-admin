@@ -53,6 +53,7 @@ export default function App(){
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
   const [view,setView]=useState<Key>('dash');
   const [counts,setCounts]=useState<Record<string,number>>({});
+  const [menuOpen,setMenuOpen]=useState(false);
 
   useEffect(()=>{
     supabase.auth.getSession().then(({data})=>setSession(data.session));
@@ -104,11 +105,13 @@ export default function App(){
 
   return (
     <div className="shell">
-      <aside className="side">
+      <button className="menu-btn" onClick={()=>setMenuOpen(true)} aria-label="Open menu">☰</button>
+      {menuOpen && <div className="nav-scrim" onClick={()=>setMenuOpen(false)}/>}
+      <aside className={menuOpen?'side open':'side'}>
         <div className="brand"><Egg size={22}/> Rooster Club</div>
         <nav className="nav">
           {NAV.map(({key,label,Icon})=>(
-            <button key={key} className={view===key?'active':''} onClick={()=>setView(key)}>
+            <button key={key} className={view===key?'active':''} onClick={()=>{setView(key);setMenuOpen(false);}}>
               <Icon size={18}/> {label}
               {!!counts[key] && <span className="count">{counts[key]}</span>}
             </button>

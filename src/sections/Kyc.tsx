@@ -38,7 +38,8 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
     }
     // Delete ONLY the Aadhaar (unlawful to retain long-term); keep the selfie as the verification/fraud trail.
     if(r.aadhaar_path) await supabase.storage.from('kyc').remove([r.aadhaar_path]);
-    await supabase.from('kyc_submissions').update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString(), aadhaar_path:null }).eq('id',r.id);
+    const { error }=await supabase.from('kyc_submissions').update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString(), aadhaar_path:null }).eq('id',r.id);
+    if(error){ alert('Could not update KYC: '+error.message); return; }
     load(); onChange?.();
   }
 

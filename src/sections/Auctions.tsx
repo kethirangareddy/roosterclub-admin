@@ -25,7 +25,7 @@ export default function Auctions({ onChange }:{ onChange?:()=>void }){
   }
   async function remove(id:string){
     if(!confirm('Delete this auction? This cannot be undone.')) return;
-    await supabase.from('auctions').delete().eq('id',id); load(); onChange?.();
+    const { error }=await supabase.from('auctions').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load(); onChange?.();
   }
 
   const pending=rows.filter(r=>r.status==='pending').length;

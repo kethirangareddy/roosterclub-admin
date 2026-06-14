@@ -17,12 +17,14 @@ export default function Shop(){
 
   async function toggle(r:any){
     const next=r.status==='active'?'suspended':'active';
-    await supabase.from('shop_products').update({ status:next }).eq('id',r.id);
+    const { error }=await supabase.from('shop_products').update({ status:next }).eq('id',r.id);
+    if(error){ alert('Could not update product: '+error.message); return; }
     setRows(x=>x.map(p=>p.id===r.id?{...p,status:next}:p));
   }
   async function remove(id:string){
     if(!confirm('Delete this product?')) return;
-    await supabase.from('shop_products').delete().eq('id',id);
+    const { error }=await supabase.from('shop_products').delete().eq('id',id);
+    if(error){ alert('Could not delete: '+error.message); return; }
     setRows(x=>x.filter(p=>p.id!==id));
   }
 

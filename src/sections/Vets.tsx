@@ -38,11 +38,11 @@ export default function Vets({ onChange }:{ onChange?:()=>void }){
     setEdit(null); load(); onChange?.();
   }
   async function approve(id:string){
-    await supabase.from('vets').update({ approved:true }).eq('id',id); load(); onChange?.();
+    const { error }=await supabase.from('vets').update({ approved:true }).eq('id',id); if(error){ alert('Could not approve: '+error.message); return; } load(); onChange?.();
   }
   async function remove(id:string){
     if(!confirm('Remove this doctor from the app? This cannot be undone.')) return;
-    await supabase.from('vets').delete().eq('id',id); load(); onChange?.();
+    const { error }=await supabase.from('vets').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load(); onChange?.();
   }
 
   const pending = rows.filter(r=>!r.approved).length;

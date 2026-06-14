@@ -27,12 +27,13 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
     setEdit(null); load(); onChange();
   }
   async function verifyPush(r:any){
-    await supabase.from('disease_alerts').update({ verified:true, pushed_at:new Date().toISOString() }).eq('id',r.id);
+    const { error }=await supabase.from('disease_alerts').update({ verified:true, pushed_at:new Date().toISOString() }).eq('id',r.id);
+    if(error){ alert('Could not verify: '+error.message); return; }
     load(); onChange();
   }
   async function remove(id:string){
     if(!confirm('Delete this alert?')) return;
-    await supabase.from('disease_alerts').delete().eq('id',id); load(); onChange();
+    const { error }=await supabase.from('disease_alerts').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load(); onChange();
   }
 
   return (

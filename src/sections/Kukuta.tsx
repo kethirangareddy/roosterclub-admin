@@ -27,11 +27,11 @@ export default function Kukuta(){
     setEdit(null); load();
   }
   async function togglePub(r:any){
-    await supabase.from('kukuta_articles').update({published:!r.published}).eq('id',r.id); load();
+    const { error }=await supabase.from('kukuta_articles').update({published:!r.published}).eq('id',r.id); if(error){ alert('Could not update: '+error.message); return; } load();
   }
   async function remove(id:string){
     if(!confirm('Delete this article?')) return;
-    await supabase.from('kukuta_articles').delete().eq('id',id); load();
+    const { error }=await supabase.from('kukuta_articles').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load();
   }
 
   return (

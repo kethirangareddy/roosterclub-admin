@@ -35,12 +35,14 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
     // badge_source:'admin' protects this badge from the nightly earned-badge cron (it only recomputes non-admin badges).
     const u=await supabase.from('users').update({ badge, badge_source:'admin', badge_awarded_at:new Date().toISOString() }).eq('id',r.user_id);
     if(u.error){ alert(u.error.message); return; }
-    await supabase.from('badge_requests').update({ status:'approved', reviewed_at:new Date().toISOString() }).eq('id',r.id);
+    const { error }=await supabase.from('badge_requests').update({ status:'approved', reviewed_at:new Date().toISOString() }).eq('id',r.id);
+    if(error){ alert('Badge granted, but could not mark the request approved: '+error.message); }
     load(); onChange?.();
   }
   async function reject(r:any){
     if(!confirm('Reject this badge request?')) return;
-    await supabase.from('badge_requests').update({ status:'rejected', reviewed_at:new Date().toISOString() }).eq('id',r.id);
+    const { error }=await supabase.from('badge_requests').update({ status:'rejected', reviewed_at:new Date().toISOString() }).eq('id',r.id);
+    if(error){ alert('Could not reject: '+error.message); return; }
     load(); onChange?.();
   }
 

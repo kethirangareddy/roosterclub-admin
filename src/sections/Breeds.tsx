@@ -27,7 +27,7 @@ export default function Breeds(){
   }
   async function remove(id:string){
     if(!confirm('Delete this breed entry?')) return;
-    await supabase.from('breed_encyclopedia').delete().eq('id',id); load();
+    const { error }=await supabase.from('breed_encyclopedia').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load();
   }
 
   return (

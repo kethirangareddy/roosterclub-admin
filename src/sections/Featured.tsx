@@ -28,7 +28,8 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
   }
   async function reject(r:any){
     if(!confirm('Reject this feature request?')) return;
-    await supabase.from('feature_requests').update({ status:'rejected' }).eq('id',r.id);
+    const { error }=await supabase.from('feature_requests').update({ status:'rejected' }).eq('id',r.id);
+    if(error){ alert('Could not reject: '+error.message); return; }
     load(); onChange();
   }
 
