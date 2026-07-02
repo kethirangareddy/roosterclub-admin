@@ -19,14 +19,9 @@ export default function UsersSection(){
 
   async function load(){
     setLoading(true);
-    let req=supabase.from('users')
-      .select('id,full_name,handle,phone,badge,aadhaar_verified,banned,state,district,created_at')
-      .order('created_at',{ascending:false}).limit(200);
-    if(q.trim()){
-      const t=`%${q.trim()}%`;
-      req=req.or(`full_name.ilike.${t},handle.ilike.${t},phone.ilike.${t}`);
-    }
-    const { data }=await req;
+    // Same list as before (order created_at desc, limit 200, 3-column search) via the
+    // is_admin()-gated admin_users RPC — users.phone is no longer directly selectable.
+    const { data }=await supabase.rpc('admin_users',{ p_q: q.trim()||null });
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);

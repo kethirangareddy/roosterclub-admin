@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import { supabase, adminPhones } from '../supabase';
 import { Star, Zap } from 'lucide-react';
 import { Empty, Loading, timeAgo, inr } from '../ui';
 
@@ -11,12 +11,14 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
   async function load(){
     setLoading(true);
     let q=supabase.from('feature_requests')
-      .select('*, users:user_id(full_name, phone, handle)')
+      .select('*, users:user_id(full_name, handle)')
       .order('created_at',{ascending:false});
     if(tab==='pending') q=q.eq('status','pending');
     else q=q.eq('status','active');
     const { data }=await q;
-    setRows(data||[]); setLoading(false);
+    const list=data||[];
+    const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.user_id]||null}:r.users}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
 

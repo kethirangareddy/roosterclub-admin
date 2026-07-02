@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import { supabase, adminPhones } from '../supabase';
 import { Rocket, Plus, Zap } from 'lucide-react';
 import { Modal, Field, Empty, Loading, inr, timeAgo } from '../ui';
 
@@ -19,9 +19,11 @@ export default function Boosts(){
   async function load(){
     setLoading(true);
     const { data }=await supabase.from('boosts')
-      .select('*,listings(breed,type),users:seller_id(full_name,phone)')
+      .select('*,listings(breed,type),users:seller_id(full_name)')
       .order('created_at',{ascending:false});
-    setRows(data||[]); setLoading(false);
+    const list=data||[];
+    const phones=await adminPhones(list.map((r:any)=>r.seller_id));
+    setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.seller_id]||null}:r.users}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
 

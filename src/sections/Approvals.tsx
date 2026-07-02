@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import { supabase, adminPhones } from '../supabase';
 import { Check, X, Inbox } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo } from '../ui';
 
@@ -11,11 +11,13 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
   async function load(){
     setLoading(true);
     let q=supabase.from('listings')
-      .select('id,breed,type,price,status,approval_status,created_at,state,district,mandal,village,users(full_name,phone,handle)')
+      .select('id,user_id,breed,type,price,status,approval_status,created_at,state,district,mandal,village,users(full_name,handle)')
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('approval_status','pending');
     const { data }=await q;
-    setRows(data||[]); setLoading(false);
+    const list=data||[];
+    const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.user_id]||null}:r.users}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
 

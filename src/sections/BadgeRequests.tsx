@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import { supabase, adminPhones } from '../supabase';
 import { Award, Check, X } from 'lucide-react';
 import { Empty, Loading, timeAgo } from '../ui';
 
@@ -20,12 +20,14 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   async function load(){
     setLoading(true);
     let q=supabase.from('badge_requests')
-      .select('*, user:users!badge_requests_user_id_fkey(full_name,handle,phone,badge)')
+      .select('*, user:users!badge_requests_user_id_fkey(full_name,handle,badge)')
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('status','pending');
     const { data,error }=await q;
     if(error){ alert(error.message); }
-    setRows(data||[]); setLoading(false);
+    const list=data||[];
+    const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    setRows(list.map((r:any)=>({...r, user:r.user?{...r.user, phone:phones[r.user_id]||null}:r.user}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
 import { Empty, Loading, timeAgo } from '../ui';
 
@@ -11,12 +11,14 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   async function load(){
     setLoading(true);
     let q=supabase.from('kyc_submissions').select(
-      '*, user:users!kyc_submissions_user_id_fkey(full_name,handle,phone,aadhaar_verified)'
+      '*, user:users!kyc_submissions_user_id_fkey(full_name,handle,aadhaar_verified)'
     ).order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('status','pending');
     const { data,error }=await q;
     if(error){ alert(error.message); }
-    const list=data||[];
+    const list:any[]=(data||[]);
+    const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    list.forEach((r:any)=>{ if(r.user) r.user.phone=phones[r.user_id]||null; });
     await Promise.all(list.map(async (r:any)=>{
       if(r.status==='pending'){
         const a=await supabase.storage.from('kyc').createSignedUrl(r.aadhaar_path,3600);

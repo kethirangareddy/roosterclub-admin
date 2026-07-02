@@ -3,11 +3,12 @@ import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, Stethoscope, BookOpen, Bird, Siren,
-  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp
+  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3
 } from 'lucide-react';
 import Login from './Login';
 import Featured from './sections/Featured';
 import Dashboard from './sections/Dashboard';
+import Analytics from './sections/Analytics';
 import Approvals from './sections/Approvals';
 import Vets from './sections/Vets';
 import Kukuta from './sections/Kukuta';
@@ -25,10 +26,11 @@ import BadgeRequests from './sections/BadgeRequests';
 import Competitions from './sections/Competitions';
 import Acquisition from './sections/Acquisition';
 
-type Key = 'dash'|'approvals'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'boosts'|'users'|'announce'|'auctions';
+type Key = 'dash'|'analytics'|'approvals'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'boosts'|'users'|'announce'|'auctions';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
+  { key:'analytics', label:'Analytics', Icon:BarChart3 },
   { key:'approvals', label:'Approvals', Icon:Inbox },
   { key:'reports', label:'Reports', Icon:Flag },
   { key:'kyc', label:'Verifications', Icon:ShieldCheck },
@@ -92,7 +94,7 @@ export default function App(){
   );
 
   const sections:Record<Key,JSX.Element>={
-    dash:<Dashboard go={setView}/>, approvals:<Approvals onChange={refreshCounts}/>,
+    dash:<Dashboard go={setView}/>, analytics:<Analytics/>, approvals:<Approvals onChange={refreshCounts}/>,
     reports:<Reports onChange={refreshCounts}/>, kyc:<Kyc onChange={refreshCounts}/>,
     badges:<BadgeRequests onChange={refreshCounts}/>,
     competitions:<Competitions/>,
