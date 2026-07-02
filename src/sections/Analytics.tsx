@@ -128,7 +128,7 @@ export default function Analytics() {
                   <stop offset="100%" stopColor="#3FB67A" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(255,255,255,.06)" vertical={false} />
+              <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false} />
               <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
               <YAxis tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => v >= 1000 ? (v / 1000) + 'k' : v} />
               <Tooltip contentStyle={tt} labelFormatter={fmtDay} formatter={(v: any) => [inr(v as number), 'GMV']} />
@@ -145,7 +145,7 @@ export default function Analytics() {
           <div style={{ padding: '18px 12px 6px' }}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={funnelData} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
-                <CartesianGrid stroke="rgba(255,255,255,.06)" vertical={false} />
+                <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false} />
                 <XAxis dataKey="stage" tick={{ fill: '#9AA1B2', fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} width={38} />
                 <Tooltip contentStyle={tt} cursor={{ fill: 'rgba(255,255,255,.04)' }} />
@@ -168,7 +168,7 @@ export default function Analytics() {
           <div style={{ padding: '18px 12px 14px' }}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={series} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
-                <CartesianGrid stroke="rgba(255,255,255,.06)" vertical={false} />
+                <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false} />
                 <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
                 <YAxis tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
                 <Tooltip contentStyle={tt} labelFormatter={fmtDay} cursor={{ fill: 'rgba(255,255,255,.04)' }} />
@@ -200,6 +200,6 @@ export default function Analytics() {
 }
 
 const tt = {
-  background: '#181B25', border: '1px solid rgba(255,255,255,.13)', borderRadius: 10,
-  color: '#E8EAF0', fontSize: 12, boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+  background: '#FFFFFF', border: '1px solid rgba(20,30,55,.14)', borderRadius: 10,
+  color: '#1B2436', fontSize: 12, boxShadow: '0 8px 24px rgba(20,30,55,.14)',
 } as const;

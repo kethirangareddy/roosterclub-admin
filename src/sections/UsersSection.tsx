@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
-import { Users as UsersIcon, Search, ShieldCheck } from 'lucide-react';
+import { Users as UsersIcon, Search, ShieldCheck, Eye } from 'lucide-react';
 import { Empty, Loading, loc } from '../ui';
+import UserDetail from './UserDetail';
 
 const BADGES:{v:string;label:string}[]=[
   {v:'',label:'No badge'},
@@ -16,6 +17,7 @@ export default function UsersSection(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [q,setQ]=useState('');
+  const [viewId,setViewId]=useState<string|null>(null);
 
   async function load(){
     setLoading(true);
@@ -55,7 +57,7 @@ export default function UsersSection(){
         </div>
         {loading?<Loading/>:rows.length===0?<Empty text="No users found."/>:(
           <table>
-            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Verified</th><th>Badge</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Verified</th><th>Badge</th><th></th><th></th></tr></thead>
             <tbody>
               {rows.map(u=>(
                 <tr key={u.id} style={u.banned?{opacity:.55}:undefined}>
@@ -69,6 +71,7 @@ export default function UsersSection(){
                       {BADGES.map(b=><option key={b.v} value={b.v}>{b.label}</option>)}
                     </select>
                   </td>
+                  <td><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
                   <td><button className={'btn sm '+(u.banned?'ghost':'danger')} onClick={()=>toggleBan(u)}>{u.banned?'Unban':'Ban'}</button></td>
                 </tr>
               ))}
@@ -76,6 +79,7 @@ export default function UsersSection(){
           </table>
         )}
       </div>
+      {viewId && <UserDetail userId={viewId} onClose={()=>setViewId(null)}/>}
     </>
   );
 }

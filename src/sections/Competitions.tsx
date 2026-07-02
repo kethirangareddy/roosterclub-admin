@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Trophy } from 'lucide-react';
 import { Empty, Loading } from '../ui';
+import { adminPhones } from '../supabase';
 
 export default function Competitions(){
   const [rows,setRows]=useState<any[]>([]);
@@ -10,9 +11,11 @@ export default function Competitions(){
   async function load(){
     setLoading(true);
     const { data }=await supabase.from('seller_awards')
-      .select('*, user:users!seller_awards_user_id_fkey(full_name,handle,phone)')
+      .select('*, user:users!seller_awards_user_id_fkey(full_name,handle)')
       .order('period_start',{ascending:false}).limit(200);
-    setRows(data||[]); setLoading(false);
+    const list=data||[];
+    const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    setRows(list.map((r:any)=>({...r, user:r.user?{...r.user, phone:phones[r.user_id]||null}:r.user}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
 
