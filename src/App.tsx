@@ -3,12 +3,13 @@ import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, Stethoscope, BookOpen, Bird, Siren,
-  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3
+  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3, MessagesSquare
 } from 'lucide-react';
 import Login from './Login';
 import Featured from './sections/Featured';
 import Dashboard from './sections/Dashboard';
 import Analytics from './sections/Analytics';
+import Community from './sections/Community';
 import Approvals from './sections/Approvals';
 import Vets from './sections/Vets';
 import Kukuta from './sections/Kukuta';
@@ -26,7 +27,7 @@ import BadgeRequests from './sections/BadgeRequests';
 import Competitions from './sections/Competitions';
 import Acquisition from './sections/Acquisition';
 
-type Key = 'dash'|'analytics'|'approvals'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'boosts'|'users'|'announce'|'auctions';
+type Key = 'dash'|'analytics'|'approvals'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'boosts'|'users'|'announce'|'auctions'|'community';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
@@ -47,6 +48,7 @@ const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'announce', label:'Announcements', Icon:Megaphone },
   { key:'boosts', label:'Boosts', Icon:Rocket },
   { key:'users', label:'Users & Badges', Icon:UsersIcon },
+  { key:'community', label:'Community', Icon:MessagesSquare },
   { key:'acquisition', label:'Acquisition', Icon:TrendingUp },
 ];
 
@@ -103,6 +105,7 @@ export default function App(){
     livefeed:<LiveFeed onChange={refreshCounts}/>, shop:<Shop/>, vets:<Vets onChange={refreshCounts}/>,
     kukuta:<Kukuta/>, breeds:<Breeds/>, disease:<Disease onChange={refreshCounts}/>,
     boosts:<Boosts/>, users:<UsersSection/>, announce:<Announcements/>, auctions:<Auctions onChange={refreshCounts}/>,
+    community:<Community onChange={refreshCounts}/>,
   };
 
   return (
