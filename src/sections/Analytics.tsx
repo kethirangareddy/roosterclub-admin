@@ -85,7 +85,8 @@ export default function Analytics() {
   }
 
   if (err) return <div className="card" style={{ padding: 24, color: '#c0392b' }}>Could not load analytics: {err}</div>;
-  if (loading || !m || !funnel) return <Loading />;
+  if (loading) return <Loading />;
+  if (!m || !funnel) return <div className="card" style={{ padding: 24 }}>No analytics data yet.</div>;
 
   const kpis = [
     { lab: 'GMV (sales value)', val: inr(m.gmv), sub: `${m.sales} sales`, Icon: IndianRupee, accent: 'grad-green' },
