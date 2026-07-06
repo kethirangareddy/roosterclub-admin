@@ -111,7 +111,7 @@ export default function Shop() {
                   <td><span className={'badge ' + (r.status === 'active' ? 'b-ok' : 'b-mut')}>{r.status || 'active'}</span></td>
                   <td className="muted">{timeAgo(r.created_at)}</td>
                   <td><div className="row-acts">
-                    <button className="btn ghost sm" onClick={() => setEdit({ ...empty, ...r })}><Pencil size={12} /> Edit</button>
+                    <button className="btn ghost sm" onClick={() => setEdit({ ...empty, ...r, price: r.price ?? '', brand: r.brand ?? '', unit: r.unit ?? '', stock_count: r.stock_count ?? '', description: r.description ?? '' })}><Pencil size={12} /> Edit</button>
                     <button className="btn ghost sm" onClick={() => toggle(r)}>{r.status === 'active' ? 'Suspend' : 'Activate'}</button>
                     <button className="btn danger sm" onClick={() => remove(r.id)}>Delete</button>
                   </div></td>
@@ -133,7 +133,7 @@ export default function Shop() {
               : <div className="thumb" style={{ width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImagePlus size={22} /></div>}
             <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
               {uploading ? 'Uploading…' : 'Upload photo'}
-              <input type="file" accept="image/*" hidden onChange={pickImage} />
+              <input type="file" accept="image/*" hidden onChange={pickImage} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
             </label>
           </div>
           <Field label="Name"><input value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. Growth booster feed" /></Field>

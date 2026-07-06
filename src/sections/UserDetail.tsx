@@ -10,7 +10,9 @@ const day = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: 'numer
 export default function UserDetail({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [d, setD] = useState<any | null>(null);
   useEffect(() => {
-    supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data }) => setD(data ?? {}));
+    // Distinguish a real load failure from a genuinely missing user, instead of
+    // collapsing every error into "User not found."
+    supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data, error }) => setD(error ? { __error: error.message } : (data ?? {})));
   }, [userId]);
 
   const p = d?.profile;
@@ -27,7 +29,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
 
   return (
     <Modal title={p ? (p.full_name || 'User') : 'Loading…'} onClose={onClose}>
-      {!d ? <div className="loading">Loading…</div> : !p ? <div className="empty">User not found.</div> : (
+      {!d ? <div className="loading">Loading…</div> : d.__error ? <div className="empty">Could not load user: {d.__error}</div> : !p ? <div className="empty">User not found.</div> : (
         <>
           {/* header */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>

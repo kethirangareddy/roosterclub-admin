@@ -20,11 +20,8 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
     list.forEach((r:any)=>{ if(r.user) r.user.phone=phones[r.user_id]||null; });
     await Promise.all(list.map(async (r:any)=>{
-      if(r.status==='pending'){
-        const a=await supabase.storage.from('kyc').createSignedUrl(r.aadhaar_path,3600);
-        const s=await supabase.storage.from('kyc').createSignedUrl(r.selfie_path,3600);
-        r.a_url=a.data?.signedUrl; r.s_url=s.data?.signedUrl;
-      }
+      if(r.aadhaar_path){ const a=await supabase.storage.from('kyc').createSignedUrl(r.aadhaar_path,3600); r.a_url=a.data?.signedUrl; }
+      if(r.selfie_path){ const s=await supabase.storage.from('kyc').createSignedUrl(r.selfie_path,3600); r.s_url=s.data?.signedUrl; }
     }));
     setRows(list); setLoading(false);
   }
@@ -32,16 +29,19 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
 
   async function decide(r:any, approveIt:boolean){
     if(!confirm(approveIt
-      ? 'Approve and give the verified badge? The Aadhaar photo is deleted; the selfie is kept on file for safety.'
-      : 'Reject this verification? The Aadhaar photo is deleted; the selfie is kept on file for safety.')) return;
+      ? 'Approve and give the verified badge? Both photos stay on file (users upload a masked Aadhaar).'
+      : 'Reject this verification? Both photos stay on file (users upload a masked Aadhaar).')) return;
     if(approveIt){
       const { error }=await supabase.from('users').update({ aadhaar_verified:true }).eq('id',r.user_id);
       if(error){ alert(error.message); return; }
     }
-    // Delete ONLY the Aadhaar (unlawful to retain long-term); keep the selfie as the verification/fraud trail.
-    if(r.aadhaar_path) await supabase.storage.from('kyc').remove([r.aadhaar_path]);
-    const { error }=await supabase.from('kyc_submissions').update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString(), aadhaar_path:null }).eq('id',r.id);
-    if(error){ alert('Could not update KYC: '+error.message); return; }
+    // Both photos are retained on file as the verification/fraud trail (Aadhaar is uploaded masked).
+    const { error }=await supabase.from('kyc_submissions').update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString() }).eq('id',r.id);
+    if(error){
+      // Roll back the badge so we don't leave the user verified with the request still pending.
+      if(approveIt) await supabase.from('users').update({ aadhaar_verified:false }).eq('id',r.user_id);
+      alert('Could not update KYC: '+error.message); return;
+    }
     load(); onChange?.();
   }
 
@@ -50,7 +50,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   return (
     <>
       <h1 className="h1">Verifications</h1>
-      <p className="sub">KYC verification requests. Check the Aadhaar against the selfie, call the user to confirm, then Approve to give the blue verified badge. The Aadhaar photo is deleted once you decide; the selfie is kept on file for safety.</p>
+      <p className="sub">KYC verification requests. Check the Aadhaar against the selfie, call the user to confirm, then Approve to give the blue verified badge. Both photos are kept on file for the verification record — users upload a masked Aadhaar (first 8 digits hidden).</p>
       <div className="card">
         <div className="card-h">
           <h2><ShieldCheck size={16}/> Requests{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>

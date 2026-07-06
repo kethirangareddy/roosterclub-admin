@@ -32,10 +32,12 @@ export default function Analytics() {
   const [series, setSeries] = useState<SeriesRow[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
+    setErr(null);
     const to = new Date().toISOString();
     const from = new Date(Date.now() - days * 864e5).toISOString();
     (async () => {
@@ -46,6 +48,9 @@ export default function Analytics() {
         supabase.rpc('admin_top_sellers', { p_from: from, p_to: to, p_limit: 8 }),
       ]);
       if (!alive) return;
+      // Surface a real error instead of spinning forever when an RPC fails.
+      const e = om.error || fn.error || gs.error || ts.error;
+      if (e) { setErr(e.message); setLoading(false); return; }
       setM((om.data as Metrics) ?? null);
       setFunnel((fn.data as Funnel) ?? null);
       setSeries((gs.data as SeriesRow[]) ?? []);
@@ -71,12 +76,15 @@ export default function Analytics() {
     const head = 'date,new_users,new_listings,sales,gmv\n';
     const body = series.map(r => `${r.day},${r.users},${r.listings},${r.sales},${r.gmv}`).join('\n');
     const blob = new Blob([head + body], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = `rooster-analytics-${days}d.csv`;
     a.click();
+    URL.revokeObjectURL(url); // free the blob instead of leaking it each export
   }
 
+  if (err) return <div className="card" style={{ padding: 24, color: '#c0392b' }}>Could not load analytics: {err}</div>;
   if (loading || !m || !funnel) return <Loading />;
 
   const kpis = [

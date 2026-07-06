@@ -23,7 +23,8 @@ export default function UsersSection(){
     setLoading(true);
     // Same list as before (order created_at desc, limit 200, 3-column search) via the
     // is_admin()-gated admin_users RPC — users.phone is no longer directly selectable.
-    const { data }=await supabase.rpc('admin_users',{ p_q: q.trim()||null });
+    const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null });
+    if(error) alert('Could not load users: '+error.message);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);

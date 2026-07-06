@@ -13,7 +13,8 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('disease_alerts').select('*').order('created_at',{ascending:false});
+    const { data, error }=await supabase.from('disease_alerts').select('*').order('created_at',{ascending:false});
+    if(error) alert('Could not load alerts: '+error.message);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -27,8 +28,11 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
     setEdit(null); load(); onChange();
   }
   async function verifyPush(r:any){
-    const { error }=await supabase.from('disease_alerts').update({ verified:true, pushed_at:new Date().toISOString() }).eq('id',r.id);
-    if(error){ alert('Could not verify: '+error.message); return; }
+    // Verify AND actually push the alert to the region via the edge function.
+    // (Previously this only flipped verified/pushed_at and never sent a notification.)
+    const { data, error }=await supabase.functions.invoke('notify-disease-verified',{ body:{ alert_id:r.id } });
+    if(error){ alert('Could not verify & push: '+error.message); return; }
+    if(data?.error){ alert('Could not verify & push: '+data.error); return; }
     load(); onChange();
   }
   async function remove(id:string){

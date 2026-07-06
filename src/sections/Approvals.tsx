@@ -14,7 +14,8 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
       .select('id,user_id,breed,type,price,status,approval_status,created_at,state,district,mandal,village,users(full_name,handle)')
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('approval_status','pending');
-    const { data }=await q;
+    const { data, error }=await q;
+    if(error) alert('Could not load listings: '+error.message);
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
     setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.user_id]||null}:r.users}))); setLoading(false);

@@ -16,14 +16,16 @@ export default function Community({ onChange }: { onChange?: () => void }) {
   async function load() {
     setLoading(true);
     if (tab === 'forum') {
-      const { data } = await supabase.from('forum_threads')
+      const { data, error } = await supabase.from('forum_threads')
         .select('*, users!forum_threads_user_id_fkey(full_name, handle)')
         .eq('status', 'active').order('last_reply_at', { ascending: false }).limit(200);
+      if (error) alert('Could not load discussions: ' + error.message);
       setThreads(data || []);
     } else {
-      const { data } = await supabase.from('theft_alerts')
+      const { data, error } = await supabase.from('theft_alerts')
         .select('*, users!theft_alerts_user_id_fkey(full_name, handle)')
         .eq('status', 'active').order('created_at', { ascending: false }).limit(200);
+      if (error) alert('Could not load theft alerts: ' + error.message);
       setTheft(data || []);
     }
     setLoading(false);
@@ -49,6 +51,8 @@ export default function Community({ onChange }: { onChange?: () => void }) {
     setReplies(data || []);
   }
   async function removeReply(id: string) {
+    // Hard delete — confirm first (the only destructive action here without one).
+    if (!confirm('Delete this reply? This cannot be undone.')) return;
     const { error } = await supabase.from('forum_replies').delete().eq('id', id);
     if (error) { alert(error.message); return; }
     setReplies(r => r.filter(x => x.id !== id));
