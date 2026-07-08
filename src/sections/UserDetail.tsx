@@ -9,10 +9,27 @@ const day = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: 'numer
 
 export default function UserDetail({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [d, setD] = useState<any | null>(null);
+  const [kyc, setKyc] = useState<any | null>(null);
+  const [zoom, setZoom] = useState<{ url: string; label: string } | null>(null);
   useEffect(() => {
     // Distinguish a real load failure from a genuinely missing user, instead of
     // collapsing every error into "User not found."
     supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data, error }) => setD(error ? { __error: error.message } : (data ?? {})));
+  }, [userId]);
+  useEffect(() => {
+    // Pull the user's latest KYC submission + signed photo URLs (1h) so the admin can
+    // eyeball the Aadhaar/selfie right here without hopping to the Verifications tab.
+    (async () => {
+      setKyc(null);
+      const { data } = await supabase.from('kyc_submissions')
+        .select('aadhaar_path,selfie_path,status,created_at')
+        .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (!data) { setKyc({ none: true }); return; }
+      const out: any = { status: data.status };
+      if (data.aadhaar_path) { const a = await supabase.storage.from('kyc').createSignedUrl(data.aadhaar_path, 3600); out.a_url = a.data?.signedUrl; }
+      if (data.selfie_path) { const s = await supabase.storage.from('kyc').createSignedUrl(data.selfie_path, 3600); out.s_url = s.data?.signedUrl; }
+      setKyc(out);
+    })();
   }, [userId]);
 
   const p = d?.profile;
@@ -45,6 +62,28 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
               </div>
               <div className="muted" style={{ fontSize: 12 }}>Joined {new Date(p.created_at).toLocaleDateString('en-IN')}</div>
             </div>
+          </div>
+
+          {/* KYC photos */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+              <ShieldCheck size={13} style={{ verticalAlign: -2 }} /> KYC photos{kyc?.status ? <span className="muted"> · {kyc.status}</span> : ''}
+            </div>
+            {!kyc ? <div className="muted" style={{ fontSize: 12.5 }}>Loading…</div>
+              : kyc.none ? <div className="muted" style={{ fontSize: 12.5 }}>No KYC submitted.</div> : (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {kyc.a_url
+                    ? <div><div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>Aadhaar</div>
+                        <img src={kyc.a_url} onClick={() => setZoom({ url: kyc.a_url, label: 'Aadhaar' })}
+                          style={{ height: 70, borderRadius: 6, cursor: 'zoom-in', border: '1px solid var(--line)' }} /></div>
+                    : null}
+                  {kyc.s_url
+                    ? <div><div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>Selfie</div>
+                        <img src={kyc.s_url} onClick={() => setZoom({ url: kyc.s_url, label: 'Selfie' })}
+                          style={{ height: 70, borderRadius: 6, cursor: 'zoom-in', border: '1px solid var(--line)' }} /></div>
+                    : null}
+                </div>
+              )}
           </div>
 
           {/* stat grid */}
@@ -99,6 +138,15 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {zoom && (
+            <div onClick={() => setZoom(null)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 2000, cursor: 'zoom-out' }}>
+              <div style={{ color: '#fff', fontWeight: 600, fontSize: 15 }}>{zoom.label} — click anywhere to close</div>
+              <img src={zoom.url} onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: '92vw', maxHeight: '82vh', borderRadius: 8, boxShadow: '0 12px 48px rgba(0,0,0,0.6)', cursor: 'default' }} />
             </div>
           )}
         </>

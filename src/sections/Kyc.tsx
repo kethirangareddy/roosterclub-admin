@@ -7,6 +7,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [tab,setTab]=useState<'pending'|'all'>('pending');
+  const [zoom,setZoom]=useState<{url:string;label:string}|null>(null);
 
   async function load(){
     setLoading(true);
@@ -67,8 +68,8 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
                 <tr key={r.id}>
                   <td><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b>{r.user?.aadhaar_verified && <span className="badge b-ok" style={{marginLeft:6}}>verified</span>}</td>
                   <td className="muted">{r.user?.phone||'—'}</td>
-                  <td>{r.a_url?<a href={r.a_url} target="_blank" rel="noreferrer"><img src={r.a_url} style={{height:44,borderRadius:4}}/></a>:<span className="muted">—</span>}</td>
-                  <td>{r.s_url?<a href={r.s_url} target="_blank" rel="noreferrer"><img src={r.s_url} style={{height:44,borderRadius:4}}/></a>:<span className="muted">—</span>}</td>
+                  <td>{r.a_url?<img src={r.a_url} onClick={()=>setZoom({url:r.a_url,label:'Aadhaar'})} style={{height:44,borderRadius:4,cursor:'zoom-in'}}/>:<span className="muted">—</span>}</td>
+                  <td>{r.s_url?<img src={r.s_url} onClick={()=>setZoom({url:r.s_url,label:'Selfie'})} style={{height:44,borderRadius:4,cursor:'zoom-in'}}/>:<span className="muted">—</span>}</td>
                   <td><span className={'badge '+(r.status==='approved'?'b-ok':r.status==='rejected'?'b-danger':'b-warn')}>{r.status}</span></td>
                   <td className="muted">{timeAgo(r.created_at)}</td>
                   <td><div className="row-acts">
@@ -83,6 +84,15 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
           </table>
         )}
       </div>
+
+      {zoom && (
+        <div onClick={()=>setZoom(null)}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.82)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,zIndex:1000,cursor:'zoom-out'}}>
+          <div style={{color:'#fff',fontWeight:600,fontSize:15}}>{zoom.label} — click anywhere to close</div>
+          <img src={zoom.url} onClick={(e)=>e.stopPropagation()}
+            style={{maxWidth:'92vw',maxHeight:'82vh',borderRadius:8,boxShadow:'0 12px 48px rgba(0,0,0,0.6)',cursor:'default'}}/>
+        </div>
+      )}
     </>
   );
 }
