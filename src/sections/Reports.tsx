@@ -1,12 +1,28 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Flag, Trash2, Ban, X } from 'lucide-react';
-import { Empty, Loading, timeAgo, inr } from '../ui';
+import { Empty, Loading, timeAgo, inr, useParamState, useRowKeys } from '../ui';
 
 export default function Reports({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
-  const [tab,setTab]=useState<'open'|'all'>('open');
+  const [tab,setTab]=useParamState<'open'|'all'>('tab','open');
+  const [picked,setPicked]=useState<Set<string>>(new Set());
+  // j/k + d dismiss. Remove/ban stay click-only — too destructive for a single keystroke.
+  const [sel]=useRowKeys(rows.length,{
+    d:(i)=>{ const r=rows[i]; if(r?.status==='open') mark(r.id,'dismissed'); },
+    x:(i)=>{ const r=rows[i]; if(r?.status==='open') togglePick(r.id); },
+  });
+
+  function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
+  async function bulkDismiss(){
+    const ids=[...picked];
+    if(!confirm(`Dismiss ${ids.length} report${ids.length>1?'s':''}?`)) return;
+    const { error }=await supabase.from('reports')
+      .update({ status:'dismissed', reviewed_at:new Date().toISOString() }).in('id',ids);
+    if(error){ alert('Bulk dismiss failed: '+error.message); return; }
+    setPicked(new Set()); load(); onChange?.();
+  }
 
   async function load(){
     setLoading(true);
@@ -25,8 +41,10 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
   }
   async function removeListing(r:any){
     if(!r.listing?.id){ alert('Listing already removed.'); await mark(r.id,'actioned'); return; }
-    if(!confirm('Remove this listing from the app? This deletes it.')) return;
-    const { error }=await supabase.from('listings').delete().eq('id',r.listing.id);
+    // Item 16 — soft delete: 30-day undo window (restore from the listing's 360), auto-purged after.
+    if(!confirm('Remove this listing from the app? You can restore it for 30 days (search it in ⌘K → Restore).')) return;
+    const { error }=await supabase.from('listings')
+      .update({ status:'removed', removed_at:new Date().toISOString() }).eq('id',r.listing.id);
     if(error){ alert(error.message); return; }
     await mark(r.id,'actioned');
   }
@@ -52,12 +70,24 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
             <button className={tab==='all'?'btn sm':'btn ghost sm'} onClick={()=>setTab('all')}>All</button>
           </div>
         </div>
+        {picked.size>0 && (
+          <div className="bulkbar">
+            <b>{picked.size}</b> selected
+            <button className="btn ghost sm" onClick={bulkDismiss}><X size={13}/> Dismiss all</button>
+            <button className="btn ghost sm" onClick={()=>setPicked(new Set())}>Clear</button>
+          </div>
+        )}
         {loading?<Loading/>:rows.length===0?<Empty text="No reports."/>:(
           <table>
-            <thead><tr><th>Type</th><th>Reported</th><th>Reason</th><th>Details</th><th>By</th><th>When</th><th></th></tr></thead>
+            <thead><tr>
+              <th className="ck"><input type="checkbox"
+                checked={picked.size>0&&picked.size===rows.filter(r=>r.status==='open').length}
+                onChange={e=>setPicked(e.target.checked?new Set(rows.filter(r=>r.status==='open').map(r=>r.id)):new Set())}/></th>
+              <th>Type</th><th>Reported</th><th>Reason</th><th>Details</th><th>By</th><th>When</th><th></th></tr></thead>
             <tbody>
-              {rows.map(r=>(
-                <tr key={r.id}>
+              {rows.map((r,i)=>(
+                <tr key={r.id} className={i===sel?'krow':''}>
+                  <td className="ck">{r.status==='open' && <input type="checkbox" checked={picked.has(r.id)} onChange={()=>togglePick(r.id)}/>}</td>
                   <td><span className="badge b-mut">{r.target_type}</span></td>
                   <td>{r.target_type==='listing'
                       ? (r.listing ? <><b>{r.listing.breed||'Listing'}</b> <span className="muted">{inr(r.listing.price)} · {r.listing.status}</span></> : <span className="muted">deleted</span>)

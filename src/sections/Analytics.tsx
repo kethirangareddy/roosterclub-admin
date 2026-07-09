@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../supabase';
 import { Loading } from '../ui';
 import {
-  IndianRupee, TrendingUp, Users, ListChecks, Eye, MessageSquare, Receipt, Filter,
+  IndianRupee, TrendingUp, Users, ListChecks, Eye, MessageSquare, Receipt, Filter, MapPin, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
@@ -15,6 +15,7 @@ type Metrics = {
 type Funnel = { views: number; chats: number; issued: number; acknowledged: number };
 type SeriesRow = { day: string; users: number; listings: number; sales: number; gmv: number };
 type Seller = { seller_id: string; name: string; sales: number; gmv: number };
+type Region = { state: string; district: string; n: number };
 
 const RANGES = [
   { label: '7 days', days: 7 },
@@ -31,6 +32,8 @@ export default function Analytics() {
   const [funnel, setFunnel] = useState<Funnel | null>(null);
   const [series, setSeries] = useState<SeriesRow[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [openState, setOpenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -41,20 +44,22 @@ export default function Analytics() {
     const to = new Date().toISOString();
     const from = new Date(Date.now() - days * 864e5).toISOString();
     (async () => {
-      const [om, fn, gs, ts] = await Promise.all([
+      const [om, fn, gs, ts, rg] = await Promise.all([
         supabase.rpc('admin_overview_metrics', { p_from: from, p_to: to }),
         supabase.rpc('admin_funnel', { p_from: from, p_to: to }),
         supabase.rpc('admin_growth_series', { p_days: days }),
         supabase.rpc('admin_top_sellers', { p_from: from, p_to: to, p_limit: 8 }),
+        supabase.rpc('admin_users_by_region'),
       ]);
       if (!alive) return;
       // Surface a real error instead of spinning forever when an RPC fails.
-      const e = om.error || fn.error || gs.error || ts.error;
+      const e = om.error || fn.error || gs.error || ts.error || rg.error;
       if (e) { setErr(e.message); setLoading(false); return; }
       setM((om.data as Metrics) ?? null);
       setFunnel((fn.data as Funnel) ?? null);
       setSeries((gs.data as SeriesRow[]) ?? []);
       setSellers((ts.data as Seller[]) ?? []);
+      setRegions((rg.data as Region[]) ?? []);
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -71,6 +76,19 @@ export default function Analytics() {
   }, [funnel]);
 
   const conv = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
+
+  // Users grouped per state (districts nested), largest states first.
+  const stateGroups = useMemo(() => {
+    const map = new Map<string, { state: string; total: number; districts: { district: string; n: number }[] }>();
+    for (const r of regions) {
+      const g = map.get(r.state) ?? { state: r.state, total: 0, districts: [] };
+      g.total += Number(r.n);
+      g.districts.push({ district: r.district, n: Number(r.n) });
+      map.set(r.state, g);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }, [regions]);
+  const regionTotal = useMemo(() => stateGroups.reduce((s, g) => s + g.total, 0), [stateGroups]);
 
   function exportCsv() {
     const head = 'date,new_users,new_listings,sales,gmv\n';
@@ -204,6 +222,56 @@ export default function Analytics() {
           </tbody>
         </table>
       </div>
+
+      {/* Users by state / district */}
+      <div className="card">
+        <div className="card-h"><h2><MapPin size={16} /> Users by region ({regionTotal})</h2></div>
+        <table>
+          <thead><tr><th>State</th><th className="right">Users</th><th className="right">Share</th></tr></thead>
+          <tbody>
+            {stateGroups.map(g => (
+              <FragmentRows key={g.state} g={g} total={regionTotal}
+                open={openState === g.state}
+                onToggle={() => setOpenState(openState === g.state ? null : g.state)} />
+            ))}
+            {stateGroups.length === 0 && <tr><td colSpan={3} className="empty">No users yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+// One state row + its expandable district rows. Kept outside the main return for readability.
+function FragmentRows({ g, total, open, onToggle }: {
+  g: { state: string; total: number; districts: { district: string; n: number }[] };
+  total: number; open: boolean; onToggle: () => void;
+}) {
+  const pct = total > 0 ? Math.round((g.total / total) * 100) : 0;
+  return (
+    <>
+      <tr onClick={onToggle} style={{ cursor: 'pointer' }}>
+        <td style={{ fontWeight: 600 }}>
+          {open ? <ChevronDown size={13} style={{ verticalAlign: -2 }} /> : <ChevronRight size={13} style={{ verticalAlign: -2 }} />} {g.state}
+          <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: 12 }}> · {g.districts.length} district{g.districts.length === 1 ? '' : 's'}</span>
+        </td>
+        <td className="right" style={{ fontWeight: 600 }}>{g.total}</td>
+        <td className="right">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 70, height: 6, borderRadius: 3, background: 'rgba(20,30,55,.10)', overflow: 'hidden', display: 'inline-block' }}>
+              <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: '#5B8CFF' }} />
+            </span>
+            <span style={{ color: 'var(--muted)', fontSize: 12, minWidth: 32, textAlign: 'right' }}>{pct}%</span>
+          </span>
+        </td>
+      </tr>
+      {open && g.districts.map(d => (
+        <tr key={d.district}>
+          <td style={{ paddingLeft: 34, color: 'var(--muted)' }}>{d.district}</td>
+          <td className="right">{d.n}</td>
+          <td className="right" style={{ color: 'var(--muted)', fontSize: 12 }}>{g.total > 0 ? Math.round((d.n / g.total) * 100) : 0}%</td>
+        </tr>
+      ))}
     </>
   );
 }

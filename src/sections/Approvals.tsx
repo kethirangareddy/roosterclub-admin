@@ -1,12 +1,28 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Check, X, Inbox } from 'lucide-react';
-import { Empty, Loading, loc, inr, timeAgo } from '../ui';
+import { Empty, Loading, loc, inr, timeAgo, useParamState, useRowKeys } from '../ui';
 
 export default function Approvals({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
-  const [tab,setTab]=useState<'pending'|'all'>('pending');
+  const [tab,setTab]=useParamState<'pending'|'all'>('tab','pending');
+  const [picked,setPicked]=useState<Set<string>>(new Set());
+  // j/k moves the focused row, a approves, r rejects — queue clearing at typing speed.
+  const [sel]=useRowKeys(rows.length,{
+    a:(i)=>{ const r=rows[i]; if(r && r.approval_status!=='approved') set(r.id,'approved'); },
+    r:(i)=>{ const r=rows[i]; if(r && r.approval_status!=='rejected') set(r.id,'rejected'); },
+    x:(i)=>{ const r=rows[i]; if(r) togglePick(r.id); },
+  });
+
+  function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
+  async function bulkSet(approval_status:string){
+    const ids=[...picked];
+    if(!confirm(`${approval_status==='approved'?'Approve':'Reject'} ${ids.length} listing${ids.length>1?'s':''}?`)) return;
+    const { error }=await supabase.from('listings').update({ approval_status }).in('id',ids);
+    if(error){ alert('Bulk update failed: '+error.message); return; }
+    setPicked(new Set()); load(); onChange();
+  }
 
   async function load(){
     setLoading(true);
@@ -46,12 +62,24 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
       </div>
       <div className="card">
         <div className="card-h"><h2><Inbox size={16}/> {tab==='pending'?'Awaiting approval':'All listings'} ({rows.length})</h2></div>
+        {picked.size>0 && (
+          <div className="bulkbar">
+            <b>{picked.size}</b> selected
+            <button className="btn ok sm" onClick={()=>bulkSet('approved')}><Check size={13}/> Approve all</button>
+            <button className="btn ghost sm" onClick={()=>bulkSet('rejected')}><X size={13}/> Reject all</button>
+            <button className="btn ghost sm" onClick={()=>setPicked(new Set())}>Clear</button>
+          </div>
+        )}
         {loading?<Loading/>:rows.length===0?<Empty text="Nothing here. Inbox zero ✦"/>:(
           <table>
-            <thead><tr><th>Breed / Type</th><th>Seller</th><th>Price</th><th>Location</th><th>Status</th><th>Posted</th><th></th></tr></thead>
+            <thead><tr>
+              <th className="ck"><input type="checkbox" checked={picked.size>0&&picked.size===rows.length}
+                onChange={e=>setPicked(e.target.checked?new Set(rows.map(r=>r.id)):new Set())}/></th>
+              <th>Breed / Type</th><th>Seller</th><th>Price</th><th>Location</th><th>Status</th><th>Posted</th><th></th></tr></thead>
             <tbody>
-              {rows.map(r=>(
-                <tr key={r.id}>
+              {rows.map((r,i)=>(
+                <tr key={r.id} className={i===sel?'krow':''}>
+                  <td className="ck"><input type="checkbox" checked={picked.has(r.id)} onChange={()=>togglePick(r.id)}/></td>
                   <td><b>{r.breed||'—'}</b><div className="muted">{r.type}</div></td>
                   <td>{r.users?.full_name||'—'}<div className="muted">{r.users?.phone||''}</div></td>
                   <td>{inr(r.price)}</td>

@@ -91,6 +91,7 @@ a{color:inherit}
   box-shadow:0 2px 8px rgba(59,111,224,.35)
 }
 .side .who{font-size:12px;color:var(--faint);padding:12px 10px 4px;border-top:1px solid var(--line);margin-top:6px}
+.kbd-hint{font-size:10.5px;color:var(--faint);font-family:var(--mono);margin-bottom:8px;cursor:default}
 .side .who button{color:var(--muted);background:none;border:0;font-size:12px;padding:6px 0;transition:color .15s}
 .side .who button:hover{color:var(--cta)}
 
@@ -138,6 +139,9 @@ td .muted,.muted{color:var(--muted)}
 tr:last-child td{border-bottom:0}
 tbody tr{transition:background .12s}
 tbody tr:hover{background:#F7F9FC}
+/* keyboard-focused row (j/k) */
+tbody tr.krow{background:var(--cta-soft);box-shadow:inset 3px 0 0 var(--cta)}
+tbody tr.krow td{border-bottom-color:rgba(59,111,224,.25)}
 td:has(> .right),.right{text-align:right;font-variant-numeric:tabular-nums}
 
 /* ---------- buttons ---------- */
@@ -188,6 +192,56 @@ label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bot
 .x{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;transition:color .15s}
 .x:hover{color:var(--ink)}
 
+/* ---------- eagle eye: pulse / anomalies / feed / heatmap ---------- */
+.pulse{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.p-item{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;padding:8px 13px;box-shadow:var(--shadow);font-size:12px;color:var(--muted)}
+.p-item.bad{border-color:rgba(217,58,63,.4);background:var(--dangerbg)}
+.p-val{font-family:var(--mono);font-weight:700;font-size:15px;color:var(--ink)}
+.p-dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulseDot 1.6s ease infinite}
+@keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.25}}
+.anom{display:flex;gap:10px;background:var(--dangerbg);border:1px solid rgba(217,58,63,.4);border-radius:12px;
+  padding:12px 15px;margin-bottom:14px;color:#bb2b30;font-size:13px;font-weight:600;line-height:1.5}
+.dash-cols{display:grid;grid-template-columns:1fr 290px;gap:16px;align-items:start}
+.feedlist{max-height:72vh;overflow-y:auto;padding:6px}
+.feedrow{display:flex;gap:8px;padding:8px 10px;border-radius:8px;animation:fade .3s ease}
+.feedrow:hover{background:var(--surface-2)}
+.f-t{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.f-s{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heatgrid{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:110px 110px;gap:8px;padding:14px 18px;
+  grid-template-areas:"ka ts ap" "ka tn ap"}
+.heatcell{border-radius:12px;border:1px solid var(--line);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;transition:transform .15s}
+.heatcell:hover{transform:scale(1.03)}
+.h-n{font-family:var(--mono);font-weight:700;font-size:22px}
+.h-s{font-size:11px;font-weight:600;opacity:.85;text-align:center}
+@media (max-width:1100px){.dash-cols{grid-template-columns:1fr}.dash-feed .card{position:static!important}.feedlist{max-height:320px}}
+
+/* ---------- ⌘K palette ---------- */
+.cmdk-launch{display:flex;align-items:center;gap:8px;margin:0 4px 10px;padding:8px 12px;width:calc(100% - 8px);
+  background:#fff;border:1px solid var(--line-2);border-radius:10px;color:var(--faint);font-size:12.5px;text-align:left;transition:border-color .15s}
+.cmdk-launch:hover{border-color:var(--cta);color:var(--muted)}
+.cmdk-kbd{margin-left:auto;font-family:var(--mono);font-size:10.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.cmdk{background:var(--surface);border:1px solid var(--line-2);border-radius:16px;width:100%;max-width:600px;
+  box-shadow:var(--shadow-lg);overflow:hidden;animation:rise .18s cubic-bezier(.2,.8,.2,1)}
+.cmdk-in{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.cmdk-in input{flex:1;border:0;outline:none;box-shadow:none;font-size:15px;padding:0;background:transparent}
+.cmdk-in input:focus{box-shadow:none;border:0}
+.cmdk-body{max-height:52vh;overflow-y:auto;padding:6px}
+.cmdk-hint{padding:26px 16px;text-align:center;color:var(--faint);font-size:13px}
+.cmdk-group{font-size:10.5px;font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:10px 12px 4px}
+.cmdk-row{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:9px;cursor:pointer}
+.cmdk-row.on{background:var(--cta-soft)}
+.cmdk-t{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmdk-s{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmdk-foot{padding:8px 16px;border-top:1px solid var(--line);color:var(--faint);font-size:11px;font-family:var(--mono)}
+
+/* ---------- bulk-action bar ---------- */
+.bulkbar{display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--cta-soft);border-bottom:1px solid var(--line);font-size:13px}
+.bulkbar b{font-family:var(--mono)}
+td.ck,th.ck{width:34px;padding-right:0}
+td.ck input,th.ck input{width:15px;height:15px;cursor:pointer}
+
 /* ---------- login ---------- */
 .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
   background:radial-gradient(900px 500px at 50% -10%,rgba(59,111,224,.12),transparent 60%),var(--bg)}
@@ -222,9 +276,25 @@ label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bot
   .shell{grid-template-columns:1fr}
   .side{position:fixed;left:0;top:0;z-index:40;width:248px;transform:translateX(-100%);transition:transform .25s cubic-bezier(.2,.8,.2,1);box-shadow:var(--shadow-lg)}
   .side.open{transform:none}
-  .main{padding:18px 14px}
+  .main{padding:18px 14px;padding-top:64px}
   .kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
   .grid2{grid-template-columns:1fr}
   table{font-size:12px}
   th,td{padding:9px 12px}
+
+  /* Tables scroll sideways instead of crushing columns — every section stays usable. */
+  .card{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .card>table{min-width:600px}
+
+  /* Thumb-sized targets for approve/reject/ban in the field. */
+  .btn.sm{padding:9px 13px;font-size:12.5px;border-radius:9px}
+  .row-acts{gap:8px}
+  .tabbar button{padding:9px 16px}
+  .thumb{width:48px;height:48px}
+  .kbd-hint{display:none} /* no keyboard on a phone */
+
+  /* Modals go near-fullscreen so KYC photos / theft media are actually visible. */
+  .scrim{padding:10px}
+  .modal{max-height:94vh;border-radius:14px}
+  .modal-b{padding:16px 14px}
 }

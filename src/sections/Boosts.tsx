@@ -6,7 +6,8 @@ import { Modal, Field, Empty, Loading, inr, timeAgo } from '../ui';
 const LEVELS=[
   { v:'mandal', label:'Mandal — ₹99', price:99 },
   { v:'district', label:'District — ₹199', price:199 },
-  { v:'south', label:'Four States — ₹299', price:299 },
+  // 'states' matches listings_boost_level_check — the old 'south' value made activation fail.
+  { v:'states', label:'Four States — ₹299', price:299 },
   { v:'india', label:'India-wide — ₹499', price:499 },
 ];
 
@@ -15,6 +16,7 @@ export default function Boosts(){
   const [loading,setLoading]=useState(true);
   const [adding,setAdding]=useState<any|null>(null);
   const [listings,setListings]=useState<any[]>([]);
+  const [lvlPrices,setLvlPrices]=useState<Record<string,number>>({}); // live prices from app_config (item 19)
 
   async function load(){
     setLoading(true);
@@ -31,7 +33,10 @@ export default function Boosts(){
     const { data }=await supabase.from('listings')
       .select('id,breed,type,user_id,users(full_name)').eq('status','active').order('created_at',{ascending:false}).limit(200);
     setListings(data||[]);
-    setAdding({ listing_id:'', level:'mandal', price_paid:99, upi_ref:'', days:5 });
+    const { data:cfg }=await supabase.from('app_config').select('value').eq('key','prices').maybeSingle();
+    const bp=(cfg?.value as any)?.boost_levels||{};
+    setLvlPrices(bp);
+    setAdding({ listing_id:'', level:'mandal', price_paid:bp.mandal??99, upi_ref:'', days:5 });
   }
 
   async function create(){
@@ -47,7 +52,9 @@ export default function Boosts(){
   }
 
   async function activate(b:any){
-    const days = Number(prompt('Boost duration in days?', '5'))||5;
+    const input = prompt('Boost duration in days?', '5');
+    if(input===null) return; // Cancel pressed — don't activate
+    const days = Number(input)||5;
     const now=new Date(); const exp=new Date(now.getTime()+days*864e5);
     const { data:{ user } }=await supabase.auth.getUser();
     const e1=await supabase.from('boosts').update({
@@ -104,7 +111,7 @@ export default function Boosts(){
             </select>
           </Field>
           <Field label="Level">
-            <select style={{width:'100%'}} value={adding.level} onChange={e=>{const lv=LEVELS.find(x=>x.v===e.target.value)!;setAdding({...adding,level:lv.v,price_paid:lv.price});}}>
+            <select style={{width:'100%'}} value={adding.level} onChange={e=>{const lv=LEVELS.find(x=>x.v===e.target.value)!;setAdding({...adding,level:lv.v,price_paid:lvlPrices[lv.v]??lv.price});}}>
               {LEVELS.map(l=><option key={l.v} value={l.v}>{l.label}</option>)}
             </select>
           </Field>

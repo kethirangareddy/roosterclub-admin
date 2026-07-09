@@ -1,13 +1,36 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
-import { Empty, Loading, timeAgo } from '../ui';
+import { Empty, Loading, timeAgo, useParamState, useRowKeys } from '../ui';
 
 export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
-  const [tab,setTab]=useState<'pending'|'all'>('pending');
+  const [tab,setTab]=useParamState<'pending'|'all'>('tab','pending');
   const [zoom,setZoom]=useState<{url:string;label:string}|null>(null);
+  const [picked,setPicked]=useState<Set<string>>(new Set());
+  // j/k + a/r on the focused row (the confirm() dialog still gates each decision).
+  const [sel]=useRowKeys(rows.length,{
+    a:(i)=>{ const r=rows[i]; if(r?.status==='pending' && !zoom) decide(r,true); },
+    r:(i)=>{ const r=rows[i]; if(r?.status==='pending' && !zoom) decide(r,false); },
+    x:(i)=>{ const r=rows[i]; if(r?.status==='pending') togglePick(r.id); },
+  });
+
+  function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
+  async function bulkDecide(approveIt:boolean){
+    const list=rows.filter(r=>picked.has(r.id)&&r.status==='pending');
+    if(list.length===0) return;
+    if(!confirm(`${approveIt?'Approve':'Reject'} ${list.length} verification${list.length>1?'s':''}? Both photos stay on file.`)) return;
+    if(approveIt){
+      const { error }=await supabase.from('users').update({ aadhaar_verified:true }).in('id',list.map(r=>r.user_id));
+      if(error){ alert(error.message); return; }
+    }
+    const { error }=await supabase.from('kyc_submissions')
+      .update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString() })
+      .in('id',list.map(r=>r.id));
+    if(error){ alert('Could not update KYC: '+error.message); return; }
+    setPicked(new Set()); load(); onChange?.();
+  }
 
   async function load(){
     setLoading(true);
@@ -60,12 +83,25 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
             <button className={tab==='all'?'btn sm':'btn ghost sm'} onClick={()=>setTab('all')}>All</button>
           </div>
         </div>
+        {picked.size>0 && (
+          <div className="bulkbar">
+            <b>{picked.size}</b> selected
+            <button className="btn ok sm" onClick={()=>bulkDecide(true)}><Check size={13}/> Approve all</button>
+            <button className="btn danger sm" onClick={()=>bulkDecide(false)}><X size={13}/> Reject all</button>
+            <button className="btn ghost sm" onClick={()=>setPicked(new Set())}>Clear</button>
+          </div>
+        )}
         {loading?<Loading/>:rows.length===0?<Empty text="No verification requests."/>:(
           <table>
-            <thead><tr><th>User</th><th>Phone</th><th>Aadhaar</th><th>Selfie</th><th>Status</th><th>When</th><th></th></tr></thead>
+            <thead><tr>
+              <th className="ck"><input type="checkbox"
+                checked={picked.size>0&&picked.size===rows.filter(r=>r.status==='pending').length}
+                onChange={e=>setPicked(e.target.checked?new Set(rows.filter(r=>r.status==='pending').map(r=>r.id)):new Set())}/></th>
+              <th>User</th><th>Phone</th><th>Aadhaar</th><th>Selfie</th><th>Status</th><th>When</th><th></th></tr></thead>
             <tbody>
-              {rows.map(r=>(
-                <tr key={r.id}>
+              {rows.map((r,i)=>(
+                <tr key={r.id} className={i===sel?'krow':''}>
+                  <td className="ck">{r.status==='pending' && <input type="checkbox" checked={picked.has(r.id)} onChange={()=>togglePick(r.id)}/>}</td>
                   <td><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b>{r.user?.aadhaar_verified && <span className="badge b-ok" style={{marginLeft:6}}>verified</span>}</td>
                   <td className="muted">{r.user?.phone||'—'}</td>
                   <td>{r.a_url?<img src={r.a_url} onClick={()=>setZoom({url:r.a_url,label:'Aadhaar'})} style={{height:44,borderRadius:4,cursor:'zoom-in'}}/>:<span className="muted">—</span>}</td>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Modal } from '../ui';
-import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users } from 'lucide-react';
+import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users, BellRing, Send } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -11,6 +11,20 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
   const [d, setD] = useState<any | null>(null);
   const [kyc, setKyc] = useState<any | null>(null);
   const [zoom, setZoom] = useState<{ url: string; label: string } | null>(null);
+  const [compose, setCompose] = useState(false);
+  const [pTitle, setPTitle] = useState('');
+  const [pBody, setPBody] = useState('');
+  const [pushing, setPushing] = useState(false);
+
+  async function sendPush() {
+    if (!pTitle.trim() || !pBody.trim()) { alert('Title and message are required.'); return; }
+    setPushing(true);
+    const { data, error } = await supabase.rpc('admin_notify_user', { p_user: userId, p_title: pTitle.trim(), p_body: pBody.trim() });
+    setPushing(false);
+    if (error) { alert('Could not send: ' + error.message); return; }
+    alert(`Delivered to ${data ?? 0} device(s) — it's also in their in-app notifications.`);
+    setCompose(false); setPTitle(''); setPBody('');
+  }
   useEffect(() => {
     // Distinguish a real load failure from a genuinely missing user, instead of
     // collapsing every error into "User not found."
@@ -62,7 +76,25 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
               </div>
               <div className="muted" style={{ fontSize: 12 }}>Joined {new Date(p.created_at).toLocaleDateString('en-IN')}</div>
             </div>
+            <button className="btn ghost sm" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => setCompose(c => !c)}>
+              <BellRing size={13} /> Message
+            </button>
           </div>
+
+          {/* one-user push — "your listing was rejected because…" */}
+          {compose && (
+            <div style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: 12, display: 'grid', gap: 8 }}>
+              <input value={pTitle} maxLength={80} placeholder="Title — e.g. About your listing"
+                onChange={e => setPTitle(e.target.value)} />
+              <textarea rows={2} value={pBody} maxLength={240} style={{ resize: 'vertical' }}
+                placeholder="Message — lands as a push + in their notifications tab."
+                onChange={e => setPBody(e.target.value)} />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button className="btn ghost sm" onClick={() => setCompose(false)}>Cancel</button>
+                <button className="btn sm" disabled={pushing} onClick={sendPush}><Send size={12} /> {pushing ? 'Sending…' : 'Send push'}</button>
+              </div>
+            </div>
+          )}
 
           {/* KYC photos */}
           <div style={{ marginTop: 14 }}>

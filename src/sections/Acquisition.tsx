@@ -10,11 +10,12 @@ export default function Acquisition(){
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('users').select('acquisition_source');
-    const counts:Record<string,number>={};
-    (data||[]).forEach((u:any)=>{ const s=(u.acquisition_source||'Unknown'); counts[s]=(counts[s]||0)+1; });
-    const arr=Object.entries(counts).map(([source,count])=>({source,count})).sort((a,b)=>b.count-a.count);
-    setRows(arr); setTotal((data||[]).length); setLoading(false);
+    // Server-side group-by (admin_acquisition_counts RPC) — the old per-row select
+    // was silently capped at 1000 users, skewing the percentages at scale.
+    const { data, error }=await supabase.rpc('admin_acquisition_counts');
+    if(error) alert('Could not load acquisition data: '+error.message);
+    const arr=(data||[]).map((r:any)=>({ source:r.source, count:Number(r.n) }));
+    setRows(arr); setTotal(arr.reduce((s:number,r:any)=>s+r.count,0)); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
 

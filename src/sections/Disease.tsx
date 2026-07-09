@@ -22,6 +22,9 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
   async function save(){
     const v={...edit}; const id=v.id; delete v.id; delete v.created_at; delete v.reported_by; delete v.pushed_at;
     if(!v.title?.trim()){ alert('Title required'); return; }
+    // Blank region must be NULL, not '' — the app's Alerts list matches state to the
+    // user's state OR NULL (all-India); an empty string matches neither and hides the alert.
+    for(const f of ['state','district','mandal'] as const){ v[f]=(v[f]||'').trim()||null; }
     const { error }= id ? await supabase.from('disease_alerts').update(v).eq('id',id)
                         : await supabase.from('disease_alerts').insert(v);
     if(error){ alert(error.message); return; }

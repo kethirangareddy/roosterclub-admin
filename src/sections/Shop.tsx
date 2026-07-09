@@ -33,16 +33,25 @@ export default function Shop() {
   useEffect(() => { load(); }, []);
 
   async function toggle(r: any) {
-    const next = r.status === 'active' ? 'suspended' : 'active';
+    // 'suspended' isn't in the status check constraint — 'out_of_stock' is the legal "off" state.
+    const next = r.status === 'active' ? 'out_of_stock' : 'active';
     const { error } = await supabase.from('shop_products').update({ status: next }).eq('id', r.id);
     if (error) { alert('Could not update product: ' + error.message); return; }
     setRows(x => x.map(p => p.id === r.id ? { ...p, status: next } : p));
   }
-  async function remove(id: string) {
-    if (!confirm('Delete this product?')) return;
-    const { error } = await supabase.from('shop_products').delete().eq('id', id);
-    if (error) { alert('Could not delete: ' + error.message); return; }
-    setRows(x => x.filter(p => p.id !== id));
+  // Item 16 — soft delete: restorable for 30 days, then the purge cron hard-deletes it.
+  async function remove(r: any) {
+    if (r.status === 'removed') {
+      const { error } = await supabase.from('shop_products').update({ status: 'active', removed_at: null }).eq('id', r.id);
+      if (error) { alert('Could not restore: ' + error.message); return; }
+      setRows(x => x.map(p => p.id === r.id ? { ...p, status: 'active', removed_at: null } : p));
+      return;
+    }
+    if (!confirm('Remove this product? It disappears from the app and can be restored for 30 days.')) return;
+    const removed_at = new Date().toISOString();
+    const { error } = await supabase.from('shop_products').update({ status: 'removed', removed_at }).eq('id', r.id);
+    if (error) { alert('Could not remove: ' + error.message); return; }
+    setRows(x => x.map(p => p.id === r.id ? { ...p, status: 'removed', removed_at } : p));
   }
 
   async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
@@ -112,8 +121,8 @@ export default function Shop() {
                   <td className="muted">{timeAgo(r.created_at)}</td>
                   <td><div className="row-acts">
                     <button className="btn ghost sm" onClick={() => setEdit({ ...empty, ...r, price: r.price ?? '', brand: r.brand ?? '', unit: r.unit ?? '', stock_count: r.stock_count ?? '', description: r.description ?? '' })}><Pencil size={12} /> Edit</button>
-                    <button className="btn ghost sm" onClick={() => toggle(r)}>{r.status === 'active' ? 'Suspend' : 'Activate'}</button>
-                    <button className="btn danger sm" onClick={() => remove(r.id)}>Delete</button>
+                    {r.status !== 'removed' && <button className="btn ghost sm" onClick={() => toggle(r)}>{r.status === 'active' ? 'Suspend' : 'Activate'}</button>}
+                    <button className={r.status === 'removed' ? 'btn ok sm' : 'btn danger sm'} onClick={() => remove(r)}>{r.status === 'removed' ? 'Restore' : 'Remove'}</button>
                   </div></td>
                 </tr>
               ))}

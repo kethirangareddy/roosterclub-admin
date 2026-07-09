@@ -23,7 +23,9 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
   useEffect(()=>{ load(); },[tab]);
 
   async function approve(r:any){
-    const hours=Number(prompt('Feature for how many hours?', '24'))||24;
+    const input=prompt('Feature for how many hours?', '24');
+    if(input===null) return; // Cancel pressed — don't activate
+    const hours=Number(input)||24;
     const { error }=await supabase.rpc('activate_feature',{ p_request:r.id, p_hours:hours });
     if(error){ alert(error.message); return; }
     load(); onChange();

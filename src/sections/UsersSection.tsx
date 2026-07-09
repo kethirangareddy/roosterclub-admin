@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
-import { Users as UsersIcon, Search, ShieldCheck, Eye } from 'lucide-react';
-import { Empty, Loading, loc } from '../ui';
+import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX } from 'lucide-react';
+import { Empty, Loading, loc, timeAgo, useParamState } from '../ui';
 import UserDetail from './UserDetail';
 
 const BADGES:{v:string;label:string}[]=[
@@ -13,21 +13,38 @@ const BADGES:{v:string;label:string}[]=[
   {v:'legendary',label:'Legendary'},
 ];
 
+/** Item 12 — risk chip: 0–100 from reports + account age + KYC + velocity + shared UPI. */
+export function RiskChip({ n }:{ n:number }){
+  const cls = n>=60?'b-danger':n>=30?'b-warn':'b-mut';
+  return <span className={'badge '+cls} title="reports · account age · KYC · listing velocity · shared UPI">{n}</span>;
+}
+
 export default function UsersSection(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [q,setQ]=useState('');
   const [viewId,setViewId]=useState<string|null>(null);
+  // Items 12–14: All (created desc) | High risk (auto-flag queue) | Duplicates (ban evasion)
+  const [tab,setTab]=useParamState<'all'|'risk'|'dups'>('tab','all');
+  const [dups,setDups]=useState<any[]>([]);
 
   async function load(){
     setLoading(true);
-    // Same list as before (order created_at desc, limit 200, 3-column search) via the
-    // is_admin()-gated admin_users RPC — users.phone is no longer directly selectable.
-    const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null });
+    if(tab==='dups'){
+      const { data, error }=await supabase.rpc('admin_duplicates');
+      if(error) alert('Could not load duplicates: '+error.message);
+      setDups(data||[]); setLoading(false); return;
+    }
+    if(tab==='risk'){
+      const { data, error }=await supabase.rpc('admin_flagged_users');
+      if(error) alert('Could not load flagged users: '+error.message);
+      setRows(data||[]); setLoading(false); return;
+    }
+    const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new' });
     if(error) alert('Could not load users: '+error.message);
     setRows(data||[]); setLoading(false);
   }
-  useEffect(()=>{ load(); },[]);
+  useEffect(()=>{ load(); },[tab]);
 
   async function setBadge(id:string, badge:string){
     // badge_source:'admin' protects a hand-set badge from the nightly earned-badge cron; clearing the badge clears the source too (lets the auto-system take over again).
@@ -46,7 +63,63 @@ export default function UsersSection(){
   return (
     <>
       <h1 className="h1">Users &amp; Badges</h1>
-      <p className="sub">Assign prestige badges (all admin-controlled) and manage accounts.</p>
+      <p className="sub">Badges, bans, and the fraud sweep — high-risk accounts and duplicate clusters surface here.</p>
+      <div className="tabbar">
+        <button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>All users</button>
+        <button className={tab==='risk'?'active':''} onClick={()=>setTab('risk')}><ShieldAlert size={13} style={{verticalAlign:-2}}/> High risk</button>
+        <button className={tab==='dups'?'active':''} onClick={()=>setTab('dups')}><CopyX size={13} style={{verticalAlign:-2}}/> Duplicates</button>
+      </div>
+
+      {tab==='dups' ? (
+        <div className="card">
+          <div className="card-h"><h2><CopyX size={16}/> Duplicate &amp; ban-evasion clusters ({dups.length})</h2></div>
+          {loading?<Loading/>:dups.length===0?<Empty text="No suspicious clusters — no shared UPI ids, no same-day referral bursts."/>:(
+            <table>
+              <thead><tr><th>Pattern</th><th>Key</th><th>Accounts</th></tr></thead>
+              <tbody>
+                {dups.map((d,i)=>(
+                  <tr key={i}>
+                    <td><span className={'badge '+(d.kind==='shared-upi'?'b-danger':'b-warn')}>{d.kind==='shared-upi'?'Same UPI':'Referral burst'}</span></td>
+                    <td className="muted" style={{fontFamily:'monospace',fontSize:12}}>{d.dkey}</td>
+                    <td>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                        {(d.members||[]).map((u:any)=>(
+                          <button key={u.id} className="btn ghost sm" onClick={()=>setViewId(u.id)}>
+                            {u.name||('@'+(u.handle||'user'))}{u.banned?' · banned':''}
+                            <span className="muted" style={{marginLeft:4,fontSize:11}}>{u.district||''} · {timeAgo(u.created_at)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : tab==='risk' ? (
+        <div className="card">
+          <div className="card-h"><h2><ShieldAlert size={16}/> Flagged users ({rows.length})</h2></div>
+          {loading?<Loading/>:rows.length===0?<Empty text="No flagged users — nobody crosses risk ≥ 60 or 3+ reports."/>:(
+            <table>
+              <thead><tr><th>Risk</th><th>Name</th><th>Handle</th><th>Open reports</th><th>Reports 24h</th><th>Shared UPI</th><th></th></tr></thead>
+              <tbody>
+                {rows.map(u=>(
+                  <tr key={u.id}>
+                    <td><RiskChip n={u.risk}/></td>
+                    <td style={{fontWeight:600}}>{u.full_name||'—'}</td>
+                    <td className="muted">{u.handle?'@'+u.handle:'—'}</td>
+                    <td>{u.open_reports||0}</td>
+                    <td>{u.reports_24h||0}</td>
+                    <td>{u.shared_upi?<span className="badge b-danger">yes</span>:<span className="badge b-mut">—</span>}</td>
+                    <td className="right"><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : (
       <div className="card">
         <div className="card-h">
           <h2><UsersIcon size={16}/> Users ({rows.length})</h2>
@@ -58,7 +131,7 @@ export default function UsersSection(){
         </div>
         {loading?<Loading/>:rows.length===0?<Empty text="No users found."/>:(
           <table>
-            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Verified</th><th>Badge</th><th></th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Risk</th><th>Verified</th><th>Badge</th><th></th><th></th></tr></thead>
             <tbody>
               {rows.map(u=>(
                 <tr key={u.id} style={u.banned?{opacity:.55}:undefined}>
@@ -66,6 +139,7 @@ export default function UsersSection(){
                   <td className="muted">{u.handle?'@'+u.handle:'—'}</td>
                   <td className="muted">{u.phone||'—'}</td>
                   <td className="muted">{loc(u)}</td>
+                  <td><RiskChip n={u.risk||0}/></td>
                   <td>{u.aadhaar_verified?<span className="badge b-ok"><ShieldCheck size={12}/> KYC</span>:<span className="badge b-mut">—</span>}</td>
                   <td>
                     <select value={u.badge||''} onChange={e=>setBadge(u.id,e.target.value)}>
@@ -80,6 +154,7 @@ export default function UsersSection(){
           </table>
         )}
       </div>
+      )}
       {viewId && <UserDetail userId={viewId} onClose={()=>setViewId(null)}/>}
     </>
   );
