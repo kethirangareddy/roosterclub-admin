@@ -129,7 +129,7 @@ a{color:inherit}
 .recharts-cartesian-axis-tick text{font-variant-numeric:tabular-nums}
 
 /* ---------- cards + tables ---------- */
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;overflow-x:auto}
 .card-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;justify-content:space-between;background:#FBFCFE}
 .card-h h2{font-size:14.5px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px;color:var(--ink)}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -202,17 +202,19 @@ label{font-size:12px;font-weight:600;color:var(--muted);display:block;margin-bot
 @keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.25}}
 .anom{display:flex;gap:10px;background:var(--dangerbg);border:1px solid rgba(217,58,63,.4);border-radius:12px;
   padding:12px 15px;margin-bottom:14px;color:#bb2b30;font-size:13px;font-weight:600;line-height:1.5}
-.dash-cols{display:grid;grid-template-columns:1fr 290px;gap:16px;align-items:start}
+.dash-cols{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:16px;align-items:start}
+.dash-main,.dash-feed{min-width:0} /* grid children default to min-width:auto → tables used to push the feed column into overlap */
 .feedlist{max-height:72vh;overflow-y:auto;padding:6px}
 .feedrow{display:flex;gap:8px;padding:8px 10px;border-radius:8px;animation:fade .3s ease}
 .feedrow:hover{background:var(--surface-2)}
 .f-t{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .f-s{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.heatgrid{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:110px 110px;gap:8px;padding:14px 18px;
-  grid-template-areas:"ka ts ap" "ka tn ap"}
-.heatcell{border-radius:12px;border:1px solid var(--line);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:2px;transition:transform .15s}
-.heatcell:hover{transform:scale(1.03)}
+.heatgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:104px 104px 56px;gap:8px;padding:14px 18px;
+  grid-template-areas:"ka ts ap" "ka tn ap" "rest rest rest"}
+.heatcell{border-radius:12px;border:1px solid var(--line);display:flex;flex-direction:column;min-width:0;
+  align-items:center;justify-content:center;gap:2px;transition:transform .15s;cursor:pointer;font:inherit;padding:4px}
+.heatcell:hover{transform:scale(1.02)}
+.heatcell.rest{flex-direction:row;gap:8px}
 .h-n{font-family:var(--mono);font-weight:700;font-size:22px}
 .h-s{font-size:11px;font-weight:600;opacity:.85;text-align:center}
 @media (max-width:1100px){.dash-cols{grid-template-columns:1fr}.dash-feed .card{position:static!important}.feedlist{max-height:320px}}
@@ -281,6 +283,10 @@ td.ck input,th.ck input{width:15px;height:15px;cursor:pointer}
   .grid2{grid-template-columns:1fr}
   table{font-size:12px}
   th,td{padding:9px 12px}
+
+  /* Pulse strip: tidy 2–3 column grid instead of a cramped wrap. */
+  .pulse{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+  .p-item{padding:7px 10px}
 
   /* Tables scroll sideways instead of crushing columns — every section stays usable. */
   .card{overflow-x:auto;-webkit-overflow-scrolling:touch}

@@ -3,7 +3,8 @@ import { supabase } from '../supabase';
 import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope, BookOpen,
   ShieldCheck, Flag, Award, Gavel, Star, CheckCircle2, ArrowRight, Sparkles,
   Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText, MessagesSquare } from 'lucide-react';
-import { Loading, timeAgo } from '../ui';
+import { Loading, timeAgo, Modal, inr } from '../ui';
+import Listing360 from './Listing360';
 
 const FEED_META: Record<string,{Icon:any;c:string}> = {
   signup:{Icon:UserPlus,c:'var(--ok)'}, listing:{Icon:ListChecks,c:'var(--cta)'},
@@ -79,6 +80,25 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   const feedSince=useRef(new Date(Date.now()-24*3600e3).toISOString());
   const feedSeen=useRef<Set<string>>(new Set());
 
+  // ---- Region drill-down: state → districts → listings (click anything geographic) ----
+  type Drill={ level:'states'|'districts'|'listings'; state?:string; district?:string; prev?:Drill|null };
+  const [drill,setDrill]=useState<Drill|null>(null);
+  const [drillList,setDrillList]=useState<any[]>([]);
+  const [drillBusy,setDrillBusy]=useState(false);
+  const [open360,setOpen360]=useState<string|null>(null);
+
+  async function openListings(district:string, state?:string, prev?:Drill|null){
+    setDrill({ level:'listings', district, state, prev:prev??null });
+    setDrillBusy(true);
+    let q=supabase.from('listings')
+      .select('id,breed,type,price,status,approval_status,created_at,village,mandal')
+      .eq('district',district).order('created_at',{ascending:false}).limit(100);
+    if(state) q=q.eq('state',state);
+    const { data,error }=await q;
+    if(error) alert('Could not load listings: '+error.message);
+    setDrillList(data||[]); setDrillBusy(false);
+  }
+
   async function tick(){
     const [p,a,h]=await Promise.all([
       supabase.rpc('admin_pulse'), supabase.rpc('admin_anomalies'), supabase.rpc('admin_fn_health'),
@@ -109,6 +129,9 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   const stateTotals:Record<string,number>={};
   regions.forEach(r=>{ if(r.state) stateTotals[r.state]=(stateTotals[r.state]||0)+Number(r.n); });
   const heatMax=Math.max(1,...Object.values(stateTotals));
+  // "Rest of India": every state outside the 4 mapped tiles.
+  const restStates=Object.entries(stateTotals).filter(([s])=>!HEAT_AREAS[s]).sort((a,b)=>b[1]-a[1]);
+  const restTotal=restStates.reduce((a,[,n])=>a+n,0);
 
   if(err && !k) return (
     <>
@@ -235,14 +258,23 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
             {Object.entries(HEAT_AREAS).map(([state,area])=>{
               const n=stateTotals[state]||0;
               return (
-                <div key={state} className="heatcell" style={{gridArea:area,
+                <button key={state} className="heatcell" title={`See ${state} districts`}
+                  onClick={()=>setDrill({level:'districts',state,prev:null})}
+                  style={{gridArea:area,
                   background:`rgba(59,111,224,${0.08+0.55*(n/heatMax)})`,
                   color:n/heatMax>0.55?'#fff':'var(--ink)'}}>
                   <div className="h-n">{n}</div>
                   <div className="h-s">{state}</div>
-                </div>
+                </button>
               );
             })}
+            <button className="heatcell rest" title="See other states"
+              onClick={()=>setDrill({level:'states',prev:null})}
+              style={{gridArea:'rest',background:`rgba(59,111,224,${0.08+0.55*(Math.min(restTotal,heatMax)/heatMax)})`,
+                color:restTotal/heatMax>0.55?'#fff':'var(--ink)'}}>
+              <span className="h-n">{restTotal}</span>
+              <span className="h-s">Rest of India{restStates.length?` · ${restStates.length} state${restStates.length>1?'s':''}`:''}</span>
+            </button>
           </div>
           <div style={{padding:'0 18px 12px',fontSize:12}} className="muted">
             Top districts: {regions.filter(r=>r.district).slice(0,4).map(r=>`${r.district} ${r.n}`).join(' · ')||'—'}
@@ -295,7 +327,9 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
             <thead><tr><th>District</th><th className="right">Listings</th></tr></thead>
             <tbody>
               {districts.map(d=>(
-                <tr key={d.district}><td>{d.district}</td><td className="right">{d.n}</td></tr>
+                <tr key={d.district} style={{cursor:'pointer'}} title="See listings in this district"
+                  onClick={()=>openListings(d.district)}>
+                  <td>{d.district}</td><td className="right">{d.n}</td></tr>
               ))}
               {districts.length===0 && <tr><td colSpan={2} className="empty">No data yet.</td></tr>}
             </tbody>
@@ -327,6 +361,57 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
         </div>
       </aside>
       </div>{/* /dash-cols */}
+
+      {/* Region drill-down modal: states → districts → listings */}
+      {drill && (
+        <Modal
+          title={drill.level==='states' ? 'Rest of India — users by state'
+            : drill.level==='districts' ? `${drill.state} — districts`
+            : `Listings in ${drill.district}`}
+          onClose={()=>setDrill(null)}>
+          {drill.prev!==null && drill.prev!==undefined && (
+            <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>setDrill(drill.prev!)}>← Back</button>
+          )}
+          {drill.level==='states' && (
+            restStates.length===0 ? <div className="empty">No users outside the four mapped states yet.</div> :
+            <table><thead><tr><th>State</th><th className="right">Users</th></tr></thead><tbody>
+              {restStates.map(([s,n])=>(
+                <tr key={s} style={{cursor:'pointer'}} onClick={()=>setDrill({level:'districts',state:s,prev:drill})}>
+                  <td style={{fontWeight:600}}>{s}</td><td className="right">{n}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          )}
+          {drill.level==='districts' && (()=> {
+            const ds=regions.filter(r=>r.state===drill.state && r.district).sort((a,b)=>Number(b.n)-Number(a.n));
+            return ds.length===0 ? <div className="empty">No district data for {drill.state} yet.</div> :
+              <table><thead><tr><th>District</th><th className="right">Users</th></tr></thead><tbody>
+                {ds.map(d=>(
+                  <tr key={d.district} style={{cursor:'pointer'}} title="See listings"
+                    onClick={()=>openListings(d.district, drill.state, drill)}>
+                    <td style={{fontWeight:600}}>{d.district}</td><td className="right">{d.n}</td>
+                  </tr>
+                ))}
+              </tbody></table>;
+          })()}
+          {drill.level==='listings' && (
+            drillBusy ? <Loading/> :
+            drillList.length===0 ? <div className="empty">No listings in {drill.district}.</div> :
+            <table><thead><tr><th>Breed</th><th>Type</th><th>Price</th><th>Status</th><th>Posted</th></tr></thead><tbody>
+              {drillList.map(l=>(
+                <tr key={l.id} style={{cursor:'pointer'}} title="Open listing 360" onClick={()=>setOpen360(l.id)}>
+                  <td style={{fontWeight:600}}>{l.breed||'—'}<div className="muted" style={{fontSize:11}}>{[l.village,l.mandal].filter(Boolean).join(', ')}</div></td>
+                  <td><span className="badge b-mut">{l.type}</span></td>
+                  <td>{inr(l.price)}</td>
+                  <td><span className={'badge '+(l.status==='active'&&l.approval_status==='approved'?'b-ok':l.approval_status==='pending'?'b-warn':'b-mut')}>{l.approval_status==='pending'?'pending':l.status}</span></td>
+                  <td className="muted">{timeAgo(l.created_at)}</td>
+                </tr>
+              ))}
+            </tbody></table>
+          )}
+        </Modal>
+      )}
+      {open360 && <Listing360 listingId={open360} onClose={()=>setOpen360(null)} onChanged={load}/>}
     </>
   );
 }
