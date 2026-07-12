@@ -3,8 +3,15 @@ import { supabase } from '../supabase';
 import { Store, Plus, Pencil, ImagePlus } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, Modal, Field } from '../ui';
 
-const CATEGORIES = ['Feed', 'Medicine', 'Supplements', 'Equipment', 'Accessories', 'Other'];
-const empty = { id: '', name: '', brand: '', category: 'Feed', price: '', unit: '', stock_count: '', description: '', image_url: '', state: '', district: '', mandal: '', status: 'active' };
+// Values MUST match the DB check constraint shop_products_category_check (lowercase).
+const CATEGORIES = [
+  { value: 'feed',            label: 'Feed' },
+  { value: 'feed_supplement', label: 'Feed supplement' },
+  { value: 'medicine',        label: 'Medicine' },
+  { value: 'accessories',     label: 'Accessories' },
+  { value: 'cages',           label: 'Cages' },
+];
+const empty = { id: '', name: '', brand: '', category: 'feed', price: '', unit: '', stock_count: '', description: '', image_url: '', state: '', district: '', mandal: '', status: 'active' };
 
 export default function Shop() {
   const [rows, setRows] = useState<any[]>([]);
@@ -70,13 +77,15 @@ export default function Shop() {
   async function save() {
     if (!edit?.name?.trim()) { alert('Name is required.'); return; }
     setSaving(true);
+    // category/price/stock_count/state/district/mandal/status are NOT NULL in the DB
+    // (defaults ''/0/'active'). Never send null for them or the row fails to save.
     const payload: any = {
-      name: edit.name.trim(), brand: edit.brand?.trim() || null, category: edit.category || null,
-      price: edit.price === '' ? null : Number(edit.price),
+      name: edit.name.trim(), brand: edit.brand?.trim() || null, category: edit.category || 'feed',
+      price: edit.price === '' ? 0 : Number(edit.price),
       unit: edit.unit?.trim() || null,
-      stock_count: edit.stock_count === '' ? null : Number(edit.stock_count),
+      stock_count: edit.stock_count === '' ? 0 : Number(edit.stock_count),
       description: edit.description?.trim() || null, image_url: edit.image_url || null,
-      state: edit.state?.trim() || null, district: edit.district?.trim() || null, mandal: edit.mandal?.trim() || null,
+      state: edit.state?.trim() || '', district: edit.district?.trim() || '', mandal: edit.mandal?.trim() || '',
       status: edit.status || 'active',
     };
     let error;
@@ -150,7 +159,7 @@ export default function Shop() {
             <Field label="Brand"><input value={edit.brand} onChange={e => setEdit({ ...edit, brand: e.target.value })} /></Field>
             <Field label="Category">
               <select value={edit.category} onChange={e => setEdit({ ...edit, category: e.target.value })}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </Field>
           </div>
@@ -162,7 +171,7 @@ export default function Shop() {
             <Field label="Stock count"><input type="number" value={edit.stock_count} onChange={e => setEdit({ ...edit, stock_count: e.target.value })} /></Field>
             <Field label="Status">
               <select value={edit.status} onChange={e => setEdit({ ...edit, status: e.target.value })}>
-                <option value="active">active</option><option value="suspended">suspended</option><option value="out_of_stock">out_of_stock</option>
+                <option value="active">active</option><option value="out_of_stock">out_of_stock</option>
               </select>
             </Field>
           </div>
