@@ -28,6 +28,9 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
     setLoading(true);
     let q=supabase.from('listings')
       .select('id,user_id,breed,type,price,status,approval_status,created_at,state,district,mandal,village,users(full_name,handle)')
+      // Only ever show live listings — never sold / expired / removed clutter.
+      .eq('status','active')
+      .gt('expires_at', new Date().toISOString())
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('approval_status','pending');
     const { data, error }=await q;
@@ -58,10 +61,10 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
       <p className="sub">Review seller listings before they go live.</p>
       <div className="tabbar">
         <button className={tab==='pending'?'active':''} onClick={()=>setTab('pending')}>Pending</button>
-        <button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>All listings</button>
+        <button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>Active listings</button>
       </div>
       <div className="card">
-        <div className="card-h"><h2><Inbox size={16}/> {tab==='pending'?'Awaiting approval':'All listings'} ({rows.length})</h2></div>
+        <div className="card-h"><h2><Inbox size={16}/> {tab==='pending'?'Awaiting approval':'Active listings'} ({rows.length})</h2></div>
         {picked.size>0 && (
           <div className="bulkbar">
             <b>{picked.size}</b> selected

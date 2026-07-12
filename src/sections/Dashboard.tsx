@@ -26,7 +26,8 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   const [k,setK]=useState<any>(null);
   const [err,setErr]=useState<string|null>(null);
   const [recent,setRecent]=useState<any[]>([]);
-  const [districts,setDistricts]=useState<{district:string;n:number}[]>([]);
+  const [distRows,setDistRows]=useState<{state:string;district:string}[]>([]);
+  const [distState,setDistState]=useState<string>('all'); // state filter for "Most active districts"
 
   async function load(){
     setErr(null);
@@ -58,11 +59,8 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
       .select('id,breed,type,price,created_at,state,district').order('created_at',{ascending:false}).limit(8);
     setRecent(rl||[]);
 
-    const { data:all }=await supabase.from('listings').select('district').not('district','is',null).limit(1000);
-    const map:Record<string,number>={};
-    (all||[]).forEach((r:any)=>{ if(r.district) map[r.district]=(map[r.district]||0)+1; });
-    setDistricts(Object.entries(map).map(([district,n])=>({district,n:n as number}))
-      .sort((a,b)=>b.n-a.n).slice(0,6));
+    const { data:all }=await supabase.from('listings').select('state,district').not('district','is',null).limit(1000);
+    setDistRows((all||[]).filter((r:any)=>r.district).map((r:any)=>({ state:r.state||'—', district:r.district })));
     } catch (e:any) {
       // Without this, one failed query left the dashboard on "Loading…" forever.
       console.error('dashboard load failed:', e);
@@ -159,7 +157,17 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   ].filter(q=>q.n>0).sort((a,b)=>b.n-a.n);
 
   const totalPending = queue.reduce((s,q)=>s+q.n,0);
-  const topDistrict = districts[0]?.district;
+
+  // "Most active districts" — rank districts by listing volume, filterable by state.
+  const rankDistricts = (rows:{state:string;district:string}[]) => {
+    const m:Record<string,number>={};
+    rows.forEach(r=>{ m[r.district]=(m[r.district]||0)+1; });
+    return Object.entries(m).map(([district,n])=>({district,n:n as number})).sort((a,b)=>b.n-a.n).slice(0,6);
+  };
+  const distStates = Array.from(new Set(distRows.map(r=>r.state).filter(s=>s && s!=='—'))).sort();
+  const districtsAll = rankDistricts(distRows);
+  const districts = distState==='all' ? districtsAll : rankDistricts(distRows.filter(r=>r.state===distState));
+  const topDistrict = districtsAll[0]?.district;
 
   // Computed brief (not LLM — real numbers, reads like a briefing).
   const brief = [
@@ -322,13 +330,20 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
         </div>
 
         <div className="card">
-          <div className="card-h"><h2>Most active districts</h2></div>
+          <div className="card-h" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+            <h2>Most active districts</h2>
+            <select value={distState} onChange={e=>setDistState(e.target.value)}
+              style={{fontSize:12,padding:'4px 8px',borderRadius:8}} title="Filter by state">
+              <option value="all">All states</option>
+              {distStates.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
           <table>
             <thead><tr><th>District</th><th className="right">Listings</th></tr></thead>
             <tbody>
               {districts.map(d=>(
                 <tr key={d.district} style={{cursor:'pointer'}} title="See listings in this district"
-                  onClick={()=>openListings(d.district)}>
+                  onClick={()=>openListings(d.district, distState==='all'?undefined:distState)}>
                   <td>{d.district}</td><td className="right">{d.n}</td></tr>
               ))}
               {districts.length===0 && <tr><td colSpan={2} className="empty">No data yet.</td></tr>}
