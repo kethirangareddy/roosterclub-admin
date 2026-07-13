@@ -28,6 +28,11 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   const [recent,setRecent]=useState<any[]>([]);
   const [distRows,setDistRows]=useState<{state:string;district:string}[]>([]);
   const [distState,setDistState]=useState<string>('all'); // state filter for "Most active districts"
+  // "Users by district" panel: region counts split by activity (last_seen_at within 30d).
+  const [ureg,setUreg]=useState<{state:string;district:string;active_n:number;inactive_n:number;total_n:number}[]>([]);
+  const [uregState,setUregState]=useState<string>('all');
+  const [uregMode,setUregMode]=useState<'all'|'active'|'inactive'>('all');
+  const [twBal,setTwBal]=useState<{balance:string;currency:string}|null>(null); // Twilio SMS balance
 
   async function load(){
     setErr(null);
@@ -120,6 +125,8 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   useEffect(()=>{
     tick(); pollFeed();
     supabase.rpc('admin_users_by_region').then(({data})=>setRegions((data as any[])||[]));
+    supabase.rpc('admin_users_by_region_activity').then(({data})=>setUreg((data as any[])||[]));
+    supabase.functions.invoke('twilio-balance').then(({data})=>{ if(data && !(data as any).error) setTwBal(data as any); });
     const t1=setInterval(tick,60_000), t2=setInterval(pollFeed,30_000);
     return ()=>{ clearInterval(t1); clearInterval(t2); };
   },[]);
@@ -169,6 +176,14 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   const districts = distState==='all' ? districtsAll : rankDistricts(distRows.filter(r=>r.state===distState));
   const topDistrict = districtsAll[0]?.district;
 
+  // "Users by district" — counts per district, filter by state + activity (active/inactive/all).
+  const uregStates = Array.from(new Set(ureg.map(r=>r.state).filter(s=>s && s!=='—'))).sort();
+  const uregMetric = (r:any)=> uregMode==='active'?Number(r.active_n):uregMode==='inactive'?Number(r.inactive_n):Number(r.total_n);
+  const uregRows = ureg.filter(r=> uregState==='all' || r.state===uregState)
+    .slice().sort((a,b)=>uregMetric(b)-uregMetric(a))
+    .filter(r=> uregMode==='all' ? Number(r.total_n)>0 : uregMetric(r)>0)
+    .slice(0,10);
+
   // Computed brief (not LLM — real numbers, reads like a briefing).
   const brief = [
     `${k.newUsers} new ${k.newUsers===1?'user':'users'} this week`,
@@ -184,6 +199,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
     { lab:'Needs review', val:totalPending, delta:totalPending?'open queue':'all clear', Icon:Inbox, go:queue[0]?.go },
     { lab:'Vets listed', val:k.vets, Icon:Stethoscope, go:'vets' },
     { lab:'Kukuta articles', val:k.arts, Icon:BookOpen, go:'kukuta' },
+    { lab:'Twilio balance', val: twBal ? `${twBal.currency||''} ${twBal.balance}`.trim() : '—', Icon:MessagesSquare },
   ];
 
   return (
@@ -349,6 +365,43 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
               {districts.length===0 && <tr><td colSpan={2} className="empty">No data yet.</td></tr>}
             </tbody>
           </table>
+        </div>
+      </div>
+      {/* Users by district — counts per district, filter by state + activity */}
+      <div className="card">
+        <div className="card-h" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+          <h2><Users size={16}/> Users by district</h2>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:6}}>
+              {(['all','active','inactive'] as const).map(m=>(
+                <button key={m} className={'btn sm'+(uregMode===m?'':' ghost')} onClick={()=>setUregMode(m)}>
+                  {m==='all'?'All':m==='active'?'Active':'Inactive'}
+                </button>
+              ))}
+            </div>
+            <select value={uregState} onChange={e=>setUregState(e.target.value)}
+              style={{fontSize:12,padding:'4px 8px',borderRadius:8}} title="Filter by state">
+              <option value="all">All states</option>
+              {uregStates.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>District</th>{uregState==='all'&&<th>State</th>}
+            <th className="right">{uregMode==='active'?'Active':uregMode==='inactive'?'Inactive':'Users'}</th></tr></thead>
+          <tbody>
+            {uregRows.map(r=>(
+              <tr key={r.state+'|'+r.district}>
+                <td>{r.district}</td>
+                {uregState==='all'&&<td className="muted">{r.state}</td>}
+                <td className="right">{uregMetric(r)}</td>
+              </tr>
+            ))}
+            {uregRows.length===0 && <tr><td colSpan={uregState==='all'?3:2} className="empty">No data yet.</td></tr>}
+          </tbody>
+        </table>
+        <div style={{padding:'0 18px 12px',fontSize:12}} className="muted">
+          Active = opened the app in the last 30 days · Inactive = not seen in 30+ days.
         </div>
       </div>
       </div>{/* /dash-main */}

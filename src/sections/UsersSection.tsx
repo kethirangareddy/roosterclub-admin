@@ -27,6 +27,8 @@ export default function UsersSection(){
   // Items 12–14: All (created desc) | High risk (auto-flag queue) | Duplicates (ban evasion)
   const [tab,setTab]=useParamState<'all'|'risk'|'dups'>('tab','all');
   const [dups,setDups]=useState<any[]>([]);
+  const [fState,setFState]=useState<string>('all'); // location filters (All users tab)
+  const [fDist,setFDist]=useState<string>('all');
 
   async function load(){
     setLoading(true);
@@ -59,6 +61,11 @@ export default function UsersSection(){
     if(error){ alert('Could not update: '+error.message); return; }
     setRows(r=>r.map(x=>x.id===u.id?{...x,banned:!u.banned}:x));
   }
+
+  // Location filters for the All-users list (client-side over the loaded rows).
+  const uStates = Array.from(new Set(rows.map(u=>u.state).filter(Boolean))).sort();
+  const uDists = Array.from(new Set(rows.filter(u=>fState==='all'||u.state===fState).map(u=>u.district).filter(Boolean))).sort();
+  const shown = rows.filter(u=> (fState==='all'||u.state===fState) && (fDist==='all'||u.district===fDist));
 
   return (
     <>
@@ -122,18 +129,26 @@ export default function UsersSection(){
       ) : (
       <div className="card">
         <div className="card-h">
-          <h2><UsersIcon size={16}/> Users ({rows.length})</h2>
+          <h2><UsersIcon size={16}/> Users ({shown.length})</h2>
           <div className="toolbar">
             <input placeholder="Search name, handle, phone…" value={q}
               onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} style={{width:240}}/>
             <button className="btn ghost sm" onClick={load}><Search size={14}/> Search</button>
+            <select value={fState} onChange={e=>{setFState(e.target.value);setFDist('all');}} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by state">
+              <option value="all">All states</option>
+              {uStates.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={fDist} onChange={e=>setFDist(e.target.value)} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by district">
+              <option value="all">All districts</option>
+              {uDists.map(d=><option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No users found."/>:(
+        {loading?<Loading/>:shown.length===0?<Empty text="No users found."/>:(
           <table>
             <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Risk</th><th>Verified</th><th>Badge</th><th></th><th></th></tr></thead>
             <tbody>
-              {rows.map(u=>(
+              {shown.map(u=>(
                 <tr key={u.id} style={u.banned?{opacity:.55}:undefined}>
                   <td><b>{u.full_name||'—'}</b>{u.banned&&<span className="badge b-danger" style={{marginLeft:6}}>Banned</span>}</td>
                   <td className="muted">{u.handle?'@'+u.handle:'—'}</td>
