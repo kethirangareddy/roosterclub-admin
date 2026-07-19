@@ -30,6 +30,7 @@ export default function UsersSection(){
   const [fState,setFState]=useState<string>('all'); // location filters (All users tab)
   const [fDist,setFDist]=useState<string>('all');
   const [fCred,setFCred]=useState<'all'|'has'>('all'); // feature-credits filter (All users tab)
+  const [fOnline,setFOnline]=useState<'all'|'online'>('all'); // online filter (All users tab)
 
   async function load(){
     setLoading(true);
@@ -63,10 +64,13 @@ export default function UsersSection(){
     setRows(r=>r.map(x=>x.id===u.id?{...x,banned:!u.banned}:x));
   }
 
+  // Online = seen within 5 min (matches the Command Center pulse "online now").
+  const isOnline = (u:any)=> !!u.last_seen_at && (Date.now()-new Date(u.last_seen_at).getTime()) < 5*60*1000;
+
   // Location filters for the All-users list (client-side over the loaded rows).
   const uStates = Array.from(new Set(rows.map(u=>u.state).filter(Boolean))).sort();
   const uDists = Array.from(new Set(rows.filter(u=>fState==='all'||u.state===fState).map(u=>u.district).filter(Boolean))).sort();
-  const shown = rows.filter(u=> (fState==='all'||u.state===fState) && (fDist==='all'||u.district===fDist) && (fCred==='all' || (u.bonus_feature_credits||0)>0));
+  const shown = rows.filter(u=> (fState==='all'||u.state===fState) && (fDist==='all'||u.district===fDist) && (fCred==='all' || (u.bonus_feature_credits||0)>0) && (fOnline==='all' || isOnline(u)));
 
   return (
     <>
@@ -147,11 +151,15 @@ export default function UsersSection(){
               <option value="all">All credits</option>
               <option value="has">Has credits</option>
             </select>
+            <select value={fOnline} onChange={e=>setFOnline(e.target.value as 'all'|'online')} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by online status">
+              <option value="all">All users</option>
+              <option value="online">Online now</option>
+            </select>
           </div>
         </div>
         {loading?<Loading/>:shown.length===0?<Empty text="No users found."/>:(
           <table>
-            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Risk</th><th>Verified</th><th>Badge</th><th>Credits</th><th></th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Status</th><th>Risk</th><th>Verified</th><th>Badge</th><th>Credits</th><th></th><th></th></tr></thead>
             <tbody>
               {shown.map(u=>(
                 <tr key={u.id} style={u.banned?{opacity:.55}:undefined}>
@@ -159,6 +167,7 @@ export default function UsersSection(){
                   <td className="muted">{u.handle?'@'+u.handle:'—'}</td>
                   <td className="muted">{u.phone||'—'}</td>
                   <td className="muted">{loc(u)}</td>
+                  <td>{isOnline(u)?<span className="badge b-ok" title={'Last seen '+timeAgo(u.last_seen_at)}>● Online</span>:<span className="muted" title={u.last_seen_at?new Date(u.last_seen_at).toLocaleString('en-IN'):'never seen'}>{u.last_seen_at?timeAgo(u.last_seen_at):'—'}</span>}</td>
                   <td><RiskChip n={u.risk||0}/></td>
                   <td>{u.aadhaar_verified?<span className="badge b-ok"><ShieldCheck size={12}/> KYC</span>:<span className="badge b-mut">—</span>}</td>
                   <td>
