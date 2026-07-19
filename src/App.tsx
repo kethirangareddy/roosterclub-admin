@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
-  LayoutDashboard, Inbox, Stethoscope, BookOpen, Bird, Siren,
+  LayoutDashboard, Inbox, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
   Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon
 } from 'lucide-react';
 import CommandK, { Hit } from './CommandK';
@@ -17,6 +17,7 @@ import Featured from './sections/Featured';
 import Dashboard from './sections/Dashboard';
 import Analytics from './sections/Analytics';
 import Community from './sections/Community';
+import Theft from './sections/Theft';
 import Approvals from './sections/Approvals';
 import Vets from './sections/Vets';
 import Kukuta from './sections/Kukuta';
@@ -34,7 +35,7 @@ import BadgeRequests from './sections/BadgeRequests';
 import Competitions from './sections/Competitions';
 import Acquisition from './sections/Acquisition';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'boosts'|'users'|'announce'|'auctions'|'community'|'appconfig';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'appconfig';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
@@ -53,6 +54,7 @@ const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'kukuta', label:'Kukuta Shastram', Icon:BookOpen },
   { key:'breeds', label:'Breed Encyclopedia', Icon:Bird },
   { key:'disease', label:'Disease Alerts', Icon:Siren },
+  { key:'theft', label:'Theft Alerts', Icon:ShieldAlert },
   { key:'announce', label:'Announcements', Icon:Megaphone },
   { key:'boosts', label:'Boosts', Icon:Rocket },
   { key:'users', label:'Users & Badges', Icon:UsersIcon },
@@ -67,7 +69,7 @@ const KEYS = NAV.map(n=>n.key);
 const GNAV: Record<string,Key> = {
   d:'dash', n:'analytics', a:'approvals', r:'reports', k:'kyc', b:'badges',
   f:'featured', s:'shop', u:'users', c:'community', x:'auctions', m:'announce', o:'appconfig',
-  y:'money', v:'activity',
+  y:'money', v:'activity', t:'theft',
 };
 
 // What each ⌘K hit opens: users/listings/receipts get a 360 modal, the rest jump to their section.
@@ -160,7 +162,7 @@ export default function App(){
   async function refreshCounts(){
     // Parallel — these were 9 sequential round-trips, making the sidebar counts crawl.
     try {
-    const [pendL,pendF,pendD,pendFeat,pendV,pendA,pendR,pendK,pendB]=await Promise.all([
+    const [pendL,pendF,pendD,pendFeat,pendV,pendA,pendR,pendK,pendB,pendT]=await Promise.all([
       supabase.from('listings').select('id',{count:'exact',head:true}).eq('approval_status','pending'),
       supabase.from('live_feed_sellers').select('id',{count:'exact',head:true}).eq('approved',false),
       supabase.from('disease_alerts').select('id',{count:'exact',head:true}).eq('verified',false),
@@ -170,8 +172,9 @@ export default function App(){
       supabase.from('reports').select('id',{count:'exact',head:true}).eq('status','open'),
       supabase.from('kyc_submissions').select('id',{count:'exact',head:true}).eq('status','pending'),
       supabase.from('badge_requests').select('id',{count:'exact',head:true}).eq('status','pending'),
+      supabase.from('theft_alerts').select('id',{count:'exact',head:true}).eq('status','active'),
     ]);
-    setCounts({ approvals:pendL.count||0, reports:pendR.count||0, kyc:pendK.count||0, badges:pendB.count||0, featured:pendFeat.count||0, livefeed:pendF.count||0, disease:pendD.count||0, vets:pendV.count||0, auctions:pendA.count||0 });
+    setCounts({ approvals:pendL.count||0, reports:pendR.count||0, kyc:pendK.count||0, badges:pendB.count||0, featured:pendFeat.count||0, livefeed:pendF.count||0, disease:pendD.count||0, vets:pendV.count||0, auctions:pendA.count||0, theft:pendT.count||0 });
     } catch (e) {
       // Keep the last known counts — a transient network blip shouldn't blank the sidebar.
       console.error('refreshCounts failed:', e);
@@ -203,6 +206,7 @@ export default function App(){
     kukuta:<Kukuta/>, breeds:<Breeds/>, disease:<Disease onChange={refreshCounts}/>,
     boosts:<Boosts/>, users:<UsersSection/>, announce:<Announcements/>, auctions:<Auctions onChange={refreshCounts}/>,
     community:<Community onChange={refreshCounts}/>,
+    theft:<Theft onChange={refreshCounts}/>,
     appconfig:<AppConfig/>,
   };
 

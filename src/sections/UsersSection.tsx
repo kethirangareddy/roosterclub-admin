@@ -29,6 +29,7 @@ export default function UsersSection(){
   const [dups,setDups]=useState<any[]>([]);
   const [fState,setFState]=useState<string>('all'); // location filters (All users tab)
   const [fDist,setFDist]=useState<string>('all');
+  const [fCred,setFCred]=useState<'all'|'has'>('all'); // feature-credits filter (All users tab)
 
   async function load(){
     setLoading(true);
@@ -65,7 +66,7 @@ export default function UsersSection(){
   // Location filters for the All-users list (client-side over the loaded rows).
   const uStates = Array.from(new Set(rows.map(u=>u.state).filter(Boolean))).sort();
   const uDists = Array.from(new Set(rows.filter(u=>fState==='all'||u.state===fState).map(u=>u.district).filter(Boolean))).sort();
-  const shown = rows.filter(u=> (fState==='all'||u.state===fState) && (fDist==='all'||u.district===fDist));
+  const shown = rows.filter(u=> (fState==='all'||u.state===fState) && (fDist==='all'||u.district===fDist) && (fCred==='all' || (u.bonus_feature_credits||0)>0));
 
   return (
     <>
@@ -142,11 +143,15 @@ export default function UsersSection(){
               <option value="all">All districts</option>
               {uDists.map(d=><option key={d} value={d}>{d}</option>)}
             </select>
+            <select value={fCred} onChange={e=>setFCred(e.target.value as 'all'|'has')} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by feature credits">
+              <option value="all">All credits</option>
+              <option value="has">Has credits</option>
+            </select>
           </div>
         </div>
         {loading?<Loading/>:shown.length===0?<Empty text="No users found."/>:(
           <table>
-            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Risk</th><th>Verified</th><th>Badge</th><th></th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Risk</th><th>Verified</th><th>Badge</th><th>Credits</th><th></th><th></th></tr></thead>
             <tbody>
               {shown.map(u=>(
                 <tr key={u.id} style={u.banned?{opacity:.55}:undefined}>
@@ -161,6 +166,7 @@ export default function UsersSection(){
                       {BADGES.map(b=><option key={b.v} value={b.v}>{b.label}</option>)}
                     </select>
                   </td>
+                  <td>{(u.bonus_feature_credits||0)>0?<span className="badge b-ok" title="Bonus feature credits">{u.bonus_feature_credits}</span>:<span className="badge b-mut">—</span>}</td>
                   <td><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
                   <td><button className={'btn sm '+(u.banned?'ghost':'danger')} onClick={()=>toggleBan(u)}>{u.banned?'Unban':'Ban'}</button></td>
                 </tr>

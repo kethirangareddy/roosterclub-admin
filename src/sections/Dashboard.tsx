@@ -40,7 +40,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
     const nowIso=new Date().toISOString();
     const wk=new Date(Date.now()-7*864e5).toISOString();
     const day=new Date(Date.now()-864e5).toISOString();
-    const [users,newUsers,active,listingsToday,pendL,pendF,pendD,pendKyc,pendRep,pendBadge,pendAuc,pendFeat,vets,arts,boosts]=await Promise.all([
+    const [users,newUsers,active,listingsToday,pendL,pendF,pendD,pendKyc,pendRep,pendBadge,pendAuc,pendFeat,vets,arts,boosts,pendTheft]=await Promise.all([
       cnt('users'),
       cnt('users',q=>q.gte('created_at',wk)),
       cnt('listings',q=>q.eq('status','active').eq('approval_status','approved').gt('expires_at',nowIso)),
@@ -55,10 +55,11 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
       cnt('feature_requests',q=>q.eq('status','pending')),
       cnt('vets'), cnt('kukuta_articles'),
       cnt('boosts',q=>q.is('activated_at',null)),
+      cnt('theft_alerts',q=>q.eq('status','active')),
     ]);
     // Item 13 — auto-flag queue: risk ≥ 60 or 3+ reports lands in the attention queue.
     const { data:fl }=await supabase.rpc('admin_flagged_users');
-    setK({users,newUsers,active,listingsToday,pendL,pendF,pendD,pendKyc,pendRep,pendBadge,pendAuc,pendFeat,vets,arts,boosts,flagged:(fl||[]).length});
+    setK({users,newUsers,active,listingsToday,pendL,pendF,pendD,pendKyc,pendRep,pendBadge,pendAuc,pendFeat,vets,arts,boosts,pendTheft,flagged:(fl||[]).length});
 
     const { data:rl }=await supabase.from('listings')
       .select('id,breed,type,price,created_at,state,district').order('created_at',{ascending:false}).limit(8);
@@ -160,6 +161,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
     { label:'Feature requests',            n:k.pendFeat, go:'featured',  Icon:Star },
     { label:'Live-feed sellers waiting',   n:k.pendF,    go:'livefeed',  Icon:Truck },
     { label:'Disease reports to verify',   n:k.pendD,    go:'disease',   Icon:Siren },
+    { label:'Active theft alerts',         n:k.pendTheft,go:'theft',     Icon:Siren },
     { label:'Boosts to activate',          n:k.boosts,   go:'boosts',    Icon:Rocket },
   ].filter(q=>q.n>0).sort((a,b)=>b.n-a.n);
 
@@ -197,6 +199,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
     { lab:'Active listings', val:k.active, Icon:ListChecks },
     { lab:'Listings today', val:k.listingsToday, Icon:Inbox },
     { lab:'Needs review', val:totalPending, delta:totalPending?'open queue':'all clear', Icon:Inbox, go:queue[0]?.go },
+    { lab:'Active theft alerts', val:k.pendTheft, delta:k.pendTheft?'needs attention':undefined, Icon:Siren, go:'theft' },
     { lab:'Vets listed', val:k.vets, Icon:Stethoscope, go:'vets' },
     { lab:'Kukuta articles', val:k.arts, Icon:BookOpen, go:'kukuta' },
     { lab:'Twilio balance', val: twBal ? `${twBal.currency||''} ${twBal.balance}`.trim() : '—', Icon:MessagesSquare },
@@ -230,6 +233,14 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
         <div className="anom">
           <AlertTriangle size={15} style={{flexShrink:0,marginTop:1}}/>
           <div>{anoms.map((a:any,i:number)=><div key={i}>{a.label}</div>)}</div>
+        </div>
+      )}
+
+      {/* Theft alerts are time-sensitive — surface unresolved ones at the top. */}
+      {k.pendTheft>0 && (
+        <div className="anom" style={{cursor:'pointer',borderColor:'rgba(224,49,49,.4)',background:'rgba(224,49,49,.08)'}} onClick={()=>go('theft')}>
+          <Siren size={15} style={{flexShrink:0,marginTop:1,color:'var(--danger)'}}/>
+          <div>{k.pendTheft} active theft {k.pendTheft===1?'alert':'alerts'} — tap to review</div>
         </div>
       )}
 
