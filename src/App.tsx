@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
-  LayoutDashboard, Inbox, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
+  LayoutDashboard, Inbox, ListChecks, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
   Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon
 } from 'lucide-react';
 import CommandK, { Hit } from './CommandK';
@@ -19,6 +19,7 @@ import Analytics from './sections/Analytics';
 import Community from './sections/Community';
 import Theft from './sections/Theft';
 import Approvals from './sections/Approvals';
+import Listings from './sections/Listings';
 import Vets from './sections/Vets';
 import Kukuta from './sections/Kukuta';
 import Breeds from './sections/Breeds';
@@ -35,13 +36,14 @@ import BadgeRequests from './sections/BadgeRequests';
 import Competitions from './sections/Competitions';
 import Acquisition from './sections/Acquisition';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'appconfig';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'appconfig';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
   { key:'analytics', label:'Analytics', Icon:BarChart3 },
   { key:'money', label:'Money Desk', Icon:Wallet },
   { key:'approvals', label:'Approvals', Icon:Inbox },
+  { key:'listings', label:'Listings', Icon:ListChecks },
   { key:'reports', label:'Reports', Icon:Flag },
   { key:'kyc', label:'Verifications', Icon:ShieldCheck },
   { key:'badges', label:'Badge Requests', Icon:Award },
@@ -69,7 +71,7 @@ const KEYS = NAV.map(n=>n.key);
 const GNAV: Record<string,Key> = {
   d:'dash', n:'analytics', a:'approvals', r:'reports', k:'kyc', b:'badges',
   f:'featured', s:'shop', u:'users', c:'community', x:'auctions', m:'announce', o:'appconfig',
-  y:'money', v:'activity', t:'theft',
+  y:'money', v:'activity', t:'theft', l:'listings',
 };
 
 // What each ⌘K hit opens: users/listings/receipts get a 360 modal, the rest jump to their section.
@@ -197,6 +199,7 @@ export default function App(){
     money:<Money openReceipt={(id:string)=>setDetail([{kind:'receipt',id}])} go={setView}/>,
     activity:<Activity/>,
     approvals:<Approvals onChange={refreshCounts}/>,
+    listings:<Listings/>,
     reports:<Reports onChange={refreshCounts}/>, kyc:<Kyc onChange={refreshCounts}/>,
     badges:<BadgeRequests onChange={refreshCounts}/>,
     competitions:<Competitions/>,
