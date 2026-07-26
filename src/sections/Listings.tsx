@@ -21,7 +21,7 @@ export default function Listings() {
     setLoading(true);
     const nowIso = new Date().toISOString();
     let query = supabase.from('listings')
-      .select('id,user_id,breed,type,price,status,approval_status,created_at,expires_at,state,district,mandal,village,users(full_name,handle)')
+      .select('id,user_id,breed,type,price,status,approval_status,created_at,expires_at,state,district,mandal,village,users!listings_user_id_fkey(full_name,handle)')
       .order('created_at', { ascending: false }).limit(200);
     if (fStatus === 'live') query = query.eq('status', 'active').gt('expires_at', nowIso);
     else if (fStatus === 'pending') query = query.eq('approval_status', 'pending');

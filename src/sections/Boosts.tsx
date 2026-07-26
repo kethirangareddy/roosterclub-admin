@@ -31,7 +31,7 @@ export default function Boosts(){
 
   async function openAdd(){
     const { data }=await supabase.from('listings')
-      .select('id,breed,type,user_id,users(full_name)').eq('status','active').order('created_at',{ascending:false}).limit(200);
+      .select('id,breed,type,user_id,users!listings_user_id_fkey(full_name)').eq('status','active').order('created_at',{ascending:false}).limit(200);
     setListings(data||[]);
     const { data:cfg }=await supabase.from('app_config').select('value').eq('key','prices').maybeSingle();
     const bp=(cfg?.value as any)?.boost_levels||{};

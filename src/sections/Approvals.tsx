@@ -27,7 +27,7 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
   async function load(){
     setLoading(true);
     let q=supabase.from('listings')
-      .select('id,user_id,breed,type,price,status,approval_status,created_at,state,district,mandal,village,users(full_name,handle)')
+      .select('id,user_id,breed,type,price,status,approval_status,created_at,state,district,mandal,village,users!listings_user_id_fkey(full_name,handle)')
       // Only ever show live listings — never sold / expired / removed clutter.
       .eq('status','active')
       .gt('expires_at', new Date().toISOString())
