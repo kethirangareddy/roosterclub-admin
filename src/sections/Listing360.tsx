@@ -91,9 +91,15 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
             {boosted && <span className="badge b-info"><Rocket size={11}/> boost L{l.boost_level} → {timeAgo(l.boost_expires_at).replace(' ago','')}</span>}
             {featured && <span className="badge b-info"><Star size={11}/> featured until {new Date(l.featured_until).toLocaleDateString('en-IN')}</span>}
             {l.expires_at && <span className="badge b-mut">expires {new Date(l.expires_at).toLocaleDateString('en-IN')}</span>}
-            {l.ig_posted && <span className="badge b-info"><Instagram size={11}/> on IG{l.ig_posted_at?' · '+timeAgo(l.ig_posted_at):''}</span>}
-            {l.ig_error==='branding_queued' && <span className="badge b-mut"><Instagram size={11}/> branding…</span>}
-            {l.ig_error && l.ig_error!=='branding_queued' && <span className="badge b-danger" title={l.ig_error}><Instagram size={11}/> IG failed</span>}
+            {l.ig_posted
+              ? <span className="badge b-info"><Instagram size={11}/> on IG{l.ig_posted_at?' · '+timeAgo(l.ig_posted_at):''}</span>
+              : l.ig_error==='branding_queued'
+                ? <span className="badge b-mut"><Instagram size={11}/> branding…</span>
+                : l.ig_error && l.ig_error.trim().startsWith('{')
+                  ? <span className="badge b-danger" title={l.ig_error}><Instagram size={11}/> IG error</span>
+                  : l.ig_error
+                    ? <span className="badge b-mut" title={'Auto-post skipped: '+l.ig_error+'. Use Push to Insta to post now.'}><Instagram size={11}/> not posted</span>
+                    : null}
           </div>
 
           {/* seller */}
