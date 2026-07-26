@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Modal, timeAgo, inr } from '../ui';
-import { Check, X, Star, Trash2, User, Eye, MessagesSquare, ReceiptText, Rocket } from 'lucide-react';
+import { Check, X, Star, Trash2, User, Eye, MessagesSquare, ReceiptText, Rocket, Instagram } from 'lucide-react';
 
 /** Listing-360 — everything about one listing + approve/reject/feature/delete, from anywhere. */
 export default function Listing360({ listingId, onClose, onOpenUser, onChanged }:{
@@ -9,6 +9,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
 }){
   const [d,setD]=useState<any|null>(null);
   const [busy,setBusy]=useState(false);
+  const [pushMsg,setPushMsg]=useState('');
 
   function load(){
     supabase.rpc('admin_listing_overview',{ p_listing:listingId })
@@ -46,6 +47,21 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     if(error){ alert(error.message); return; }
     load(); onChanged?.();
   }
+  // Manual Instagram push — fires the ig-autopost pipeline server-side via a SECURITY DEFINER
+  // RPC (is_admin-guarded), so the shared secret never ships in this public bundle.
+  async function pushToInsta(){
+    const already=!!l.ig_posted;
+    const hasVideo=(d?.media||[]).some((m:any)=>m.type==='video');
+    if(!confirm(already
+      ? 'This listing was already posted to Instagram. Post it to @the.roosters.club again?'
+      : 'Post this listing to @the.roosters.club Instagram now?')) return;
+    setBusy(true); setPushMsg('');
+    const { error }=await supabase.rpc('admin_push_to_insta',{ p_listing:listingId });
+    setBusy(false);
+    if(error){ setPushMsg('❌ '+error.message); return; }
+    setPushMsg('✅ Queued — posts in the background in ~10–60s'+(hasVideo?' (longer for branded reels)':'')+'. Status refreshes shortly.');
+    setTimeout(load, 45000);
+  }
 
   const boosted=l && l.boost_level>0 && l.boost_expires_at && new Date(l.boost_expires_at)>new Date();
   const featured=l && l.featured_until && new Date(l.featured_until)>new Date();
@@ -75,6 +91,9 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
             {boosted && <span className="badge b-info"><Rocket size={11}/> boost L{l.boost_level} → {timeAgo(l.boost_expires_at).replace(' ago','')}</span>}
             {featured && <span className="badge b-info"><Star size={11}/> featured until {new Date(l.featured_until).toLocaleDateString('en-IN')}</span>}
             {l.expires_at && <span className="badge b-mut">expires {new Date(l.expires_at).toLocaleDateString('en-IN')}</span>}
+            {l.ig_posted && <span className="badge b-info"><Instagram size={11}/> on IG{l.ig_posted_at?' · '+timeAgo(l.ig_posted_at):''}</span>}
+            {l.ig_error==='branding_queued' && <span className="badge b-mut"><Instagram size={11}/> branding…</span>}
+            {l.ig_error && l.ig_error!=='branding_queued' && <span className="badge b-danger" title={l.ig_error}><Instagram size={11}/> IG failed</span>}
           </div>
 
           {/* seller */}
@@ -124,7 +143,11 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
             {l.status==='removed'
               ? <button className="btn ok sm" disabled={busy} onClick={restore}><Check size={13}/> Restore</button>
               : <button className="btn danger sm" disabled={busy} onClick={remove}><Trash2 size={13}/> Remove</button>}
+            <button className="btn ghost sm" disabled={busy||l.status!=='active'||l.approval_status!=='approved'}
+              title={l.status==='active'&&l.approval_status==='approved'?'Post this listing to Instagram now':'Listing must be active & approved to post to Instagram'}
+              onClick={pushToInsta}><Instagram size={13}/> {l.ig_posted?'Re-post to Insta':'Push to Insta'}</button>
           </div>
+          {pushMsg && <div className="muted" style={{fontSize:12.5,marginTop:2}}>{pushMsg}</div>}
         </>
       )}
     </Modal>
