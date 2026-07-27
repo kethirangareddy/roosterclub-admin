@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Modal, timeAgo, inr } from '../ui';
 import { Check, X, Star, Trash2, User, Eye, MessagesSquare, ReceiptText, Rocket, Instagram } from 'lucide-react';
+import ListingChats from './ListingChats';
 
 /** Listing-360 — everything about one listing + approve/reject/feature/delete, from anywhere. */
 export default function Listing360({ listingId, onClose, onOpenUser, onChanged }:{
@@ -10,6 +11,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
   const [d,setD]=useState<any|null>(null);
   const [busy,setBusy]=useState(false);
   const [pushMsg,setPushMsg]=useState('');
+  const [showChats,setShowChats]=useState(false);
 
   function load(){
     supabase.rpc('admin_listing_overview',{ p_listing:listingId })
@@ -113,9 +115,11 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
 
           {/* numbers */}
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
-            {[{lab:'Views',val:l.view_count??0,Icon:Eye},{lab:'Chats',val:d.chats??0,Icon:MessagesSquare},{lab:'Receipts',val:(d.receipts||[]).length,Icon:ReceiptText}].map(s=>(
-              <div key={s.lab} style={{background:'var(--glass)',border:'1px solid var(--line)',borderRadius:10,padding:'10px 12px'}}>
-                <div style={{fontSize:10.5,color:'var(--muted)',textTransform:'uppercase',display:'flex',gap:5,alignItems:'center'}}><s.Icon size={12}/> {s.lab}</div>
+            {[{lab:'Views',val:l.view_count??0,Icon:Eye,onClick:undefined as undefined|(()=>void)},{lab:'Chats',val:d.chats??0,Icon:MessagesSquare,onClick:()=>setShowChats(true)},{lab:'Receipts',val:(d.receipts||[]).length,Icon:ReceiptText,onClick:undefined}].map(s=>(
+              <div key={s.lab} onClick={s.onClick}
+                title={s.onClick?'View the conversations on this listing':undefined}
+                style={{background:'var(--glass)',border:'1px solid '+(s.onClick?'#BA7517':'var(--line)'),borderRadius:10,padding:'10px 12px',cursor:s.onClick?'pointer':'default'}}>
+                <div style={{fontSize:10.5,color:'var(--muted)',textTransform:'uppercase',display:'flex',gap:5,alignItems:'center'}}><s.Icon size={12}/> {s.lab}{s.onClick?' ›':''}</div>
                 <div style={{fontWeight:700,fontSize:16,marginTop:3}}>{s.val}</div>
               </div>
             ))}
@@ -156,6 +160,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
           {pushMsg && <div className="muted" style={{fontSize:12.5,marginTop:2}}>{pushMsg}</div>}
         </>
       )}
+      {showChats && <ListingChats listingId={listingId} onClose={()=>setShowChats(false)}/>}
     </Modal>
   );
 }
