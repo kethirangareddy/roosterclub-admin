@@ -54,8 +54,6 @@ const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'shop', label:'Shop', Icon:Store },
   { key:'vets', label:'Doctors', Icon:Stethoscope },
   { key:'auctions', label:'Auctions', Icon:Gavel },
-  { key:'kukuta', label:'Kukuta Shastram', Icon:BookOpen },
-  { key:'breeds', label:'Breed Encyclopedia', Icon:Bird },
   { key:'disease', label:'Disease Alerts', Icon:Siren },
   { key:'theft', label:'Theft Alerts', Icon:ShieldAlert },
   { key:'announce', label:'Announcements', Icon:Megaphone },

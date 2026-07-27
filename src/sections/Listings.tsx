@@ -51,10 +51,24 @@ export default function Listings() {
             <input placeholder="Search breed / type…" value={q}
               onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && load()} style={{ width: 220 }} />
             <button className="btn ghost sm" onClick={load}><Search size={14} /> Search</button>
-            <select value={fStatus} onChange={e => setFStatus(e.target.value as Filter)} style={{ fontSize: 13, padding: '6px 8px', borderRadius: 8 }} title="Filter by status">
-              {FILTERS.map(f => <option key={f.v} value={f.v}>{f.label}</option>)}
-            </select>
           </div>
+        </div>
+        <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 0 12px' }}>
+          {FILTERS.map(f => {
+            const active = fStatus === f.v;
+            return (
+              <button key={f.v} onClick={() => setFStatus(f.v)}
+                style={{
+                  fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer',
+                  padding: '6px 14px', borderRadius: 999,
+                  border: '1px solid ' + (active ? '#BA7517' : '#e3d9c9'),
+                  background: active ? '#BA7517' : 'transparent',
+                  color: active ? '#fff' : '#6b5b45',
+                }}>
+                {f.label}
+              </button>
+            );
+          })}
         </div>
         {loading ? <Loading /> : rows.length === 0 ? <Empty text="No listings match this filter." /> : (
           <table>
