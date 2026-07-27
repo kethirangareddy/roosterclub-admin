@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, ListChecks, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
-  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon
+  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield
 } from 'lucide-react';
 import CommandK, { Hit } from './CommandK';
 import Money from './sections/Money';
@@ -36,9 +36,10 @@ import Reports from './sections/Reports';
 import Kyc from './sections/Kyc';
 import BadgeRequests from './sections/BadgeRequests';
 import Competitions from './sections/Competitions';
+import Syndicates from './sections/Syndicates';
 import Acquisition from './sections/Acquisition';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'appconfig';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'appconfig';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
@@ -50,6 +51,7 @@ const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'kyc', label:'Verifications', Icon:ShieldCheck },
   { key:'badges', label:'Badge Requests', Icon:Award },
   { key:'competitions', label:'Competitions', Icon:Trophy },
+  { key:'syndicates', label:'Syndicates', Icon:Shield },
   { key:'featured', label:'Featured', Icon:Star },
   { key:'livefeed', label:'Live Feed', Icon:Truck },
   { key:'shop', label:'Shop', Icon:Store },
@@ -182,7 +184,7 @@ export default function App(){
   async function refreshCounts(){
     // Parallel — these were 9 sequential round-trips, making the sidebar counts crawl.
     try {
-    const [pendL,pendF,pendD,pendFeat,pendV,pendA,pendR,pendK,pendB,pendT]=await Promise.all([
+    const [pendL,pendF,pendD,pendFeat,pendV,pendA,pendR,pendK,pendB,pendT,pendSyn]=await Promise.all([
       supabase.from('listings').select('id',{count:'exact',head:true}).eq('approval_status','pending'),
       supabase.from('live_feed_sellers').select('id',{count:'exact',head:true}).eq('approved',false),
       supabase.from('disease_alerts').select('id',{count:'exact',head:true}).eq('verified',false),
@@ -193,8 +195,9 @@ export default function App(){
       supabase.from('kyc_submissions').select('id',{count:'exact',head:true}).eq('status','pending'),
       supabase.from('badge_requests').select('id',{count:'exact',head:true}).eq('status','pending'),
       supabase.from('theft_alerts').select('id',{count:'exact',head:true}).eq('status','active'),
+      supabase.from('syndicates').select('id',{count:'exact',head:true}).eq('status','pending'),
     ]);
-    setCounts({ approvals:pendL.count||0, reports:pendR.count||0, kyc:pendK.count||0, badges:pendB.count||0, featured:pendFeat.count||0, livefeed:pendF.count||0, disease:pendD.count||0, vets:pendV.count||0, auctions:pendA.count||0, theft:pendT.count||0 });
+    setCounts({ approvals:pendL.count||0, reports:pendR.count||0, kyc:pendK.count||0, badges:pendB.count||0, featured:pendFeat.count||0, livefeed:pendF.count||0, disease:pendD.count||0, vets:pendV.count||0, auctions:pendA.count||0, theft:pendT.count||0, syndicates:pendSyn.count||0 });
     } catch (e) {
       // Keep the last known counts — a transient network blip shouldn't blank the sidebar.
       console.error('refreshCounts failed:', e);
@@ -222,6 +225,7 @@ export default function App(){
     reports:<Reports onChange={refreshCounts}/>, kyc:<Kyc onChange={refreshCounts}/>,
     badges:<BadgeRequests onChange={refreshCounts}/>,
     competitions:<Competitions/>,
+    syndicates:<Syndicates onChange={refreshCounts}/>,
     acquisition:<Acquisition/>,
     featured:<Featured onChange={refreshCounts}/>,
     livefeed:<LiveFeed onChange={refreshCounts}/>, shop:<Shop/>, vets:<Vets onChange={refreshCounts}/>,
