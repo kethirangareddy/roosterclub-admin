@@ -18,6 +18,7 @@ import Featured from './sections/Featured';
 import Dashboard from './sections/Dashboard';
 import Analytics from './sections/Analytics';
 import Community from './sections/Community';
+import Chats from './sections/Chats';
 import Theft from './sections/Theft';
 import Approvals from './sections/Approvals';
 import Listings from './sections/Listings';
@@ -37,7 +38,7 @@ import BadgeRequests from './sections/BadgeRequests';
 import Competitions from './sections/Competitions';
 import Acquisition from './sections/Acquisition';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'appconfig';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'appconfig';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
@@ -60,6 +61,7 @@ const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'boosts', label:'Boosts', Icon:Rocket },
   { key:'users', label:'Users & Badges', Icon:UsersIcon },
   { key:'community', label:'Community', Icon:MessagesSquare },
+  { key:'chats', label:'Chats', Icon:MessagesSquare },
   { key:'acquisition', label:'Acquisition', Icon:TrendingUp },
   { key:'activity', label:'Activity', Icon:HistoryIcon },
   { key:'appconfig', label:'App Config', Icon:SlidersHorizontal },
@@ -226,6 +228,7 @@ export default function App(){
     kukuta:<Kukuta/>, breeds:<Breeds/>, disease:<Disease onChange={refreshCounts}/>,
     boosts:<Boosts/>, users:<UsersSection/>, announce:<Announcements/>, auctions:<Auctions onChange={refreshCounts}/>,
     community:<Community onChange={refreshCounts}/>,
+    chats:<Chats/>,
     theft:<Theft onChange={refreshCounts}/>,
     appconfig:<AppConfig/>,
   };

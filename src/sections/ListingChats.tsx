@@ -2,52 +2,27 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Modal, timeAgo } from '../ui';
 import { ChevronLeft, ArrowRight } from 'lucide-react';
+import ChatMessages from './ChatMessages';
 
 type Thread = {
   chat_id: string; buyer_id: string; buyer_name: string; buyer_handle: string;
   seller_id: string; seller_name: string; seller_handle: string;
   last_message: string; last_message_at: string; msg_count: number;
 };
-type Msg = {
-  id: string; sender_id: string; sender_name: string; content: string;
-  type: string; created_at: string; deleted: boolean; attachment_name: string | null;
-};
 
 const who = (name: string, handle: string) =>
   name || (handle ? '@' + handle : '—');
-
-// Non-text messages carry a URL/label in content; show a friendly summary instead.
-function body(m: Msg) {
-  if (m.deleted) return '🚫 message deleted';
-  switch (m.type) {
-    case 'image': return '📷 photo';
-    case 'audio': return '🎤 voice note';
-    case 'document': return '📎 ' + (m.attachment_name || 'file');
-    case 'location_share': return '📍 location shared';
-    case 'phone_share': return '📞 phone number shared';
-    case 'payment_request': return '🧾 payment request';
-    default: return m.content || '—';
-  }
-}
 
 export default function ListingChats({ listingId, onClose }:{
   listingId: string; onClose: () => void;
 }) {
   const [threads, setThreads] = useState<Thread[] | null>(null);
   const [active, setActive] = useState<Thread | null>(null);
-  const [msgs, setMsgs] = useState<Msg[] | null>(null);
 
   useEffect(() => {
     supabase.rpc('admin_listing_chats', { p_listing: listingId })
       .then(({ data, error }) => setThreads(error ? [] : (data || [])));
   }, [listingId]);
-
-  useEffect(() => {
-    if (!active) { setMsgs(null); return; }
-    setMsgs(null);
-    supabase.rpc('admin_chat_messages', { p_chat: active.chat_id })
-      .then(({ data, error }) => setMsgs(error ? [] : (data || [])));
-  }, [active]);
 
   const title = active
     ? `${who(active.buyer_name, active.buyer_handle)} ↔ ${who(active.seller_name, active.seller_handle)}`
@@ -88,30 +63,7 @@ export default function ListingChats({ listingId, onClose }:{
           <button className="btn ghost sm" onClick={() => setActive(null)} style={{ marginBottom: 10 }}>
             <ChevronLeft size={13} /> All conversations
           </button>
-          {msgs === null ? <div className="loading">Loading messages…</div>
-          : msgs.length === 0 ? <div className="empty">No messages in this conversation.</div>
-          : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {msgs.map(m => {
-                const isSeller = m.sender_id === active.seller_id;
-                return (
-                  <div key={m.id} style={{ display: 'flex', justifyContent: isSeller ? 'flex-end' : 'flex-start' }}>
-                    <div style={{ maxWidth: '78%', background: isSeller ? '#BA7517' : 'var(--glass)',
-                      color: isSeller ? '#fff' : 'var(--ink)', border: '1px solid ' + (isSeller ? '#BA7517' : 'var(--line)'),
-                      borderRadius: 12, padding: '7px 11px' }}>
-                      <div style={{ fontSize: 10.5, opacity: 0.8, marginBottom: 2 }}>
-                        {m.sender_name || '—'} · {isSeller ? 'seller' : 'buyer'}
-                      </div>
-                      <div style={{ fontSize: 13.5, fontStyle: m.deleted ? 'italic' : 'normal', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {body(m)}
-                      </div>
-                      <div style={{ fontSize: 10, opacity: 0.7, marginTop: 3, textAlign: 'right' }}>{timeAgo(m.created_at)}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <ChatMessages chatId={active.chat_id} sellerId={active.seller_id} />
         </>
       )}
     </Modal>
