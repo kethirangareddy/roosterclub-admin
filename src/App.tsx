@@ -13,6 +13,7 @@ import Listing360 from './sections/Listing360';
 import Receipt360 from './sections/Receipt360';
 import AppConfig from './sections/AppConfig';
 import Login from './Login';
+import ResetPassword from './ResetPassword';
 import Featured from './sections/Featured';
 import Dashboard from './sections/Dashboard';
 import Analytics from './sections/Analytics';
@@ -80,6 +81,7 @@ type Detail = { kind:'user'|'listing'|'receipt'; id:string };
 export default function App(){
   const [session,setSession]=useState<Session|null>(null);
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
+  const [recovery,setRecovery]=useState(false);
   const [view,setViewRaw]=useState<Key>(()=>{
     const v=new URLSearchParams(location.search).get('view') as Key|null;
     return v && KEYS.includes(v) ? v : 'dash';
@@ -155,6 +157,22 @@ export default function App(){
     return ()=>sub.subscription.unsubscribe();
   },[]);
 
+  // Password-recovery link: the email link lands here with the recovery token in
+  // the URL hash. detectSessionInUrl is off, so we parse + establish it ourselves,
+  // then show the "set a new password" screen.
+  useEffect(()=>{
+    const h=new URLSearchParams(window.location.hash.replace(/^#/,''));
+    if(h.get('type')==='recovery' && h.get('access_token')){
+      supabase.auth.setSession({
+        access_token: h.get('access_token')!,
+        refresh_token: h.get('refresh_token')||'',
+      }).finally(()=>{
+        setRecovery(true);
+        history.replaceState(null,'',window.location.pathname+window.location.search);
+      });
+    }
+  },[]);
+
   useEffect(()=>{
     if(!session){ setIsAdmin(null); return; }
     supabase.from('admins').select('id').eq('id',session.user.id).maybeSingle()
@@ -184,6 +202,7 @@ export default function App(){
   }
   useEffect(()=>{ if(isAdmin) refreshCounts(); },[isAdmin,view]);
 
+  if(recovery) return <ResetPassword onDone={()=>setRecovery(false)}/>;
   if(!session) return <Login/>;
   if(isAdmin===null) return <div className="login"><div className="box">Checking access…</div></div>;
   if(isAdmin===false) return (
