@@ -304,3 +304,88 @@ td.ck input,th.ck input{width:15px;height:15px;cursor:pointer}
   .modal{max-height:94vh;border-radius:14px}
   .modal-b{padding:16px 14px}
 }
+
+
+/* ==========================================================================
+   MOBILE OPERATING LAYER  (added for phone-first Command Center)
+   - card-ified tables (no per-section markup changes; App.tsx injects
+     data-label on each <td> from its column header)
+   - bottom tab bar + "Today" triage tiles
+   - touch polish
+   ========================================================================== */
+
+.mobile-only{display:none}
+.btabs{display:none}
+
+@media (max-width:860px){
+  .mobile-only{display:block}
+
+  /* iOS: 16px inputs stop the auto-zoom-on-focus jump. */
+  input,select,textarea{font-size:16px}
+
+  /* Respect notch / status bar in installed PWA. */
+  .menu-btn{top:calc(14px + env(safe-area-inset-top))}
+  .main{padding-top:calc(64px + env(safe-area-inset-top));padding-bottom:80px}
+
+  /* Momentum scrolling everywhere it matters. */
+  .modal,.cmdk-body,.card{-webkit-overflow-scrolling:touch}
+
+  /* Tactile press feedback. */
+  .btn:active,.mtile:active,.btabs button:active,.nav button:active{transform:scale(.98)}
+
+  /* ---- Today triage tiles (mobile home) ---- */
+  .mtriage{margin-bottom:16px}
+  .mtriage-h{font-weight:700;font-size:12px;color:var(--muted);margin:0 4px 10px;
+    text-transform:uppercase;letter-spacing:.05em}
+  .mtriage-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}
+  .mtile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:8px;
+    background:var(--surface);border:1px solid var(--line-2);border-radius:14px;padding:14px 12px;
+    color:var(--ink);box-shadow:var(--shadow);min-height:84px;transition:transform .05s}
+  .mtile svg{color:var(--cta)}
+  .mtile-l{font-size:12.5px;font-weight:600;line-height:1.2}
+  .mtile-n{position:absolute;top:10px;right:12px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--faint)}
+  .mtile-n.hot{color:#fff;background:var(--danger);min-width:22px;height:22px;border-radius:11px;
+    display:flex;align-items:center;justify-content:center;padding:0 6px;box-shadow:0 2px 8px rgba(217,58,63,.4)}
+
+  /* ---- bottom tab bar ---- */
+  .btabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:46;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-top:1px solid var(--line);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));justify-content:space-around}
+  .btabs button{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:none;border:0;color:var(--faint);font-size:10px;font-weight:600;padding:5px 2px;letter-spacing:.02em}
+  .btabs button.on{color:var(--cta)}
+  .btabs button.on svg{color:var(--cta)}
+  .btabs .bdot{position:absolute;top:-3px;right:calc(50% - 22px);background:var(--danger);color:#fff;
+    font-size:9.5px;font-weight:700;min-width:16px;height:16px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 2px 6px rgba(217,58,63,.4)}
+}
+
+/* ---- card-ified tables (phones) ---- */
+@media (max-width:700px){
+  /* Undo the sideways-scroll fallback; we stack instead. */
+  .card{overflow-x:visible}
+  .card>table{min-width:0}
+  .card>table,.card>table>tbody{display:block;width:100%}
+  .card>table>thead{display:none}
+
+  .card>table>tbody>tr{
+    display:block;background:var(--surface);border:1px solid var(--line);
+    border-radius:12px;margin:10px 12px;padding:4px 2px;box-shadow:var(--shadow)}
+  .card>table>tbody>tr>td{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;
+    width:auto;border:0;border-bottom:1px solid var(--line);padding:9px 12px;text-align:right}
+  .card>table>tbody>tr>td:last-child{border-bottom:0}
+  .card>table>tbody>tr>td::before{
+    content:attr(data-label);flex:0 0 auto;text-align:left;
+    font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+
+  /* Action cells (empty header) → full-width buttons, easy to thumb. */
+  .card>table>tbody>tr>td:not([data-label]){text-align:left}
+  .card>table>tbody>tr>td:not([data-label])::before{display:none}
+  .card>table>tbody>tr>td:not([data-label]) .row-acts{width:100%}
+  .card>table>tbody>tr>td:not([data-label]) .row-acts .btn{flex:1;justify-content:center;padding:11px 12px}
+
+  /* Checkbox cell stays left. */
+  .card>table>tbody>tr>td.ck{justify-content:flex-start}
+  .card>table>tbody>tr>td.ck::before{display:none}
+}

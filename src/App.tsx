@@ -80,6 +80,36 @@ const GNAV: Record<string,Key> = {
 // What each ⌘K hit opens: users/listings/receipts get a 360 modal, the rest jump to their section.
 type Detail = { kind:'user'|'listing'|'receipt'; id:string };
 
+// Mobile home: a "Today" grid of the queues that need attention, each a big
+// tap target that jumps straight into that section. Hidden on desktop via CSS.
+function MobileTriage({counts,go}:{counts:Record<string,number>;go:(k:Key)=>void}){
+  const items:{key:Key;label:string;Icon:any}[]=[
+    {key:'approvals',label:'Approvals',Icon:Inbox},
+    {key:'kyc',label:'Verify',Icon:ShieldCheck},
+    {key:'badges',label:'Badges',Icon:Award},
+    {key:'syndicates',label:'Syndicates',Icon:Shield},
+    {key:'listings',label:'Listings',Icon:ListChecks},
+    {key:'theft',label:'Theft',Icon:ShieldAlert},
+    {key:'disease',label:'Disease',Icon:Siren},
+    {key:'featured',label:'Featured',Icon:Star},
+  ];
+  const pending=items.reduce((n,i)=>n+(counts[i.key]||0),0);
+  return (
+    <div className="mtriage mobile-only">
+      <div className="mtriage-h">Today · {pending>0?`${pending} pending`:'all clear'}</div>
+      <div className="mtriage-grid">
+        {items.map(({key,label,Icon})=>(
+          <button key={key} className="mtile" onClick={()=>go(key)}>
+            <Icon size={20}/>
+            <span className="mtile-l">{label}</span>
+            <span className={'mtile-n'+((counts[key]||0)>0?' hot':'')}>{counts[key]||0}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function App(){
   const [session,setSession]=useState<Session|null>(null);
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
@@ -152,6 +182,31 @@ export default function App(){
     window.addEventListener('keydown',onKey);
     return ()=>{ window.removeEventListener('keydown',onKey); clearTimeout(timer); (window as any).__gnav=false; };
   },[]);
+
+  // Mobile: stack tables into cards. Copy each column header into its cells'
+  // data-label so CSS can render "Label: value" rows. Re-runs per section and
+  // watches async row loads via a MutationObserver — no per-section edits.
+  useEffect(()=>{
+    const main=document.querySelector('main.main');
+    if(!main) return;
+    let raf=0;
+    const relabel=()=>{
+      main.querySelectorAll('table').forEach(tbl=>{
+        const heads=Array.from(tbl.querySelectorAll('thead th')).map(th=>(th.textContent||'').trim());
+        tbl.querySelectorAll('tbody tr').forEach(tr=>{
+          Array.from(tr.children).forEach((td,i)=>{
+            const h=heads[i];
+            if(h) td.setAttribute('data-label',h); else td.removeAttribute('data-label');
+          });
+        });
+      });
+    };
+    const schedule=()=>{ cancelAnimationFrame(raf); raf=requestAnimationFrame(relabel); };
+    schedule();
+    const mo=new MutationObserver(schedule);
+    mo.observe(main,{childList:true,subtree:true});
+    return ()=>{ mo.disconnect(); cancelAnimationFrame(raf); };
+  },[view]);
 
   useEffect(()=>{
     supabase.auth.getSession().then(({data})=>setSession(data.session));
@@ -262,7 +317,19 @@ export default function App(){
           <div><button onClick={()=>supabase.auth.signOut()}>Sign out</button></div>
         </div>
       </aside>
-      <main className="main">{sections[view]}</main>
+      <main className="main">
+        {view==='dash' && <MobileTriage counts={counts} go={(k)=>setView(k)}/>}
+        {sections[view]}
+      </main>
+
+      {/* Thumb-reachable bottom bar (phones only) for the most-used sections. */}
+      <nav className="btabs">
+        <button className={view==='dash'?'on':''} onClick={()=>setView('dash')}><LayoutDashboard size={20}/><span>Home</span></button>
+        <button className={view==='approvals'?'on':''} onClick={()=>setView('approvals')}><Inbox size={20}/>{!!counts.approvals&&<i className="bdot">{counts.approvals}</i>}<span>Approvals</span></button>
+        <button className={view==='listings'?'on':''} onClick={()=>setView('listings')}><ListChecks size={20}/><span>Listings</span></button>
+        <button className={view==='users'?'on':''} onClick={()=>setView('users')}><UsersIcon size={20}/><span>Users</span></button>
+        <button onClick={()=>setCmdk(true)}><Search size={20}/><span>Search</span></button>
+      </nav>
 
       {cmdk && <CommandK onOpenResult={openHit} onClose={()=>setCmdk(false)}/>}
       {top?.kind==='user' && <UserDetail userId={top.id} onClose={popDetail}/>}
