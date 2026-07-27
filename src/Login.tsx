@@ -10,7 +10,7 @@ export default function Login(){
 
   async function submit(e:React.FormEvent){
     e.preventDefault(); setErr(''); setBusy(true);
-    const { error }=await supabase.auth.signInWithPassword({ email:email.trim(), password:pw });
+    const { error }=await supabase.auth.signInWithPassword({ email:email.trim().toLowerCase(), password:pw });
     setBusy(false);
     if(error) setErr(error.message);
   }
@@ -24,10 +24,14 @@ export default function Login(){
           {err && <div className="err">{err}</div>}
           <div><label>Email</label>
             <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
-              placeholder="you@roosterclub.in" required style={{width:'100%'}}/></div>
+              placeholder="you@roosterclub.in" required style={{width:'100%'}}
+              inputMode="email" autoComplete="username" autoCapitalize="none"
+              autoCorrect="off" spellCheck={false}/></div>
           <div><label>Password</label>
             <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
-              required style={{width:'100%'}}/></div>
+              required style={{width:'100%'}}
+              autoComplete="current-password" autoCapitalize="none"
+              autoCorrect="off" spellCheck={false}/></div>
           <button className="btn" disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
         </form>
       </div>
