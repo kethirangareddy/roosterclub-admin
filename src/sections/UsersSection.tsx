@@ -31,6 +31,7 @@ export default function UsersSection(){
   const [fDist,setFDist]=useState<string>('all');
   const [fCred,setFCred]=useState<'all'|'has'>('all'); // feature-credits filter (All users tab)
   const [fOnline,setFOnline]=useState<'all'|'online'>('all'); // online filter (All users tab)
+  const [fRef,setFRef]=useState<'all'|'referred'|'referrer'>('all'); // referral filter (All users tab)
 
   async function load(){
     setLoading(true);
@@ -46,7 +47,15 @@ export default function UsersSection(){
     }
     const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new' });
     if(error) alert('Could not load users: '+error.message);
-    setRows(data||[]); setLoading(false);
+    let list = data||[];
+    // Merge referral info (who invited them + how many they invited) so the
+    // list can filter by referral. Additive RPC — keeps admin_users unchanged.
+    const { data:refs }=await supabase.rpc('admin_user_referrals');
+    if(refs){
+      const m=new Map<string,any>((refs as any[]).map(r=>[r.id,r]));
+      list=list.map((u:any)=>{ const r=m.get(u.id); return r?{...u,referred_by:r.referred_by,referred_count:r.referred_count}:u; });
+    }
+    setRows(list); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
 
@@ -70,7 +79,7 @@ export default function UsersSection(){
   // Location filters for the All-users list (client-side over the loaded rows).
   const uStates = Array.from(new Set(rows.map(u=>u.state).filter(Boolean))).sort();
   const uDists = Array.from(new Set(rows.filter(u=>fState==='all'||u.state===fState).map(u=>u.district).filter(Boolean))).sort();
-  const shown = rows.filter(u=> (fState==='all'||u.state===fState) && (fDist==='all'||u.district===fDist) && (fCred==='all' || (u.bonus_feature_credits||0)>0) && (fOnline==='all' || isOnline(u)));
+  const shown = rows.filter(u=> (fState==='all'||u.state===fState) && (fDist==='all'||u.district===fDist) && (fCred==='all' || (u.bonus_feature_credits||0)>0) && (fOnline==='all' || isOnline(u)) && (fRef==='all' || (fRef==='referred' && !!u.referred_by) || (fRef==='referrer' && (u.referred_count||0)>0)));
 
   return (
     <>
@@ -155,27 +164,43 @@ export default function UsersSection(){
               <option value="all">All users</option>
               <option value="online">Online now</option>
             </select>
+            <select value={fRef} onChange={e=>setFRef(e.target.value as 'all'|'referred'|'referrer')} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by referral">
+              <option value="all">All referrals</option>
+              <option value="referred">Joined via referral</option>
+              <option value="referrer">Referred others</option>
+            </select>
           </div>
         </div>
         {loading?<Loading/>:shown.length===0?<Empty text="No users found."/>:(
           <table>
-            <thead><tr><th>Name</th><th>Handle</th><th>Phone</th><th>Location</th><th>Status</th><th>Risk</th><th>Verified</th><th>Badge</th><th>Credits</th><th></th><th></th></tr></thead>
+            <thead><tr><th>User</th><th>Risk</th><th>Badge</th><th></th><th></th></tr></thead>
             <tbody>
               {shown.map(u=>(
                 <tr key={u.id} style={u.banned?{opacity:.55}:undefined}>
-                  <td><b>{u.full_name||'—'}</b>{u.banned&&<span className="badge b-danger" style={{marginLeft:6}}>Banned</span>}</td>
-                  <td className="muted">{u.handle?'@'+u.handle:'—'}</td>
-                  <td className="muted">{u.phone||'—'}</td>
-                  <td className="muted">{loc(u)}</td>
-                  <td>{isOnline(u)?<span className="badge b-ok" title={'Last seen '+timeAgo(u.last_seen_at)}>● Online</span>:<span className="muted" title={u.last_seen_at?new Date(u.last_seen_at).toLocaleString('en-IN'):'never seen'}>{u.last_seen_at?timeAgo(u.last_seen_at):'—'}</span>}</td>
+                  {/* Compact identity cell — tap View for phone, KYC photos, stats & history. */}
+                  <td>
+                    <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                      <b>{u.full_name||(u.handle?'@'+u.handle:'—')}</b>
+                      {u.aadhaar_verified&&<span title="KYC verified" style={{display:'inline-flex',color:'var(--ok)'}}><ShieldCheck size={13}/></span>}
+                      {u.banned&&<span className="badge b-danger">Banned</span>}
+                    </div>
+                    <div className="muted" style={{fontSize:11.5,marginTop:2}}>
+                      {u.handle?'@'+u.handle:'no handle'}
+                      {loc(u)&&loc(u)!=='—'?' · '+loc(u):''}
+                      {isOnline(u)
+                        ? <span style={{color:'var(--ok)',fontWeight:600}}> · ● Online</span>
+                        : (u.last_seen_at?' · '+timeAgo(u.last_seen_at):'')}
+                      {(u.bonus_feature_credits||0)>0?' · ✦'+u.bonus_feature_credits+' credits':''}
+                      {u.referred_by?' · via referral':''}
+                      {(u.referred_count||0)>0?' · invited '+u.referred_count:''}
+                    </div>
+                  </td>
                   <td><RiskChip n={u.risk||0}/></td>
-                  <td>{u.aadhaar_verified?<span className="badge b-ok"><ShieldCheck size={12}/> KYC</span>:<span className="badge b-mut">—</span>}</td>
                   <td>
                     <select value={u.badge||''} onChange={e=>setBadge(u.id,e.target.value)}>
                       {BADGES.map(b=><option key={b.v} value={b.v}>{b.label}</option>)}
                     </select>
                   </td>
-                  <td>{(u.bonus_feature_credits||0)>0?<span className="badge b-ok" title="Bonus feature credits">{u.bonus_feature_credits}</span>:<span className="badge b-mut">—</span>}</td>
                   <td><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
                   <td><button className={'btn sm '+(u.banned?'ghost':'danger')} onClick={()=>toggleBan(u)}>{u.banned?'Unban':'Ban'}</button></td>
                 </tr>
