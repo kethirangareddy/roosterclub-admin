@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Award, Check, X } from 'lucide-react';
-import { Empty, Loading, timeAgo } from '../ui';
+import { Empty, Loading, timeAgo, WaButton, FOUNDER_CAP } from '../ui';
 
 const BADGES:{v:string;label:string}[]=[
   {v:'bronze',label:'Bronze'},
@@ -22,7 +22,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   async function load(){
     setLoading(true);
     let q=supabase.from('badge_requests')
-      .select('*, user:users!badge_requests_user_id_fkey(full_name,handle,badge,state,district)')
+      .select('*, user:users!badge_requests_user_id_fkey(full_name,handle,badge,state,district,language)')
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('status','pending');
     const { data,error }=await q;
@@ -33,12 +33,32 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   }
   useEffect(()=>{ load(); },[tab]);
 
+  // Founder's Badge counter — capped at 100 by trg_founder_badge_cap in the DB.
+  const [founders,setFounders]=useState<{issued:number;remaining:number}|null>(null);
+  async function loadFounders(){
+    const { data }=await supabase.rpc('founder_badge_stats');
+    const f=Array.isArray(data)?data[0]:data;
+    if(f) setFounders({ issued:f.issued, remaining:f.remaining });
+  }
+  useEffect(()=>{ loadFounders(); },[]);
+
   async function approve(r:any){
     const badge=pick[r.id]||r.user?.badge||'bronze';
+    if(badge==='founding_member' && founders && founders.remaining===0){
+      alert(`All ${FOUNDER_CAP} Founder's Badges have been issued — pick a different badge.`);
+      return;
+    }
     if(!confirm(`Give ${r.user?.full_name||'this user'} the ${badge} badge?`)) return;
     // badge_source:'admin' protects this badge from the nightly earned-badge cron (it only recomputes non-admin badges).
     const u=await supabase.from('users').update({ badge, badge_source:'admin', badge_awarded_at:new Date().toISOString() }).eq('id',r.user_id);
-    if(u.error){ alert(u.error.message); return; }
+    if(u.error){
+      alert(/cap reached/i.test(u.error.message)
+        ? `All ${FOUNDER_CAP} Founder's Badges have been issued — pick a different badge.`
+        : u.error.message);
+      loadFounders();
+      return;
+    }
+    loadFounders();
     const { error }=await supabase.from('badge_requests').update({ status:'approved', reviewed_at:new Date().toISOString() }).eq('id',r.id);
     if(error){ alert('Badge granted, but could not mark the request approved: '+error.message); }
     load(); onChange?.();
@@ -62,7 +82,12 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
       <p className="sub">Users asking to be reviewed for a badge. Call them to confirm, pick a badge, then Approve — or Reject.</p>
       <div className="card">
         <div className="card-h">
-          <h2><Award size={16}/> Requests{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>
+          <h2><Award size={16}/> Requests{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}
+            {founders && <span className={'badge '+(founders.remaining===0?'b-danger':founders.remaining<=10?'b-warn':'b-ok')}
+              style={{marginLeft:8,fontWeight:500}}
+              title={`Founder's Badge is capped at ${FOUNDER_CAP} in the database`}>
+              Founder's: {founders.issued}/{FOUNDER_CAP} · {founders.remaining} left
+            </span>}</h2>
           <div className="row-acts">
             <button className={tab==='pending'?'btn sm':'btn ghost sm'} onClick={()=>setTab('pending')}>Pending</button>
             <button className={tab==='all'?'btn sm':'btn ghost sm'} onClick={()=>setTab('all')}>All</button>
@@ -78,12 +103,16 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
         </div>
         {loading?<Loading/>:shown.length===0?<Empty text="No badge requests."/>:(
           <table>
-            <thead><tr><th>User</th><th>Phone</th><th>Current</th><th>Status</th><th>When</th><th>Assign</th><th></th></tr></thead>
+            <thead><tr><th>User</th><th>Phone</th><th></th><th>Current</th><th>Status</th><th>When</th><th>Assign</th><th></th></tr></thead>
             <tbody>
               {shown.map(r=>(
                 <tr key={r.id}>
                   <td><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b></td>
-                  <td className="muted">{r.user?.phone||'—'}</td>
+                  <td className="muted" style={{fontFamily:'monospace',fontSize:12.5,whiteSpace:'nowrap'}}>
+                    {r.user?.phone||'—'}
+                    {r.user?.language==='te' && <span className="badge b-mut" style={{marginLeft:6,fontSize:10}}>తె</span>}
+                  </td>
+                  <td><WaButton phone={r.user?.phone} lang={r.user?.language}/></td>
                   <td className="muted">{r.user?.badge||'—'}</td>
                   <td><span className={'badge '+(r.status==='approved'?'b-ok':r.status==='rejected'?'b-danger':'b-warn')}>{r.status}</span></td>
                   <td className="muted">{timeAgo(r.created_at)}</td>

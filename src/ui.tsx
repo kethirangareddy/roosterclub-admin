@@ -85,3 +85,78 @@ export function loc(r:{village?:string|null;mandal?:string|null;district?:string
   return [r.village,r.mandal,r.district,r.state].filter(Boolean).join(', ')||'—';
 }
 export function inr(n?:number|null){ return n==null?'—':'₹'+n.toLocaleString('en-IN'); }
+
+/* ---------- Founder's Badge outreach ----------
+   The badge is promised to the first 100 members only; the DB trigger
+   trg_founder_badge_cap enforces that, this is just the number to show. */
+export const FOUNDER_CAP = 100;
+
+/** Pre-filled WhatsApp copy, keyed by users.language. Anything that isn't
+    Telugu falls back to English (live data: en 104, te 77, kn 1, hi 1).
+    *asterisks* render as bold inside WhatsApp. */
+const FOUNDER_MSG: Record<string, string> = {
+  en: `🐓 Welcome to Rooster Club!
+
+Special offer — *only for our first 100 members.*
+
+Invite 10 people to Rooster Club and you'll earn the *Founder's Badge* — a permanent mark of respect on your profile that nobody joining later can ever get.
+
+How:
+Open the app → *Profile* → *Invite & Earn* → share your invite link
+
+Once 10 people join with your link, the badge is yours.
+
+Only 100 Founder's Badges will ever exist. Don't miss it.`,
+
+  te: `🐓 రూస్టర్ క్లబ్‌కి స్వాగతం!
+
+ప్రత్యేక ఆఫర్ — *మొదటి 100 మంది సభ్యులకు మాత్రమే.*
+
+రూస్టర్ క్లబ్‌కి 10 మందిని ఆహ్వానించండి — *ఫౌండర్స్ బ్యాడ్జ్* మీ ప్రొఫైల్‌పై శాశ్వతంగా ఉంటుంది. తర్వాత చేరేవారికి ఇది ఎప్పటికీ దొరకదు.
+
+ఎలా:
+యాప్ ఓపెన్ చేయండి → *ప్రొఫైల్* → *Invite & Earn* → మీ ఇన్‌వైట్ లింక్ షేర్ చేయండి
+
+మీ లింక్ ద్వారా 10 మంది చేరగానే బ్యాడ్జ్ మీదే.
+
+మొత్తం 100 ఫౌండర్స్ బ్యాడ్జ్‌లు మాత్రమే. మిస్ చేసుకోకండి.`,
+};
+
+/** wa.me needs a bare international number: no +, no spaces, no leading zero.
+    Stored numbers are a mix of "9876543210" and "+919876543210". */
+export function waNumber(phone?: string | null){
+  if(!phone) return null;
+  let d = String(phone).replace(/\D/g, '').replace(/^0+/, '');
+  if(d.length === 10) d = '91' + d;            // bare Indian mobile
+  return d.length >= 11 && d.length <= 15 ? d : null;
+}
+
+export function waLink(phone?: string | null, lang?: string | null){
+  const n = waNumber(phone);
+  if(!n) return null;
+  const msg = FOUNDER_MSG[lang === 'te' ? 'te' : 'en'];
+  return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
+}
+
+/** WhatsApp glyph — lucide dropped brand icons, so this is inline. */
+export function WaIcon({ size = 14 }: { size?: number }){
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.78-1.47-1.75-1.64-2.05-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.6-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.87 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.75-.72 2-1.41.25-.69.25-1.28.17-1.41-.07-.13-.27-.2-.57-.35z"/>
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.13h-.01a8.2 8.2 0 0 1-4.19-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.22 8.22 0 0 1-1.26-4.36c0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.83 2.42a8.19 8.19 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24z"/>
+    </svg>
+  );
+}
+
+/** Opens WhatsApp with the Founder's Badge message already typed — you just hit send. */
+export function WaButton({ phone, lang, label }:{ phone?:string|null; lang?:string|null; label?:string }){
+  const href = waLink(phone, lang);
+  if(!href) return <span className="muted" title="No usable phone number">—</span>;
+  return (
+    <a className="btn ghost sm" href={href} target="_blank" rel="noopener noreferrer"
+       style={{ color:'#25D366', display:'inline-flex', alignItems:'center', gap:5 }}
+       title={`Open WhatsApp with the Founder's Badge message ready to send (${lang === 'te' ? 'Telugu' : 'English'})`}>
+      <WaIcon/>{label ?? 'WhatsApp'}
+    </a>
+  );
+}

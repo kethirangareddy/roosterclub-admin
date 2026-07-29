@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
-import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX } from 'lucide-react';
-import { Empty, Loading, loc, timeAgo, useParamState } from '../ui';
+import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
+import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP } from '../ui';
 import UserDetail from './UserDetail';
 
 const BADGES:{v:string;label:string}[]=[
@@ -32,6 +32,8 @@ export default function UsersSection(){
   const [fCred,setFCred]=useState<'all'|'has'>('all'); // feature-credits filter (All users tab)
   const [fOnline,setFOnline]=useState<'all'|'online'>('all'); // online filter (All users tab)
   const [fRef,setFRef]=useState<'all'|'referred'|'referrer'>('all'); // referral filter (All users tab)
+  // Founder's Badge is capped at 100 (DB trigger trg_founder_badge_cap); show what's left.
+  const [founders,setFounders]=useState<{issued:number;remaining:number}|null>(null);
 
   async function load(){
     setLoading(true);
@@ -55,16 +57,41 @@ export default function UsersSection(){
       const m=new Map<string,any>((refs as any[]).map(r=>[r.id,r]));
       list=list.map((u:any)=>{ const r=m.get(u.id); return r?{...u,referred_by:r.referred_by,referred_count:r.referred_count}:u; });
     }
+    // Merge each user's app language so the WhatsApp message pre-fills in Telugu
+    // or English to match what they actually read.
+    const ids=list.map((u:any)=>u.id).filter(Boolean);
+    if(ids.length){
+      const { data:langs }=await supabase.from('users').select('id,language').in('id',ids);
+      if(langs){
+        const lm=new Map<string,string>((langs as any[]).map(r=>[r.id,r.language]));
+        list=list.map((u:any)=>({...u, language:lm.get(u.id)||null}));
+      }
+    }
     setRows(list); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
+
+  // Founder's Badge counter — refreshed whenever a badge changes below.
+  async function loadFounders(){
+    const { data }=await supabase.rpc('founder_badge_stats');
+    const r=Array.isArray(data)?data[0]:data;
+    if(r) setFounders({ issued:r.issued, remaining:r.remaining });
+  }
+  useEffect(()=>{ loadFounders(); },[]);
 
   async function setBadge(id:string, badge:string){
     // badge_source:'admin' protects a hand-set badge from the nightly earned-badge cron; clearing the badge clears the source too (lets the auto-system take over again).
     const { error }=await supabase.from('users')
       .update({ badge:badge||null, badge_source:badge?'admin':null, badge_awarded_at:badge?new Date().toISOString():null }).eq('id',id);
-    if(error){ alert('Could not save badge: '+error.message); return; }
+    if(error){
+      // trg_founder_badge_cap rejects the 101st Founder's Badge.
+      alert(/cap reached/i.test(error.message)
+        ? `All ${FOUNDER_CAP} Founder's Badges have been issued — this one can't be given.`
+        : 'Could not save badge: '+error.message);
+      return;
+    }
     setRows(r=>r.map(x=>x.id===id?{...x,badge:badge||null}:x));
+    loadFounders();
   }
   async function toggleBan(u:any){
     if(!confirm(u.banned?'Unban this user?':'Ban this user?')) return;
@@ -85,6 +112,20 @@ export default function UsersSection(){
     <>
       <h1 className="h1">Users &amp; Badges</h1>
       <p className="sub">Badges, bans, and the fraud sweep — high-risk accounts and duplicate clusters surface here.</p>
+      {founders && (
+        <div className="card" style={{padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          <Award size={16} style={{color:'var(--cta)'}}/>
+          <b>Founder's Badge</b>
+          <span className={'badge '+(founders.remaining===0?'b-danger':founders.remaining<=10?'b-warn':'b-ok')}>
+            {founders.issued} of {FOUNDER_CAP} issued · {founders.remaining} left
+          </span>
+          <span className="muted" style={{fontSize:11.5}}>
+            {founders.remaining===0
+              ? 'Cap reached — the database will refuse any further Founder’s Badges.'
+              : 'Capped in the database, so the 101st can never be issued by mistake.'}
+          </span>
+        </div>
+      )}
       <div className="tabbar">
         <button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>All users</button>
         <button className={tab==='risk'?'active':''} onClick={()=>setTab('risk')}><ShieldAlert size={13} style={{verticalAlign:-2}}/> High risk</button>
@@ -173,11 +214,11 @@ export default function UsersSection(){
         </div>
         {loading?<Loading/>:shown.length===0?<Empty text="No users found."/>:(
           <table>
-            <thead><tr><th>User</th><th>Risk</th><th>Badge</th><th></th><th></th></tr></thead>
+            <thead><tr><th>User</th><th>Phone</th><th>Risk</th><th>Badge</th><th></th><th></th><th></th></tr></thead>
             <tbody>
               {shown.map(u=>(
                 <tr key={u.id} style={u.banned?{opacity:.55}:undefined}>
-                  {/* Compact identity cell — tap View for phone, KYC photos, stats & history. */}
+                  {/* Compact identity cell — tap View for KYC photos, stats & history. */}
                   <td>
                     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                       <b>{u.full_name||(u.handle?'@'+u.handle:'—')}</b>
@@ -195,12 +236,19 @@ export default function UsersSection(){
                       {(u.referred_count||0)>0?' · invited '+u.referred_count:''}
                     </div>
                   </td>
+                  {/* Phone in the open (admin-only RPC) + one tap to WhatsApp with the
+                      Founder's Badge message pre-filled in this user's language. */}
+                  <td style={{whiteSpace:'nowrap'}}>
+                    <span style={{fontFamily:'monospace',fontSize:12.5}}>{u.phone||'—'}</span>
+                    {u.language==='te' && <span className="badge b-mut" style={{marginLeft:6,fontSize:10}}>తె</span>}
+                  </td>
                   <td><RiskChip n={u.risk||0}/></td>
                   <td>
                     <select value={u.badge||''} onChange={e=>setBadge(u.id,e.target.value)}>
                       {BADGES.map(b=><option key={b.v} value={b.v}>{b.label}</option>)}
                     </select>
                   </td>
+                  <td><WaButton phone={u.phone} lang={u.language}/></td>
                   <td><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
                   <td><button className={'btn sm '+(u.banned?'ghost':'danger')} onClick={()=>toggleBan(u)}>{u.banned?'Unban':'Ban'}</button></td>
                 </tr>
