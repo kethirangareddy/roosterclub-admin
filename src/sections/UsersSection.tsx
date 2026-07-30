@@ -34,6 +34,10 @@ export default function UsersSection(){
   const [fRef,setFRef]=useState<'all'|'referred'|'referrer'>('all'); // referral filter (All users tab)
   // Founder's Badge is capped at 100 (DB trigger trg_founder_badge_cap); show what's left.
   const [founders,setFounders]=useState<{issued:number;remaining:number}|null>(null);
+  // How many rows we asked the DB for, and how many actually match. admin_users
+  // used to hard-cap at 200 and report that as the total — never trust rows.length.
+  const [lim,setLim]=useState(1000);
+  const [total,setTotal]=useState<number|null>(null);
 
   async function load(){
     setLoading(true);
@@ -47,9 +51,11 @@ export default function UsersSection(){
       if(error) alert('Could not load flagged users: '+error.message);
       setRows(data||[]); setLoading(false); return;
     }
-    const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new' });
+    const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new', p_limit: lim, p_offset: 0 });
     if(error) alert('Could not load users: '+error.message);
     let list = data||[];
+    // total_n is a window count computed before LIMIT — the real match count.
+    setTotal(list.length ? Number(list[0].total_n) : 0);
     // Merge referral info (who invited them + how many they invited) so the
     // list can filter by referral. Additive RPC — keeps admin_users unchanged.
     const { data:refs }=await supabase.rpc('admin_user_referrals');
@@ -69,7 +75,7 @@ export default function UsersSection(){
     }
     setRows(list); setLoading(false);
   }
-  useEffect(()=>{ load(); },[tab]);
+  useEffect(()=>{ load(); },[tab,lim]);
 
   // Founder's Badge counter — refreshed whenever a badge changes below.
   async function loadFounders(){
@@ -184,7 +190,15 @@ export default function UsersSection(){
       ) : (
       <div className="card">
         <div className="card-h">
-          <h2><UsersIcon size={16}/> Users ({shown.length})</h2>
+          <h2><UsersIcon size={16}/> Users ({shown.length}
+            {total!=null && shown.length!==total && <span className="muted" style={{fontWeight:400}}> of {total}</span>})
+            {total!=null && rows.length<total && (
+              <button className="btn ghost sm" style={{marginLeft:8}} onClick={()=>setLim(l=>l+1000)}
+                title={`Only ${rows.length} of ${total} matching users are loaded`}>
+                Load {Math.min(1000, total-rows.length)} more
+              </button>
+            )}
+          </h2>
           <div className="toolbar">
             <input placeholder="Search name, handle, phone…" value={q}
               onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} style={{width:240}}/>
