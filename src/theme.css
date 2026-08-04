@@ -283,6 +283,29 @@ td.ck input,th.ck input{width:15px;height:15px;cursor:pointer}
 .err{background:var(--dangerbg);color:#a52f22;font-size:13px;padding:9px 12px;border-radius:9px;border:1px solid #f3b4ad;text-align:left}
 .note{background:var(--okbg);color:#1f6b26;font-size:13px;padding:9px 12px;border-radius:9px;border:1px solid rgba(46,125,50,.3);text-align:left}
 
+/* ---------- daily-active bars ----------
+   Hand-rolled rather than recharts: every bar has to be a real tap target that
+   drills into that day's roster, and it has to stay thumb-sized on a phone. */
+.dau{display:flex;align-items:flex-end;gap:4px;padding:16px 18px 10px;overflow-x:auto;min-height:190px}
+.dau-bar{flex:1 1 0;min-width:26px;background:none;border:0;padding:0;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  gap:5px;height:170px;border-radius:8px;transition:background .12s}
+.dau-bar:hover{background:var(--cta-soft)}
+.dau-n{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted)}
+.dau-bar:hover .dau-n{color:var(--cta-d)}
+.dau-col{width:100%;max-width:34px;background:var(--gold-grad);border-radius:5px 5px 0 0;
+  min-height:3px;display:flex;flex-direction:column;justify-content:flex-end;
+  transition:filter .12s;box-shadow:inset 0 0 0 1px rgba(123,63,0,.10)}
+.dau-bar:hover .dau-col{filter:brightness(1.12)}
+.dau-new{width:100%;background:#5B3210;border-radius:0 0 5px 5px;opacity:.85}
+.dau-d{font-size:10px;color:var(--faint);white-space:nowrap}
+.dau-d.est{font-style:italic}
+@media (max-width:860px){
+  .dau{min-height:170px}
+  .dau-bar{height:150px;min-width:34px} /* wider bars = reachable with a thumb */
+  .dau-d{font-size:9.5px}
+}
+
 /* ---------- tappable entities ----------
    Every user / listing / receipt reference is a real <button>, so it is
    keyboard-focusable and screen-reader-announced — not a div with onClick. */

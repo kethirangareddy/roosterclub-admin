@@ -3,8 +3,9 @@ import { supabase } from '../supabase';
 import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope, BookOpen,
   ShieldCheck, Flag, Award, Gavel, Star, CheckCircle2, ArrowRight, Sparkles,
   Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText, MessagesSquare } from 'lucide-react';
-import { Loading, timeAgo, Modal, inr } from '../ui';
+import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
 import Listing360 from './Listing360';
+import Online from './Online';
 
 const FEED_META: Record<string,{Icon:any;c:string}> = {
   signup:{Icon:UserPlus,c:'var(--ok)'}, listing:{Icon:ListChecks,c:'var(--cta)'},
@@ -209,6 +210,9 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
     <>
       <h1 className="h1">Command Center</h1>
       <p className="sub">Rooster Club · {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</p>
+
+      {/* Who was online each day, 00:00–23:59 IST. Tap a bar for that day's roster. */}
+      <Online/>
 
       {/* Live pulse — auto-refreshes every 60s */}
       <div className="pulse">
@@ -430,7 +434,14 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
                     <div key={e.kind+e.id} className="feedrow">
                       <m.Icon size={14} style={{color:m.c,flexShrink:0,marginTop:2}}/>
                       <div style={{minWidth:0}}>
-                        <div className="f-t">{e.title}</div>
+                        {/* the feed carries the row id — a new signup opens that
+                            person, a new listing opens that listing */}
+                        <div className="f-t">
+                          {e.kind==='signup' ? <UserLink id={e.id}>{e.title}</UserLink>
+                            : e.kind==='listing' ? <ListingLink id={e.id}>{e.title}</ListingLink>
+                            : e.kind==='receipt' ? <ReceiptLink id={e.id}>{e.title}</ReceiptLink>
+                            : e.title}
+                        </div>
                         <div className="f-s">{e.kind} · {e.subtitle} · {timeAgo(e.at)}</div>
                       </div>
                     </div>
