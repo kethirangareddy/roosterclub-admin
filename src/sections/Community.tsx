@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { MessagesSquare, Pin, Trash2, Eye, VolumeX, Volume2 } from 'lucide-react';
-import { Modal, Empty, Loading, timeAgo } from '../ui';
+import { Modal, Empty, Loading, timeAgo, UserLink } from '../ui';
 
 export default function Community({ onChange }: { onChange?: () => void }) {
   const [threads, setThreads] = useState<any[]>([]);
@@ -94,7 +94,7 @@ export default function Community({ onChange }: { onChange?: () => void }) {
                     <td><b>{r.pinned ? '📌 ' : ''}{r.title}</b>{r.body && <div className="muted" style={{ maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.body}</div>}</td>
                     <td className="muted">{r.state}</td>
                     <td><span className="badge b-mut">{r.category || 'General'}</span></td>
-                    <td className="muted">{authorName(r.users)}{isMuted(r.users) && <span className="badge b-danger" style={{ marginLeft: 6 }}>muted</span>}</td>
+                    <td className="muted"><UserLink id={r.user_id}>{authorName(r.users)}</UserLink>{isMuted(r.users) && <span className="badge b-danger" style={{ marginLeft: 6 }}>muted</span>}</td>
                     <td>{r.reply_count}</td>
                     <td className="muted">{timeAgo(r.last_reply_at)}</td>
                     <td><div className="row-acts">
@@ -112,7 +112,7 @@ export default function Community({ onChange }: { onChange?: () => void }) {
 
       {viewThread && (
         <Modal title={viewThread.title} onClose={() => setViewThread(null)}>
-          <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>{viewThread.category} · {viewThread.state} · by {authorName(viewThread.users)}</div>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>{viewThread.category} · {viewThread.state} · by <UserLink id={viewThread.user_id}>{authorName(viewThread.users)}</UserLink></div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
             <MuteBtn u={viewThread.users} />
             {isMuted(viewThread.users) && <span className="badge b-danger">muted until {new Date(viewThread.users.forum_muted_until).toLocaleDateString('en-IN')}</span>}
@@ -122,7 +122,7 @@ export default function Community({ onChange }: { onChange?: () => void }) {
           {replies.length === 0 ? <div className="muted">No replies.</div> : replies.map(rp => (
             <div key={rp.id} style={{ borderTop: '1px solid var(--line)', padding: '8px 0', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
               <div>
-                <b style={{ fontSize: 13 }}>{authorName(rp.users)}</b>
+                <b style={{ fontSize: 13 }}><UserLink id={rp.user_id}>{authorName(rp.users)}</UserLink></b>
                 {isMuted(rp.users) && <span className="badge b-danger" style={{ marginLeft: 6 }}>muted</span>}
                 <div style={{ fontSize: 13.5 }}>{rp.body}</div>
               </div>

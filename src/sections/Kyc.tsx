@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
-import { Empty, Loading, timeAgo, useParamState, useRowKeys } from '../ui';
+import { Empty, Loading, timeAgo, useParamState, useRowKeys, UserLink, Copyable } from '../ui';
+import { useDetail } from '../detail';
 
 export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
@@ -9,11 +10,13 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const [tab,setTab]=useParamState<'pending'|'all'>('tab','pending');
   const [zoom,setZoom]=useState<{url:string;label:string}|null>(null);
   const [picked,setPicked]=useState<Set<string>>(new Set());
+  const { openUser }=useDetail();
   // j/k + a/r on the focused row (the confirm() dialog still gates each decision).
   const [sel]=useRowKeys(rows.length,{
     a:(i)=>{ const r=rows[i]; if(r?.status==='pending' && !zoom) decide(r,true); },
     r:(i)=>{ const r=rows[i]; if(r?.status==='pending' && !zoom) decide(r,false); },
     x:(i)=>{ const r=rows[i]; if(r?.status==='pending') togglePick(r.id); },
+    Enter:(i)=>{ const r=rows[i]; if(r && !zoom) openUser(r.user_id); },
   });
 
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
@@ -102,8 +105,8 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
               {rows.map((r,i)=>(
                 <tr key={r.id} className={i===sel?'krow':''}>
                   <td className="ck">{r.status==='pending' && <input type="checkbox" checked={picked.has(r.id)} onChange={()=>togglePick(r.id)}/>}</td>
-                  <td><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b>{r.user?.aadhaar_verified && <span className="badge b-ok" style={{marginLeft:6}}>verified</span>}</td>
-                  <td className="muted">{r.user?.phone||'—'}</td>
+                  <td><UserLink id={r.user_id}><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b></UserLink>{r.user?.aadhaar_verified && <span className="badge b-ok" style={{marginLeft:6}}>verified</span>}</td>
+                  <td className="muted"><Copyable value={r.user?.phone} title="Copy phone number"/></td>
                   <td>{r.a_url?<img src={r.a_url} onClick={()=>setZoom({url:r.a_url,label:'Aadhaar'})} style={{height:44,borderRadius:4,cursor:'zoom-in'}}/>:<span className="muted">—</span>}</td>
                   <td>{r.s_url?<img src={r.s_url} onClick={()=>setZoom({url:r.s_url,label:'Selfie'})} style={{height:44,borderRadius:4,cursor:'zoom-in'}}/>:<span className="muted">—</span>}</td>
                   <td><span className={'badge '+(r.status==='approved'?'b-ok':r.status==='rejected'?'b-danger':'b-warn')}>{r.status}</span></td>

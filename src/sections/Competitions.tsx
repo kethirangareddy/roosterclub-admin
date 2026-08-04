@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Trophy } from 'lucide-react';
-import { Empty, Loading } from '../ui';
+import { Empty, Loading, UserLink, Copyable } from '../ui';
 import { adminPhones } from '../supabase';
 
 export default function Competitions(){
@@ -33,8 +33,8 @@ export default function Competitions(){
                 <tr key={r.id}>
                   <td className="muted">{r.period_start}</td>
                   <td>{r.region||'—'}</td>
-                  <td><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b></td>
-                  <td className="muted">{r.user?.phone||'—'}</td>
+                  <td><UserLink id={r.user_id}><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b></UserLink></td>
+                  <td className="muted"><Copyable value={r.user?.phone} title="Copy phone number"/></td>
                   <td>{r.sales}</td>
                 </tr>
               ))}

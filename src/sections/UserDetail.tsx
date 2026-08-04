@@ -133,11 +133,11 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
             <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>Last 30 days — listings &amp; sales</div>
             <ResponsiveContainer width="100%" height={130}>
               <BarChart data={d.activity || []} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false} />
-                <XAxis dataKey="day" tickFormatter={day} tick={{ fill: '#646B7D', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-                <Tooltip contentStyle={{ background: '#FFFFFF', border: '1px solid rgba(20,30,55,.14)', borderRadius: 8, fontSize: 12, color: '#1B2436' }} labelFormatter={day} />
-                <Bar dataKey="listings" stackId="a" fill="#5B8CFF" />
-                <Bar dataKey="sales" stackId="a" fill="#3FB67A" radius={[3, 3, 0, 0]} />
+                <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
+                <XAxis dataKey="day" tickFormatter={day} tick={{ fill: '#8a7458', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
+                <Tooltip contentStyle={{ background: '#FFFFFF', border: '1px solid rgba(44,24,16,.14)', borderRadius: 8, fontSize: 12, color: '#2C1810' }} labelFormatter={day} />
+                <Bar dataKey="listings" stackId="a" fill="#BA7517" />
+                <Bar dataKey="sales" stackId="a" fill="#2E7D32" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -150,7 +150,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
             {(d.recent_reports || []).length === 0 ? <div className="muted" style={{ fontSize: 12.5 }}>No reports.</div> : (
               <div style={{ display: 'grid', gap: 6 }}>
                 {d.recent_reports.map((r: any, i: number) => (
-                  <div key={i} style={{ background: 'var(--dangerbg)', border: '1px solid rgba(229,72,77,.2)', borderRadius: 8, padding: '8px 10px', fontSize: 12.5 }}>
+                  <div key={i} style={{ background: 'var(--dangerbg)', border: '1px solid rgba(192,57,43,.2)', borderRadius: 8, padding: '8px 10px', fontSize: 12.5 }}>
                     <b>{r.reason || 'report'}</b> <span className="muted">· {r.target_type} · {new Date(r.created_at).toLocaleDateString('en-IN')} · {r.status}</span>
                     {r.details && <div className="muted" style={{ marginTop: 2 }}>{r.details}</div>}
                   </div>

@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Check, X, Inbox } from 'lucide-react';
-import { Empty, Loading, loc, inr, timeAgo, useParamState, useRowKeys } from '../ui';
+import { Empty, Loading, loc, inr, timeAgo, useParamState, useRowKeys, UserLink, ListingLink, Copyable } from '../ui';
+import { useDetail } from '../detail';
 
 export default function Approvals({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [tab,setTab]=useParamState<'pending'|'all'>('tab','pending');
   const [picked,setPicked]=useState<Set<string>>(new Set());
+  const { openListing }=useDetail();
   // j/k moves the focused row, a approves, r rejects — queue clearing at typing speed.
+  // Enter opens the listing 360, matching a tap on the breed.
   const [sel]=useRowKeys(rows.length,{
     a:(i)=>{ const r=rows[i]; if(r && r.approval_status!=='approved') set(r.id,'approved'); },
     r:(i)=>{ const r=rows[i]; if(r && r.approval_status!=='rejected') set(r.id,'rejected'); },
     x:(i)=>{ const r=rows[i]; if(r) togglePick(r.id); },
+    Enter:(i)=>{ const r=rows[i]; if(r) openListing(r.id); },
   });
 
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
@@ -83,8 +87,11 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
               {rows.map((r,i)=>(
                 <tr key={r.id} className={i===sel?'krow':''}>
                   <td className="ck"><input type="checkbox" checked={picked.has(r.id)} onChange={()=>togglePick(r.id)}/></td>
-                  <td><b>{r.breed||'—'}</b><div className="muted">{r.type}</div></td>
-                  <td>{r.users?.full_name||'—'}<div className="muted">{r.users?.phone||''}</div></td>
+                  <td><ListingLink id={r.id}><b>{r.breed||'Listing'}</b></ListingLink><div className="muted">{r.type}</div></td>
+                  <td>
+                    <UserLink id={r.user_id}>{r.users?.full_name||(r.users?.handle?'@'+r.users.handle:'View seller')}</UserLink>
+                    <div className="muted">{r.users?.phone ? <Copyable value={r.users.phone} title="Copy phone number"/> : ''}</div>
+                  </td>
                   <td>{inr(r.price)}</td>
                   <td className="muted">{loc(r)}</td>
                   <td>

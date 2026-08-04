@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Truck, Check, Plus } from 'lucide-react';
-import { Modal, Field, Empty, Loading, loc, inr, timeAgo } from '../ui';
+import { Modal, Field, Empty, Loading, loc, inr, timeAgo, Copyable } from '../ui';
 import { STATES, districtsFor } from '../locations';
 
 const AVAIL = [['daily','Daily'],['pre_order','Pre-order'],['bulk','Bulk']] as const;
@@ -74,7 +74,7 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
                   <td>{r.feed_type||'—'}</td>
                   <td>{inr(r.price_per_kg)}</td>
                   <td className="muted">{r.availability||'—'}</td>
-                  <td className="muted">{r.phone||'—'}</td>
+                  <td className="muted"><Copyable value={r.phone} title="Copy phone number"/></td>
                   <td className="muted">{loc(r)}</td>
                   <td className="muted">{timeAgo(r.created_at)}</td>
                   <td><div className="row-acts">

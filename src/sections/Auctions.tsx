@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Gavel, Check, X, Trash2 } from 'lucide-react';
-import { Empty, Loading, inr, timeAgo } from '../ui';
+import { Empty, Loading, inr, timeAgo, UserLink } from '../ui';
 
 const STATUS_BADGE: Record<string,string> = {
   pending:'b-warn', approved:'b-ok', live:'b-ok', ended:'b-mut', cancelled:'b-danger',
@@ -13,7 +13,11 @@ export default function Auctions({ onChange }:{ onChange?:()=>void }){
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('auctions').select('*').order('created_at',{ascending:false});
+    // pull the host alongside — reviewing an auction without knowing who created it
+    // meant leaving the section to look them up.
+    const { data }=await supabase.from('auctions')
+      .select('*, host:users!auctions_host_id_fkey(full_name,handle)')
+      .order('created_at',{ascending:false});
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -40,11 +44,12 @@ export default function Auctions({ onChange }:{ onChange?:()=>void }){
         </div>
         {loading?<Loading/>:rows.length===0?<Empty text="No auctions yet."/>:(
           <table>
-            <thead><tr><th>Title</th><th>Breed</th><th>Start ₹</th><th>Reserve ₹</th><th>Status</th><th>Created</th><th></th></tr></thead>
+            <thead><tr><th>Title</th><th>Host</th><th>Breed</th><th>Start ₹</th><th>Reserve ₹</th><th>Status</th><th>Created</th><th></th></tr></thead>
             <tbody>
               {rows.map(r=>(
                 <tr key={r.id}>
                   <td><b>{r.title}</b></td>
+                  <td><UserLink id={r.host_id}>{r.host?.full_name||('@'+(r.host?.handle||'host'))}</UserLink></td>
                   <td className="muted">{r.breed||'—'}</td>
                   <td>{inr(r.starting_price)}</td>
                   <td>{r.reserve_price?inr(r.reserve_price):'—'}</td>

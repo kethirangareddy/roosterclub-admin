@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { History, Search } from 'lucide-react';
-import { Empty, Loading, timeAgo } from '../ui';
+import { Empty, Loading, timeAgo, UserLink, ListingLink, ReceiptLink, Copyable, shortId } from '../ui';
 
 /** Item 15 — audit log. Every admin action (ban, approve, verify, delete, badge…)
     is captured by DB triggers into admin_audit; this is the searchable view. */
@@ -64,7 +64,15 @@ export default function Activity() {
                     <td className="muted" style={{ whiteSpace: 'nowrap' }} title={new Date(r.at).toLocaleString('en-IN')}>{timeAgo(r.at)}</td>
                     <td className="muted">{r.admin_email || '—'}</td>
                     <td><span className={'badge ' + (ACT_BADGE[op] || 'b-mut')}>{r.action}</span></td>
-                    <td className="muted" style={{ fontFamily: 'monospace', fontSize: 11 }}>{r.target_id ? r.target_id.slice(0, 8) : '—'}</td>
+                    {/* the audit row names its own table in the action ("listing.approve"),
+                        so the target can open the right 360 instead of being dead text */}
+                    <td className="muted" style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                      {!r.target_id ? '—'
+                        : r.action.startsWith('listing') ? <ListingLink id={r.target_id}>{shortId(r.target_id)}</ListingLink>
+                        : r.action.startsWith('user') ? <UserLink id={r.target_id}>{shortId(r.target_id)}</UserLink>
+                        : r.action.startsWith('receipt') ? <ReceiptLink id={r.target_id}>{shortId(r.target_id)}</ReceiptLink>
+                        : <Copyable value={r.target_id} title="Copy target id">{shortId(r.target_id)}</Copyable>}
+                    </td>
                     <td style={{ maxWidth: 380, fontSize: 12.5 }}>{diffText(r.detail)}</td>
                   </tr>
                 );

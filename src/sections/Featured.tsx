@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Star, Zap } from 'lucide-react';
-import { Empty, Loading, timeAgo, inr } from '../ui';
+import { Empty, Loading, timeAgo, inr, UserLink, Copyable } from '../ui';
 
 export default function Featured({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
@@ -53,9 +53,14 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
             <tbody>
               {rows.map(r=>(
                 <tr key={r.id}>
-                  <td><b>{r.users?.full_name||'—'}</b><div className="muted">{r.users?.phone||(r.users?.handle?'@'+r.users.handle:'')}</div></td>
+                  <td>
+                    <UserLink id={r.user_id}><b>{r.users?.full_name||'View user'}</b></UserLink>
+                    <div className="muted">{r.users?.phone
+                      ? <Copyable value={r.users.phone} title="Copy phone number"/>
+                      : (r.users?.handle?'@'+r.users.handle:'')}</div>
+                  </td>
                   <td>{inr(r.amount)}</td>
-                  <td className="muted">{r.upi_ref||'—'}</td>
+                  <td className="muted"><Copyable value={r.upi_ref} title="Copy UPI reference"/></td>
                   <td className="muted">{timeAgo(r.created_at)}</td>
                   {tab==='active' && <td className="muted">{r.featured_until?new Date(r.featured_until).toLocaleString('en-IN'):'—'}</td>}
                   <td><div className="row-acts">

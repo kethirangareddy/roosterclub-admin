@@ -3,9 +3,10 @@ import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, ListChecks, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
-  Rocket, Users as UsersIcon, Truck, Store, Egg, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield
+  Rocket, Users as UsersIcon, Truck, Store, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, TrendingUp, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield
 } from 'lucide-react';
 import CommandK, { Hit } from './CommandK';
+import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
 import Money from './sections/Money';
 import Activity from './sections/Activity';
 import UserDetail from './sections/UserDetail';
@@ -30,6 +31,7 @@ import Boosts from './sections/Boosts';
 import UsersSection from './sections/UsersSection';
 import LiveFeed from './sections/LiveFeed';
 import Shop from './sections/Shop';
+import Orders from './sections/Orders';
 import Announcements from './sections/Announcements';
 import Auctions from './sections/Auctions';
 import Reports from './sections/Reports';
@@ -39,7 +41,7 @@ import Competitions from './sections/Competitions';
 import Syndicates from './sections/Syndicates';
 import Acquisition from './sections/Acquisition';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'acquisition'|'featured'|'livefeed'|'shop'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'appconfig';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'acquisition'|'featured'|'livefeed'|'shop'|'orders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'appconfig';
 
 const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
@@ -55,6 +57,7 @@ const NAV: { key:Key; label:string; Icon:any }[] = [
   { key:'featured', label:'Featured', Icon:Star },
   { key:'livefeed', label:'Live Feed', Icon:Truck },
   { key:'shop', label:'Shop', Icon:Store },
+  { key:'orders', label:'Orders', Icon:Store },
   { key:'vets', label:'Doctors', Icon:Stethoscope },
   { key:'auctions', label:'Auctions', Icon:Gavel },
   { key:'disease', label:'Disease Alerts', Icon:Siren },
@@ -77,8 +80,9 @@ const GNAV: Record<string,Key> = {
   y:'money', v:'activity', t:'theft', l:'listings',
 };
 
-// What each ⌘K hit opens: users/listings/receipts get a 360 modal, the rest jump to their section.
-type Detail = { kind:'user'|'listing'|'receipt'; id:string };
+// What each ⌘K hit opens: users/listings/receipts get a 360 modal, the rest jump
+// to their section. The stack + open* helpers live in ./detail so any section can
+// reach them through context instead of prop-drilling.
 
 // Mobile home: a "Today" grid of the queues that need attention, each a big
 // tap target that jumps straight into that section. Hidden on desktop via CSS.
@@ -121,16 +125,43 @@ export default function App(){
   const [counts,setCounts]=useState<Record<string,number>>({});
   const [menuOpen,setMenuOpen]=useState(false);
   const [cmdk,setCmdk]=useState(false);
-  const [detail,setDetail]=useState<Detail[]>([]); // stack: Receipt-360 → seller 360 etc.
+  // stack: Receipt-360 → seller 360 etc. Mirrored to ?d= so a 360 survives a
+  // refresh, can be shared as a link, and closes on browser Back.
+  const [detail,setDetail]=useState<Detail[]>(()=>decodeDetail(new URLSearchParams(location.search).get('d')));
+
+  /** Write the stack to the URL. Opening pushes (Back closes); closing replaces. */
+  function commitDetail(next:Detail[], push:boolean){
+    setDetail(next);
+    const u=new URL(location.href);
+    if(next.length) u.searchParams.set('d',encodeDetail(next)); else u.searchParams.delete('d');
+    if(push) history.pushState(null,'',u); else history.replaceState(null,'',u);
+  }
 
   function openHit(h:Hit){
     setCmdk(false);
-    if(h.kind==='user'||h.kind==='listing'||h.kind==='receipt') setDetail([{ kind:h.kind, id:h.id }]);
+    if(h.kind==='user'||h.kind==='listing'||h.kind==='receipt') commitDetail([{ kind:h.kind, id:h.id }],true);
     else if(h.kind==='auction') setView('auctions');
     else if(h.kind==='report') setView('reports');
   }
-  const pushDetail=(d:Detail)=>setDetail(s=>[...s,d]);
-  const popDetail=()=>setDetail(s=>s.slice(0,-1));
+  const pushDetail=(d:Detail)=>commitDetail([...detail,d],true);
+  const popDetail=()=>commitDetail(detail.slice(0,-1),false);
+
+  // What every section calls. Ignores empty ids so a missing seller_id can't
+  // open a blank modal.
+  const detailApi={
+    openUser:(id?:string|null)=>{ if(id) pushDetail({kind:'user',id:String(id)}); },
+    openListing:(id?:string|null)=>{ if(id) pushDetail({kind:'listing',id:String(id)}); },
+    openReceipt:(id?:string|null)=>{ if(id) pushDetail({kind:'receipt',id:String(id)}); },
+    go:(key:string,qp?:Record<string,string>)=>setView(key as Key,qp),
+  };
+
+  // Esc closes the top 360 (matches the scrim click).
+  useEffect(()=>{
+    if(!detail.length) return;
+    function onKey(e:KeyboardEvent){ if(e.key==='Escape'){ e.preventDefault(); popDetail(); } }
+    window.addEventListener('keydown',onKey);
+    return ()=>window.removeEventListener('keydown',onKey);
+  },[detail]);
 
   // ⌘K / Ctrl+K opens the palette from anywhere.
   useEffect(()=>{
@@ -145,6 +176,7 @@ export default function App(){
   // back/forward works. Switching sections drops stale filter params.
   function setView(k:Key, qp?:Record<string,string>){
     setViewRaw(k);
+    setDetail([]); // the URL is about to lose ?d= — drop the stack with it
     const u=new URL(location.href);
     const keep=k==='dash'?null:k;
     u.search=''; if(keep) u.searchParams.set('view',keep);
@@ -153,8 +185,10 @@ export default function App(){
   }
   useEffect(()=>{
     const onPop=()=>{
-      const v=new URLSearchParams(location.search).get('view') as Key|null;
+      const p=new URLSearchParams(location.search);
+      const v=p.get('view') as Key|null;
       setViewRaw(v && KEYS.includes(v) ? v : 'dash');
+      setDetail(decodeDetail(p.get('d'))); // Back closes / reopens the 360 stack
     };
     window.addEventListener('popstate',onPop);
     return ()=>window.removeEventListener('popstate',onPop);
@@ -283,7 +317,7 @@ export default function App(){
     syndicates:<Syndicates onChange={refreshCounts}/>,
     acquisition:<Acquisition/>,
     featured:<Featured onChange={refreshCounts}/>,
-    livefeed:<LiveFeed onChange={refreshCounts}/>, shop:<Shop/>, vets:<Vets onChange={refreshCounts}/>,
+    livefeed:<LiveFeed onChange={refreshCounts}/>, shop:<Shop/>, orders:<Orders/>, vets:<Vets onChange={refreshCounts}/>,
     kukuta:<Kukuta/>, breeds:<Breeds/>, disease:<Disease onChange={refreshCounts}/>,
     boosts:<Boosts/>, users:<UsersSection/>, announce:<Announcements/>, auctions:<Auctions onChange={refreshCounts}/>,
     community:<Community onChange={refreshCounts}/>,
@@ -295,11 +329,12 @@ export default function App(){
   const top=detail[detail.length-1];
 
   return (
+    <DetailCtx.Provider value={detailApi}>
     <div className="shell">
       <button className="menu-btn" onClick={()=>setMenuOpen(true)} aria-label="Open menu">☰</button>
       {menuOpen && <div className="nav-scrim" onClick={()=>setMenuOpen(false)}/>}
       <aside className={menuOpen?'side open':'side'}>
-        <div className="brand"><Egg size={22}/> Rooster Club</div>
+        <div className="brand"><img className="brand-mark" src="./icon-192.png" alt=""/> Rooster Club</div>
         <button className="cmdk-launch" onClick={()=>{setCmdk(true);setMenuOpen(false);}}>
           <Search size={14}/> Search anything… <span className="cmdk-kbd">⌘K</span>
         </button>
@@ -338,5 +373,6 @@ export default function App(){
       {top?.kind==='receipt' && <Receipt360 receiptId={top.id} onClose={popDetail}
         onOpenUser={(id)=>pushDetail({kind:'user',id})} onOpenListing={(id)=>pushDetail({kind:'listing',id})}/>}
     </div>
+    </DetailCtx.Provider>
   );
 }

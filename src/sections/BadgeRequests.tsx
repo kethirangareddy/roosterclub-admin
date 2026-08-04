@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Award, Check, X } from 'lucide-react';
-import { Empty, Loading, timeAgo, WaButton, FOUNDER_CAP } from '../ui';
+import { Empty, Loading, timeAgo, WaButton, FOUNDER_CAP, UserLink, Copyable } from '../ui';
 
 const BADGES:{v:string;label:string}[]=[
   {v:'bronze',label:'Bronze'},
@@ -107,9 +107,9 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
             <tbody>
               {shown.map(r=>(
                 <tr key={r.id}>
-                  <td><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b></td>
+                  <td><UserLink id={r.user_id}><b>{r.user?.full_name||('@'+(r.user?.handle||'user'))}</b></UserLink></td>
                   <td className="muted" style={{fontFamily:'monospace',fontSize:12.5,whiteSpace:'nowrap'}}>
-                    {r.user?.phone||'—'}
+                    <Copyable value={r.user?.phone} title="Copy phone number"/>
                     {r.user?.language==='te' && <span className="badge b-mut" style={{marginLeft:6,fontSize:10}}>తె</span>}
                   </td>
                   <td><WaButton phone={r.user?.phone} lang={r.user?.language}/></td>

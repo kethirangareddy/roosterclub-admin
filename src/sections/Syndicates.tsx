@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
-import { Empty, Loading, timeAgo } from '../ui';
+import { Empty, Loading, timeAgo, UserLink, Copyable } from '../ui';
 
 export default function Syndicates({ onChange }: { onChange?: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
@@ -60,10 +60,10 @@ export default function Syndicates({ onChange }: { onChange?: () => void }) {
                     <b>{r.name}</b>
                     {r.motto ? <div className="muted" style={{ fontSize: 12 }}>{r.motto}</div> : null}
                     {r.status === 'approved' && r.invite_code
-                      ? <div className="muted" style={{ fontSize: 12 }}>Code: <b>{r.invite_code}</b></div> : null}
+                      ? <div className="muted" style={{ fontSize: 12 }}>Code: <Copyable value={r.invite_code} title="Copy invite code"><b>{r.invite_code}</b></Copyable></div> : null}
                   </td>
-                  <td>{r.owner?.full_name || ('@' + (r.owner?.handle || 'user'))}{r.owner?.badge ? <div className="muted" style={{ fontSize: 12 }}>{r.owner.badge}</div> : null}</td>
-                  <td className="muted">{r.owner?.phone || '—'}</td>
+                  <td><UserLink id={r.owner_id}>{r.owner?.full_name || ('@' + (r.owner?.handle || 'user'))}</UserLink>{r.owner?.badge ? <div className="muted" style={{ fontSize: 12 }}>{r.owner.badge}</div> : null}</td>
+                  <td className="muted"><Copyable value={r.owner?.phone} title="Copy phone number"/></td>
                   <td className="muted">{[r.district, r.state].filter(Boolean).join(', ') || '—'}</td>
                   <td><span className={'badge ' + (r.status === 'approved' ? 'b-ok' : r.status === 'rejected' ? 'b-danger' : 'b-warn')}>{r.status}</span></td>
                   <td className="muted">{timeAgo(r.created_at)}</td>

@@ -11,7 +11,7 @@ const CATEGORIES = [
   { value: 'accessories',     label: 'Accessories' },
   { value: 'cages',           label: 'Cages' },
 ];
-const empty = { id: '', name: '', brand: '', category: 'feed', price: '', unit: '', stock_count: '', description: '', image_url: '', state: '', district: '', mandal: '', status: 'active' };
+const empty = { id: '', name: '', brand: '', category: 'feed', price: '', mrp: '', unit: '', stock_count: '', description: '', image_url: '', images: [] as string[], state: '', district: '', mandal: '', status: 'active' };
 
 export default function Shop() {
   const [rows, setRows] = useState<any[]>([]);
@@ -61,17 +61,35 @@ export default function Shop() {
     setRows(x => x.map(p => p.id === r.id ? { ...p, status: 'removed', removed_at } : p));
   }
 
+  // Multi-photo: the first image in `images` is the cover and is mirrored into
+  // image_url so older app builds (which only know image_url) still show something.
   async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file || !edit) return;
+    const files = Array.from(e.target.files ?? []); if (!files.length || !edit) return;
     setUploading(true);
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = `admin/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true });
-      if (up.error) { alert('Image upload failed: ' + up.error.message); return; }
-      const { data } = supabase.storage.from('product-images').getPublicUrl(path);
-      setEdit({ ...edit, image_url: data.publicUrl });
+      const urls: string[] = [];
+      for (const file of files) {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const path = `admin/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true });
+        if (up.error) { alert('Image upload failed: ' + up.error.message); return; }
+        urls.push(supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl);
+      }
+      const images = [...(edit.images ?? []), ...urls].slice(0, 8);
+      setEdit({ ...edit, images, image_url: images[0] ?? edit.image_url });
     } finally { setUploading(false); }
+  }
+
+  function dropImage(url: string) {
+    if (!edit) return;
+    const images = (edit.images ?? []).filter((u: string) => u !== url);
+    setEdit({ ...edit, images, image_url: images[0] ?? '' });
+  }
+
+  function makeCover(url: string) {
+    if (!edit) return;
+    const images = [url, ...(edit.images ?? []).filter((u: string) => u !== url)];
+    setEdit({ ...edit, images, image_url: url });
   }
 
   async function save() {
@@ -85,6 +103,11 @@ export default function Shop() {
       unit: edit.unit?.trim() || null,
       stock_count: edit.stock_count === '' ? 0 : Number(edit.stock_count),
       description: edit.description?.trim() || null, image_url: edit.image_url || null,
+      images: edit.images ?? [],
+      // MRP drives the strikethrough + "% off" badge. Blank = no discount shown.
+      // The DB constraint rejects an MRP below the selling price, so clamp here.
+      mrp: edit.mrp === '' || edit.mrp == null ? null
+        : Math.max(Number(edit.mrp), edit.price === '' ? 0 : Number(edit.price)),
       state: edit.state?.trim() || '', district: edit.district?.trim() || '', mandal: edit.mandal?.trim() || '',
       status: edit.status || 'active',
     };
@@ -150,10 +173,24 @@ export default function Shop() {
             {edit.image_url ? <img src={edit.image_url} className="thumb" style={{ width: 72, height: 72 }} />
               : <div className="thumb" style={{ width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImagePlus size={22} /></div>}
             <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
-              {uploading ? 'Uploading…' : 'Upload photo'}
-              <input type="file" accept="image/*" hidden onChange={pickImage} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
+              {uploading ? 'Uploading…' : 'Upload photos'}
+              <input type="file" accept="image/*" multiple hidden onChange={pickImage} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
             </label>
           </div>
+
+          {(edit.images ?? []).length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+              {(edit.images ?? []).map((u: string, i: number) => (
+                <div key={u} style={{ textAlign: 'center' }}>
+                  <img src={u} className="thumb" style={{ width: 56, height: 56, outline: i === 0 ? '2px solid #BA7517' : 'none' }} />
+                  <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+                    {i !== 0 && <button className="btn ghost sm" onClick={() => makeCover(u)}>Cover</button>}
+                    <button className="btn ghost sm" onClick={() => dropImage(u)}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           <Field label="Name"><input value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. Growth booster feed" /></Field>
           <div className="grid2">
             <Field label="Brand"><input value={edit.brand} onChange={e => setEdit({ ...edit, brand: e.target.value })} /></Field>
@@ -166,6 +203,12 @@ export default function Shop() {
           <div className="grid2">
             <Field label="Price (₹)"><input type="number" value={edit.price} onChange={e => setEdit({ ...edit, price: e.target.value })} /></Field>
             <Field label="Unit (e.g. kg, pack)"><input value={edit.unit} onChange={e => setEdit({ ...edit, unit: e.target.value })} /></Field>
+          </div>
+          <div className="grid2">
+            <Field label="M.R.P. (₹) — optional, shows the % off badge">
+              <input type="number" value={edit.mrp ?? ''} onChange={e => setEdit({ ...edit, mrp: e.target.value })} placeholder="leave blank for no discount" />
+            </Field>
+            <div />
           </div>
           <div className="grid2">
             <Field label="Stock count"><input type="number" value={edit.stock_count} onChange={e => setEdit({ ...edit, stock_count: e.target.value })} /></Field>

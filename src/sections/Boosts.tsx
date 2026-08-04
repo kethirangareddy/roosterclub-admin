@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Rocket, Plus, Zap } from 'lucide-react';
-import { Modal, Field, Empty, Loading, inr, timeAgo } from '../ui';
+import { Modal, Field, Empty, Loading, inr, timeAgo, UserLink, ListingLink, Copyable } from '../ui';
 
 const LEVELS=[
   { v:'mandal', label:'Mandal — ₹99', price:99 },
@@ -84,11 +84,14 @@ export default function Boosts(){
                 const live=b.activated_at && b.expires_at && new Date(b.expires_at)>new Date();
                 return (
                   <tr key={b.id}>
-                    <td><b>{b.listings?.breed||'—'}</b><div className="muted">{b.listings?.type||''}</div></td>
-                    <td>{b.users?.full_name||'—'}<div className="muted">{b.users?.phone||''}</div></td>
+                    <td><ListingLink id={b.listing_id}><b>{b.listings?.breed||'Listing'}</b></ListingLink><div className="muted">{b.listings?.type||''}</div></td>
+                    <td>
+                      <UserLink id={b.seller_id}>{b.users?.full_name||'View seller'}</UserLink>
+                      <div className="muted">{b.users?.phone ? <Copyable value={b.users.phone} title="Copy phone number"/> : ''}</div>
+                    </td>
                     <td><span className="badge b-info">{b.level}</span></td>
                     <td>{inr(b.price_paid)}</td>
-                    <td className="muted">{b.upi_ref||'—'}</td>
+                    <td className="muted"><Copyable value={b.upi_ref} title="Copy UPI reference"/></td>
                     <td>{live?<span className="badge b-ok">Active</span>:b.activated_at?<span className="badge b-mut">Expired</span>:<span className="badge b-warn">Pending</span>}</td>
                     <td className="muted">{timeAgo(b.created_at)}</td>
                     <td>{!b.activated_at && <button className="btn ok sm" onClick={()=>activate(b)}><Zap size={13}/> Activate</button>}</td>

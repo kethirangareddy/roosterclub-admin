@@ -17,8 +17,8 @@ const fmtMonth = (s: string) => new Date(s).toLocaleDateString('en-IN', { month:
 const daysWaiting = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 864e5);
 
 const tt = {
-  background: '#FFFFFF', border: '1px solid rgba(20,30,55,.14)', borderRadius: 10,
-  color: '#1B2436', fontSize: 12, boxShadow: '0 8px 24px rgba(20,30,55,.14)',
+  background: '#FFFFFF', border: '1px solid rgba(44,24,16,.14)', borderRadius: 10,
+  color: '#2C1810', fontSize: 12, boxShadow: '0 8px 24px rgba(44,24,16,.14)',
 } as const;
 
 export default function Money({ openReceipt, go }: { openReceipt: (id: string) => void; go: (k: any) => void }) {
@@ -124,12 +124,12 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
         <div style={{ padding: '18px 12px 8px' }}>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={m.series || []} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
-              <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false}/>
-              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24}/>
-              <YAxis tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} width={44}/>
-              <Tooltip contentStyle={tt} labelFormatter={fmtDay} cursor={{ fill: 'rgba(255,255,255,.04)' }}
+              <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false}/>
+              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24}/>
+              <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={44}/>
+              <Tooltip contentStyle={tt} labelFormatter={fmtDay} cursor={{ fill: 'rgba(186,117,23,.08)' }}
                 formatter={(v: any, name: any) => [inr(Number(v)), name === 'boost' ? 'Boosts' : 'Features']}/>
-              <Bar dataKey="boost" stackId="a" fill="#5B8CFF"/>
+              <Bar dataKey="boost" stackId="a" fill="#BA7517"/>
               <Bar dataKey="feature" stackId="a" fill="#E9A23B" radius={[4, 4, 0, 0]}/>
             </BarChart>
           </ResponsiveContainer>

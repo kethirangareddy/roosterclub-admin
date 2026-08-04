@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { MessagesSquare, Search, ChevronLeft, ArrowRight } from 'lucide-react';
-import { Empty, Loading, timeAgo } from '../ui';
+import { Empty, Loading, timeAgo, UserLink, ListingLink } from '../ui';
 import ChatMessages from './ChatMessages';
 
 type Thread = {
@@ -59,14 +59,23 @@ export default function Chats() {
         {loading ? <Loading /> : rows.length === 0 ? <Empty text="No conversations match this search." /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rows.map(t => (
-              <button key={t.chat_id} onClick={() => setActive(t)}
+              // a div, not a button: it now contains buttons (the 360 links) and
+              // nesting buttons is invalid HTML. role+tabIndex+key handler keep it
+              // operable from the keyboard.
+              <div key={t.chat_id} role="button" tabIndex={0} onClick={() => setActive(t)}
+                onKeyDown={e => { if(e.key==='Enter'||e.key===' '){ e.preventDefault(); setActive(t); } }}
                 style={{ textAlign: 'left', background: 'var(--glass)', border: '1px solid var(--line)',
                   borderRadius: 10, padding: '10px 12px', cursor: 'pointer', display: 'flex',
                   justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>
-                    {who(t.buyer_name, t.buyer_handle)} <span className="muted" style={{ fontWeight: 400 }}>↔</span> {who(t.seller_name, t.seller_handle)}
-                    {t.listing_breed && <span className="badge b-mut" style={{ marginLeft: 8 }}>{t.listing_breed}</span>}
+                    {/* both parties and the listing open their own 360 — the card
+                        itself still opens the thread (the links stop propagation) */}
+                    <UserLink id={t.buyer_id} title="Open buyer 360">{who(t.buyer_name, t.buyer_handle)}</UserLink>
+                    <span className="muted" style={{ fontWeight: 400 }}> ↔ </span>
+                    <UserLink id={t.seller_id} title="Open seller 360">{who(t.seller_name, t.seller_handle)}</UserLink>
+                    {t.listing_breed && <span className="badge b-mut" style={{ marginLeft: 8 }}>
+                      <ListingLink id={t.listing_id}>{t.listing_breed}</ListingLink></span>}
                   </div>
                   <div className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {t.last_message || '—'}
@@ -77,7 +86,7 @@ export default function Chats() {
                   <div className="muted" style={{ fontSize: 11 }}>{t.last_message_at ? timeAgo(t.last_message_at) : ''}</div>
                   <ArrowRight size={13} style={{ color: 'var(--muted)' }} />
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}

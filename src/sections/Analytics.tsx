@@ -68,10 +68,10 @@ export default function Analytics() {
   const funnelData = useMemo(() => {
     if (!funnel) return [];
     return [
-      { stage: 'Views', v: funnel.views, c: '#5B8CFF' },
-      { stage: 'Chats', v: funnel.chats, c: '#6FA0FF' },
-      { stage: 'Receipts', v: funnel.issued, c: '#8B7CFF' },
-      { stage: 'Confirmed', v: funnel.acknowledged, c: '#3FB67A' },
+      { stage: 'Views', v: funnel.views, c: '#BA7517' },
+      { stage: 'Chats', v: funnel.chats, c: '#D9973F' },
+      { stage: 'Receipts', v: funnel.issued, c: '#7B3F00' },
+      { stage: 'Confirmed', v: funnel.acknowledged, c: '#2E7D32' },
     ];
   }, [funnel]);
 
@@ -151,15 +151,15 @@ export default function Analytics() {
             <AreaChart data={series} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
               <defs>
                 <linearGradient id="gGmv" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3FB67A" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="#3FB67A" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#2E7D32" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#2E7D32" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false} />
-              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => v >= 1000 ? (v / 1000) + 'k' : v} />
+              <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
+              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => v >= 1000 ? (v / 1000) + 'k' : v} />
               <Tooltip contentStyle={tt} labelFormatter={fmtDay} formatter={(v: any) => [inr(v as number), 'GMV']} />
-              <Area type="monotone" dataKey="gmv" stroke="#3FB67A" strokeWidth={2} fill="url(#gGmv)" />
+              <Area type="monotone" dataKey="gmv" stroke="#2E7D32" strokeWidth={2} fill="url(#gGmv)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -172,10 +172,10 @@ export default function Analytics() {
           <div style={{ padding: '18px 12px 6px' }}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={funnelData} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
-                <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false} />
-                <XAxis dataKey="stage" tick={{ fill: '#9AA1B2', fontSize: 12 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} width={38} />
-                <Tooltip contentStyle={tt} cursor={{ fill: 'rgba(255,255,255,.04)' }} />
+                <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
+                <XAxis dataKey="stage" tick={{ fill: '#a8977e', fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={38} />
+                <Tooltip contentStyle={tt} cursor={{ fill: 'rgba(186,117,23,.08)' }} />
                 <Bar dataKey="v" radius={[6, 6, 0, 0]}>
                   {funnelData.map((d, i) => <Cell key={i} fill={d.c} />)}
                 </Bar>
@@ -195,12 +195,12 @@ export default function Analytics() {
           <div style={{ padding: '18px 12px 14px' }}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={series} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
-                <CartesianGrid stroke="rgba(20,30,55,.08)" vertical={false} />
-                <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-                <YAxis tick={{ fill: '#646B7D', fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
-                <Tooltip contentStyle={tt} labelFormatter={fmtDay} cursor={{ fill: 'rgba(255,255,255,.04)' }} />
-                <Bar dataKey="listings" stackId="a" fill="#5B8CFF" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="users" stackId="a" fill="#8B7CFF" radius={[4, 4, 0, 0]} />
+                <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
+                <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
+                <Tooltip contentStyle={tt} labelFormatter={fmtDay} cursor={{ fill: 'rgba(186,117,23,.08)' }} />
+                <Bar dataKey="listings" stackId="a" fill="#BA7517" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="users" stackId="a" fill="#7B3F00" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -258,8 +258,8 @@ function FragmentRows({ g, total, open, onToggle }: {
         <td className="right" style={{ fontWeight: 600 }}>{g.total}</td>
         <td className="right">
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 70, height: 6, borderRadius: 3, background: 'rgba(20,30,55,.10)', overflow: 'hidden', display: 'inline-block' }}>
-              <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: '#5B8CFF' }} />
+            <span style={{ width: 70, height: 6, borderRadius: 3, background: 'rgba(44,24,16,.10)', overflow: 'hidden', display: 'inline-block' }}>
+              <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: '#BA7517' }} />
             </span>
             <span style={{ color: 'var(--muted)', fontSize: 12, minWidth: 32, textAlign: 'right' }}>{pct}%</span>
           </span>
@@ -277,6 +277,6 @@ function FragmentRows({ g, total, open, onToggle }: {
 }
 
 const tt = {
-  background: '#FFFFFF', border: '1px solid rgba(20,30,55,.14)', borderRadius: 10,
-  color: '#1B2436', fontSize: 12, boxShadow: '0 8px 24px rgba(20,30,55,.14)',
+  background: '#FFFFFF', border: '1px solid rgba(44,24,16,.14)', borderRadius: 10,
+  color: '#2C1810', fontSize: 12, boxShadow: '0 8px 24px rgba(44,24,16,.14)',
 } as const;

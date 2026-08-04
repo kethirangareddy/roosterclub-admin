@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
-import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP } from '../ui';
+import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink } from '../ui';
 import UserDetail from './UserDetail';
 
 const BADGES:{v:string;label:string}[]=[
@@ -175,8 +175,8 @@ export default function UsersSection(){
                 {rows.map(u=>(
                   <tr key={u.id}>
                     <td><RiskChip n={u.risk}/></td>
-                    <td style={{fontWeight:600}}>{u.full_name||'—'}</td>
-                    <td className="muted">{u.handle?'@'+u.handle:'—'}</td>
+                    <td style={{fontWeight:600}}><UserLink id={u.id}>{u.full_name||'View user'}</UserLink></td>
+                    <td className="muted"><UserLink id={u.id}>{u.handle?'@'+u.handle:'—'}</UserLink></td>
                     <td>{u.open_reports||0}</td>
                     <td>{u.reports_24h||0}</td>
                     <td>{u.shared_upi?<span className="badge b-danger">yes</span>:<span className="badge b-mut">—</span>}</td>
@@ -235,7 +235,7 @@ export default function UsersSection(){
                   {/* Compact identity cell — tap View for KYC photos, stats & history. */}
                   <td>
                     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-                      <b>{u.full_name||(u.handle?'@'+u.handle:'—')}</b>
+                      <UserLink id={u.id}><b>{u.full_name||(u.handle?'@'+u.handle:'—')}</b></UserLink>
                       {u.aadhaar_verified&&<span title="KYC verified" style={{display:'inline-flex',color:'var(--ok)'}}><ShieldCheck size={13}/></span>}
                       {u.banned&&<span className="badge b-danger">Banned</span>}
                     </div>

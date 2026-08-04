@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { ListChecks, Search, Eye } from 'lucide-react';
-import { Empty, Loading, loc, inr, timeAgo, useParamState } from '../ui';
+import { Empty, Loading, loc, inr, timeAgo, useParamState, UserLink } from '../ui';
 import Listing360 from './Listing360';
 
 type Filter = 'all' | 'live' | 'pending' | 'sold' | 'expired' | 'removed';
@@ -79,7 +79,8 @@ export default function Listings() {
                 return (
                   <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => setOpen360(r.id)}>
                     <td><b>{r.breed || '—'}</b><div className="muted">{r.type}</div></td>
-                    <td>{r.users?.full_name || (r.users?.handle ? '@' + r.users.handle : '—')}</td>
+                    {/* the row opens the listing; the seller link stops propagation and opens the user instead */}
+                    <td><UserLink id={r.user_id}>{r.users?.full_name || (r.users?.handle ? '@' + r.users.handle : 'View seller')}</UserLink></td>
                     <td>{inr(r.price)}</td>
                     <td className="muted">{loc(r)}</td>
                     <td><span className={'badge ' + (st === 'active' ? 'b-ok' : st === 'sold' ? 'b-info' : st === 'expired' ? 'b-warn' : 'b-mut')}>{st}</span></td>

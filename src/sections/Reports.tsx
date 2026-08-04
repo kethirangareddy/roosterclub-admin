@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Flag, Trash2, Ban, X } from 'lucide-react';
-import { Empty, Loading, timeAgo, inr, useParamState, useRowKeys } from '../ui';
+import { Empty, Loading, timeAgo, inr, useParamState, useRowKeys, UserLink, ListingLink } from '../ui';
+import { useDetail } from '../detail';
 
 export default function Reports({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
@@ -9,9 +10,13 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
   const [tab,setTab]=useParamState<'open'|'all'>('tab','open');
   const [picked,setPicked]=useState<Set<string>>(new Set());
   // j/k + d dismiss. Remove/ban stay click-only — too destructive for a single keystroke.
+  const { openUser,openListing }=useDetail();
   const [sel]=useRowKeys(rows.length,{
     d:(i)=>{ const r=rows[i]; if(r?.status==='open') mark(r.id,'dismissed'); },
     x:(i)=>{ const r=rows[i]; if(r?.status==='open') togglePick(r.id); },
+    // Enter opens whatever was reported — the listing, or the accused user.
+    Enter:(i)=>{ const r=rows[i]; if(!r) return;
+      if(r.target_type==='listing') openListing(r.listing?.id); else openUser(r.reported_user_id); },
   });
 
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
@@ -90,11 +95,20 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
                   <td className="ck">{r.status==='open' && <input type="checkbox" checked={picked.has(r.id)} onChange={()=>togglePick(r.id)}/>}</td>
                   <td><span className="badge b-mut">{r.target_type}</span></td>
                   <td>{r.target_type==='listing'
-                      ? (r.listing ? <><b>{r.listing.breed||'Listing'}</b> <span className="muted">{inr(r.listing.price)} · {r.listing.status}</span></> : <span className="muted">deleted</span>)
-                      : (r.reported ? <b>{r.reported.full_name||('@'+(r.reported.handle||'user'))}</b> : <span className="muted">unknown</span>)}</td>
+                      ? (r.listing
+                          ? <><ListingLink id={r.listing.id}><b>{r.listing.breed||'Listing'}</b></ListingLink>{' '}
+                            <span className="muted">{inr(r.listing.price)} · {r.listing.status}</span>
+                            {/* the accused is the seller behind the reported listing */}
+                            <div className="muted"><UserLink id={r.listing.user_id} title="Open seller 360">seller</UserLink></div></>
+                          : <span className="muted">deleted</span>)
+                      : (r.reported_user_id
+                          ? <UserLink id={r.reported_user_id}><b>{r.reported?.full_name||('@'+(r.reported?.handle||'user'))}</b></UserLink>
+                          : <span className="muted">unknown</span>)}</td>
                   <td>{r.reason}</td>
                   <td className="muted" style={{maxWidth:240,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.details||'—'}</td>
-                  <td className="muted">{r.reporter?('@'+(r.reporter.handle||r.reporter.full_name||'user')):'—'}</td>
+                  <td>{r.reporter_id
+                      ? <UserLink id={r.reporter_id} title="Open reporter 360">{'@'+(r.reporter?.handle||r.reporter?.full_name||'user')}</UserLink>
+                      : <span className="muted">—</span>}</td>
                   <td className="muted">{timeAgo(r.created_at)}</td>
                   <td><div className="row-acts">
                     {r.status==='open' ? <>

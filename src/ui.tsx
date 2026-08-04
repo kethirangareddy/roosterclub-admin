@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Check, Copy } from 'lucide-react';
+import { useDetail } from './detail';
 
 /* ---------- saved views: filter/tab state lives in the querystring ----------
    Bookmark ?view=kyc&tab=all and the panel reopens exactly there. */
@@ -42,6 +43,7 @@ export function useRowKeys(count:number, actions:Record<string,(i:number)=>void>
       if(e.key==='j'||e.key==='ArrowDown'){ e.preventDefault(); setSel(Math.min(count-1, sel<0?0:sel+1)); }
       else if(e.key==='k'||e.key==='ArrowUp'){ e.preventDefault(); setSel(Math.max(0, sel<0?0:sel-1)); }
       else if(e.key==='Escape'){ setSel(-1); }
+      // Enter opens the focused row's detail view — keyboard parity with tapping.
       else if(actions[e.key] && sel>=0 && sel<count){ e.preventDefault(); actions[e.key](sel); }
     }
     window.addEventListener('keydown',onKey);
@@ -65,6 +67,93 @@ export function Modal({ title, onClose, children, footer }:{
     </div>
   );
 }
+
+/* ---------- tappable entities ----------
+   Anywhere a row mentions a user / listing / receipt, wrap the label in one of
+   these instead of printing bare text. They stop propagation so they stay safe
+   inside rows that already have their own click handler, and they degrade to
+   plain muted text when the id is missing (deleted seller, anonymous report…). */
+function stop(e:React.MouseEvent){ e.stopPropagation(); }
+
+export function UserLink({ id, children, title }:{
+  id?:string|null; children?:ReactNode; title?:string;
+}){
+  const { openUser }=useDetail();
+  const label=children ?? '—';
+  if(!id) return <span className="muted">{label}</span>;
+  return (
+    <button type="button" className="linkbtn" title={title??'Open user 360'}
+      onClick={e=>{ stop(e); openUser(id); }}>{label}</button>
+  );
+}
+
+export function ListingLink({ id, children, title }:{
+  id?:string|null; children?:ReactNode; title?:string;
+}){
+  const { openListing }=useDetail();
+  const label=children ?? '—';
+  if(!id) return <span className="muted">{label}</span>;
+  return (
+    <button type="button" className="linkbtn" title={title??'Open listing 360'}
+      onClick={e=>{ stop(e); openListing(id); }}>{label}</button>
+  );
+}
+
+export function ReceiptLink({ id, children, title }:{
+  id?:string|null; children?:ReactNode; title?:string;
+}){
+  const { openReceipt }=useDetail();
+  const label=children ?? '—';
+  if(!id) return <span className="muted">{label}</span>;
+  return (
+    <button type="button" className="linkbtn" title={title??'Open receipt 360'}
+      onClick={e=>{ stop(e); openReceipt(id); }}>{label}</button>
+  );
+}
+
+/** Listing thumbnail that opens the listing. Falls back to a plain tile. */
+export function ListingThumb({ id, src, alt }:{ id?:string|null; src?:string|null; alt?:string }){
+  const { openListing }=useDetail();
+  const img=<img className="thumb" src={src||''} alt={alt||''} loading="lazy"
+    onError={e=>{ (e.currentTarget as HTMLImageElement).style.visibility='hidden'; }}/>;
+  if(!id||!src) return src?img:<div className="thumb"/>;
+  return (
+    <button type="button" className="thumbbtn" title="Open listing 360"
+      onClick={e=>{ stop(e); openListing(id); }}>{img}</button>
+  );
+}
+
+/** Click to copy — ids, receipt numbers, phone numbers. Shows a ✓ for a beat. */
+export function Copyable({ value, children, mono=true, title }:{
+  value?:string|null; children?:ReactNode; mono?:boolean; title?:string;
+}){
+  const [done,setDone]=useState(false);
+  const t=useRef<any>(null);
+  useEffect(()=>()=>clearTimeout(t.current),[]);
+  if(!value) return <span className="muted">{children??'—'}</span>;
+  async function copy(e:React.MouseEvent){
+    stop(e);
+    try{ await navigator.clipboard.writeText(value!); }
+    catch{
+      // Clipboard API needs a secure context; fall back to the old trick.
+      const ta=document.createElement('textarea');
+      ta.value=value!; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); } finally { document.body.removeChild(ta); }
+    }
+    setDone(true); clearTimeout(t.current); t.current=setTimeout(()=>setDone(false),1200);
+  }
+  return (
+    <button type="button" className={'copybtn'+(mono?' mono':'')+(done?' done':'')}
+      onClick={copy} title={title??`Copy ${value}`}>
+      {children??value}
+      {done ? <Check size={12}/> : <Copy size={12} className="copyi"/>}
+    </button>
+  );
+}
+
+/** Short id for display — full value still lands on the clipboard. */
+export function shortId(id?:string|null){ return id?String(id).slice(0,8):'—'; }
 
 export function Field({ label, children }:{ label:string; children:ReactNode }){
   return <div><label>{label}</label>{children}</div>;

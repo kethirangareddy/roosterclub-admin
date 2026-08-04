@@ -238,7 +238,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
 
       {/* Theft alerts are time-sensitive — surface unresolved ones at the top. */}
       {k.pendTheft>0 && (
-        <div className="anom" style={{cursor:'pointer',borderColor:'rgba(224,49,49,.4)',background:'rgba(224,49,49,.08)'}} onClick={()=>go('theft')}>
+        <div className="anom" style={{cursor:'pointer',borderColor:'rgba(192,57,43,.4)',background:'rgba(192,57,43,.08)'}} onClick={()=>go('theft')}>
           <Siren size={15} style={{flexShrink:0,marginTop:1,color:'var(--danger)'}}/>
           <div>{k.pendTheft} active theft {k.pendTheft===1?'alert':'alerts'} — tap to review</div>
         </div>
@@ -247,9 +247,9 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
       <div className="dash-cols">
       <div className="dash-main">
       {/* Brief */}
-      <div className="card" style={{borderColor:'rgba(139,124,255,.3)',background:'linear-gradient(180deg,rgba(139,124,255,.10),rgba(139,124,255,.02))'}}>
+      <div className="card" style={{borderColor:'rgba(123,63,0,.3)',background:'linear-gradient(180deg,rgba(123,63,0,.10),rgba(123,63,0,.02))'}}>
         <div style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:10}}>
-          <Sparkles size={16} style={{color:'#8B7CFF',flexShrink:0}}/>
+          <Sparkles size={16} style={{color:'#7B3F00',flexShrink:0}}/>
           <span style={{fontSize:13.5,color:'var(--ink)'}}>{brief}.</span>
         </div>
       </div>
@@ -296,7 +296,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
                 <button key={state} className="heatcell" title={`See ${state} districts`}
                   onClick={()=>setDrill({level:'districts',state,prev:null})}
                   style={{gridArea:area,
-                  background:`rgba(59,111,224,${0.08+0.55*(n/heatMax)})`,
+                  background:`rgba(186,117,23,${0.08+0.55*(n/heatMax)})`,
                   color:n/heatMax>0.55?'#fff':'var(--ink)'}}>
                   <div className="h-n">{n}</div>
                   <div className="h-s">{state}</div>
@@ -305,7 +305,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
             })}
             <button className="heatcell rest" title="See other states"
               onClick={()=>setDrill({level:'states',prev:null})}
-              style={{gridArea:'rest',background:`rgba(59,111,224,${0.08+0.55*(Math.min(restTotal,heatMax)/heatMax)})`,
+              style={{gridArea:'rest',background:`rgba(186,117,23,${0.08+0.55*(Math.min(restTotal,heatMax)/heatMax)})`,
                 color:restTotal/heatMax>0.55?'#fff':'var(--ink)'}}>
               <span className="h-n">{restTotal}</span>
               <span className="h-s">Rest of India{restStates.length?` · ${restStates.length} state${restStates.length>1?'s':''}`:''}</span>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Siren, Trash2, Eye, CheckCircle2, IndianRupee } from 'lucide-react';
-import { Modal, Empty, Loading, timeAgo } from '../ui';
+import { Modal, Empty, Loading, timeAgo, UserLink } from '../ui';
 
 // New-style media array (photos + videos), falling back to the legacy single photo_url.
 function mediaOf(r: any): { url: string; type?: string }[] {
@@ -63,7 +63,7 @@ export default function Theft({ onChange }: { onChange?: () => void }) {
                       <td><b>{r.bird_breed || 'Bird theft'}</b><div className="muted" style={{ maxWidth: 300, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.description}</div></td>
                       <td>{r.reward_amount ? <span className="badge b-ok"><IndianRupee size={10} />{Number(r.reward_amount).toLocaleString('en-IN')}</span> : <span className="muted">—</span>}</td>
                       <td className="muted">{[r.district, r.state].filter(Boolean).join(', ') || '—'}</td>
-                      <td className="muted">{authorName(r.users)}</td>
+                      <td className="muted"><UserLink id={r.user_id}>{authorName(r.users)}</UserLink></td>
                       <td className="muted">{timeAgo(r.created_at)}</td>
                       <td><div className="row-acts">
                         <button className="btn ghost sm" onClick={() => setViewTheft(r)}><Eye size={13} /> View</button>

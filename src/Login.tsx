@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { supabase } from './supabase';
-import { Egg } from 'lucide-react';
 
 export default function Login(){
   const [mode,setMode]=useState<'login'|'forgot'>('login');
@@ -38,8 +37,8 @@ export default function Login(){
   return (
     <div className="login">
       <div className="box">
-        <div className="logo"><Egg size={26} style={{verticalAlign:'-4px'}}/> Rooster Club</div>
-        <p>Admin Dashboard</p>
+        <div className="logo"><img className="brand-mark lg" src="./icon-192.png" alt=""/> Rooster Club</div>
+        <p>Command Center</p>
 
         {mode==='login' ? (
           <form onSubmit={submit}>
@@ -51,19 +50,17 @@ export default function Login(){
                 autoComplete="current-password" autoCapitalize="none"
                 autoCorrect="off" spellCheck={false}/></div>
             <button className="btn" disabled={busy}>{busy?'Signing in…':'Sign in'}</button>
-            <button type="button" onClick={()=>{setMode('forgot');setErr('');setMsg('');}}
-              style={{marginTop:12,background:'none',border:'none',color:'#BA7517',cursor:'pointer',padding:0,font:'inherit'}}>
+            <button type="button" className="link" onClick={()=>{setMode('forgot');setErr('');setMsg('');}}>
               Forgot password?
             </button>
           </form>
         ) : (
           <form onSubmit={sendReset}>
             {err && <div className="err">{err}</div>}
-            {msg && <div className="err" style={{background:'#EAF7EA',color:'#256B2E'}}>{msg}</div>}
+            {msg && <div className="note">{msg}</div>}
             {emailInput}
             <button className="btn" disabled={busy}>{busy?'Sending…':'Send reset link'}</button>
-            <button type="button" onClick={()=>{setMode('login');setErr('');setMsg('');}}
-              style={{marginTop:12,background:'none',border:'none',color:'#BA7517',cursor:'pointer',padding:0,font:'inherit'}}>
+            <button type="button" className="link" onClick={()=>{setMode('login');setErr('');setMsg('');}}>
               Back to sign in
             </button>
           </form>
