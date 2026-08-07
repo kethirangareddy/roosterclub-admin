@@ -10,6 +10,7 @@ const CATEGORIES = [
   { value: 'medicine',        label: 'Medicine' },
   { value: 'accessories',     label: 'Accessories' },
   { value: 'cages',           label: 'Cages' },
+  { value: 'apparel',         label: 'Apparel' },
 ];
 const empty = { id: '', name: '', brand: '', category: 'feed', price: '', mrp: '', unit: '', stock_count: '', description: '', image_url: '', images: [] as string[], state: '', district: '', mandal: '', status: 'active' };
 
