@@ -8,6 +8,8 @@ const CATEGORIES = [
   { value: 'feed',            label: 'Feed' },
   { value: 'feed_supplement', label: 'Feed supplement' },
   { value: 'medicine',        label: 'Medicine' },
+  { value: 'vaccines',        label: 'Vaccines' },
+  { value: 'feeders',         label: 'Feeders & Drinkers' },
   { value: 'accessories',     label: 'Accessories' },
   { value: 'cages',           label: 'Cages' },
   { value: 'apparel',         label: 'Apparel' },
