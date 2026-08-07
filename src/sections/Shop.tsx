@@ -22,6 +22,7 @@ export default function Shop() {
   const [edit, setEdit] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -66,21 +67,36 @@ export default function Shop() {
 
   // Multi-photo: the first image in `images` is the cover and is mirrored into
   // image_url so older app builds (which only know image_url) still show something.
-  async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []); if (!files.length || !edit) return;
+  async function uploadFiles(files: File[]) {
+    const pics = files.filter(f => f.type.startsWith('image/'));
+    if (!pics.length || !edit) return;
     setUploading(true);
     try {
       const urls: string[] = [];
-      for (const file of files) {
+      for (const file of pics) {
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
         const path = `admin/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true });
         if (up.error) { alert('Image upload failed: ' + up.error.message); return; }
         urls.push(supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl);
       }
-      const images = [...(edit.images ?? []), ...urls].slice(0, 8);
-      setEdit({ ...edit, images, image_url: images[0] ?? edit.image_url });
+      // `edit` is captured from render, so build off the latest state, not the closure —
+      // two drops in quick succession would otherwise lose the first batch.
+      setEdit((cur: any) => {
+        const images = [...(cur.images ?? []), ...urls].slice(0, 8);
+        return { ...cur, images, image_url: images[0] ?? cur.image_url };
+      });
     } finally { setUploading(false); }
+  }
+
+  function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    uploadFiles(Array.from(e.target.files ?? []));
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    uploadFiles(Array.from(e.dataTransfer.files ?? []));
   }
 
   function dropImage(url: string) {
@@ -172,14 +188,31 @@ export default function Shop() {
             <button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button>
             <button className="btn" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save product'}</button>
           </>}>
-          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+          {/* Drop photos straight from a folder — the whole box is also a file
+              picker, so clicking it works exactly like the old button did. */}
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            style={{
+              display: 'flex', gap: 14, alignItems: 'center', cursor: 'pointer',
+              border: `2px dashed ${dragOver ? '#BA7517' : 'var(--line, #E3D9C9)'}`,
+              background: dragOver ? '#FBF3E6' : 'transparent',
+              borderRadius: 12, padding: 14, transition: 'background .12s, border-color .12s',
+            }}
+          >
             {edit.image_url ? <img src={edit.image_url} className="thumb" style={{ width: 72, height: 72 }} />
               : <div className="thumb" style={{ width: 72, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ImagePlus size={22} /></div>}
-            <label className="btn ghost sm" style={{ cursor: 'pointer' }}>
-              {uploading ? 'Uploading…' : 'Upload photos'}
-              <input type="file" accept="image/*" multiple hidden onChange={pickImage} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
-            </label>
-          </div>
+            <div>
+              <div style={{ fontWeight: 600 }}>
+                {uploading ? 'Uploading…' : dragOver ? 'Drop to upload' : 'Drag photos here, or click to choose'}
+              </div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                Up to 8 photos. The first is the cover.
+              </div>
+            </div>
+            <input type="file" accept="image/*" multiple hidden onChange={pickImage} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
+          </label>
 
           {(edit.images ?? []).length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
