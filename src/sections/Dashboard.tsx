@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope, BookOpen,
   ShieldCheck, Flag, Award, Gavel, Star, CheckCircle2, ArrowRight, Sparkles,
-  Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText, MessagesSquare } from 'lucide-react';
+  Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText, MessagesSquare,
+  Smartphone } from 'lucide-react';
 import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
 import Listing360 from './Listing360';
 import Online from './Online';
@@ -80,6 +81,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   const [pulse,setPulse]=useState<any|null>(null);
   const [anoms,setAnoms]=useState<any[]>([]);
   const [health,setHealth]=useState<any|null>(null);
+  const [sms,setSms]=useState<any|null>(null);
   const [feed,setFeed]=useState<any[]>([]);
   const [regions,setRegions]=useState<{state:string;district:string;n:number}[]>([]);
   const feedSince=useRef(new Date(Date.now()-24*3600e3).toISOString());
@@ -105,12 +107,14 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   }
 
   async function tick(){
-    const [p,a,h]=await Promise.all([
+    const [p,a,h,s]=await Promise.all([
       supabase.rpc('admin_pulse'), supabase.rpc('admin_anomalies'), supabase.rpc('admin_fn_health'),
+      supabase.rpc('admin_sms_health'),
     ]);
     if(!p.error) setPulse(p.data);
     if(!a.error) setAnoms((a.data as any[])||[]);
     if(!h.error) setHealth(h.data);
+    if(!s.error) setSms(s.data);
   }
   async function pollFeed(){
     const { data }=await supabase.rpc('admin_recent_events',{ p_since:feedSince.current });
@@ -336,6 +340,56 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
                     <span className="muted" style={{marginLeft:6}}>{timeAgo(e.at)}</span>
                   </div>
                 ))}
+              </div>}
+        </div>
+
+        {/* OTP / SMS health — the login path. On 7 Sep Fortius answered "Success" for
+            five hours while delivering nothing; the only visible symptom was OTPs going
+            out with nobody getting in. That comparison is the headline here. */}
+        <div className="card">
+          <div className="card-h"><h2><Smartphone size={16}/> OTP / SMS health</h2>
+            {(() => {
+              const bad = (sms?.failed_1h??0)>0
+                || ((sms?.sent_1h??0)>=6 && (sms?.logins_1h??0)===0)
+                || (sms?.stuck_2h??0)>=8;
+              return bad
+                ? <span className="badge b-danger">LOGINS AT RISK</span>
+                : <span className="badge b-ok">healthy</span>;
+            })()}
+          </div>
+          {!sms
+            ? <div className="empty" style={{padding:'26px 16px'}}>Loading…</div>
+            : <div style={{padding:'10px 18px 14px'}}>
+                <div style={{display:'flex',gap:18,flexWrap:'wrap',marginBottom:10}}>
+                  <div><b style={{fontSize:18}}>{sms.sent_1h}</b> <span className="muted" style={{fontSize:12}}>sent 1h</span></div>
+                  <div><b style={{fontSize:18,color:(sms.sent_1h>=6&&sms.logins_1h===0)?'var(--danger)':'inherit'}}>{sms.logins_1h}</b> <span className="muted" style={{fontSize:12}}>logins 1h</span></div>
+                  <div><b style={{fontSize:18,color:sms.stuck_2h>=8?'var(--danger)':'inherit'}}>{sms.stuck_2h}</b> <span className="muted" style={{fontSize:12}}>stuck 2h</span></div>
+                  {sms.failed_1h>0 && <div><b style={{fontSize:18,color:'var(--danger)'}}>{sms.failed_1h}</b> <span className="muted" style={{fontSize:12}}>all-carrier fails 1h</span></div>}
+                </div>
+                <div className="muted" style={{fontSize:12.5}}>
+                  Carrier: <b style={{color:'var(--ink)'}}>{sms.last_ok_provider||'—'}</b>
+                  {sms.last_ok_at && <> · last OK {timeAgo(sms.last_ok_at)}</>}
+                  {sms.failovers_24h>0 && <span style={{color:'var(--warn)'}}> · {sms.failovers_24h} failover{sms.failovers_24h>1?'s':''} in 24h</span>}
+                </div>
+                {(sms.alerts||[]).length>0 && (
+                  <div style={{marginTop:10,display:'grid',gap:4}}>
+                    {sms.alerts.slice(0,3).map((a:any,i:number)=>(
+                      <div key={i} style={{fontSize:12,color:'var(--danger)'}}>{a.detail}
+                        <span className="muted" style={{marginLeft:6}}>{timeAgo(a.at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(sms.recent_fails||[]).length>0 && (
+                  <div style={{marginTop:10,display:'grid',gap:4}}>
+                    {sms.recent_fails.slice(0,5).map((f:any,i:number)=>(
+                      <div key={i} style={{fontSize:12,color:'var(--muted)'}}>
+                        <b>{f.provider}</b> {f.code}{f.detail?` — ${f.detail}`:''}
+                        <span className="muted" style={{marginLeft:6}}>{timeAgo(f.at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>}
         </div>
       </div>
