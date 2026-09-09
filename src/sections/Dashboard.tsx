@@ -41,6 +41,62 @@ const QUEUE: {key:string;label:string;go:string;Icon:any;sev:number;qp?:Record<s
 
 const pct = (a:number, b:number) => b > 0 ? Math.round(a/b*100) : 0;
 
+/* Every number on this screen answers "show me those rows". One RPC serves them
+   all and returns a uniform shape, so this one modal renders any of them and
+   each row still opens the right 360. */
+type DrillKind = 'online_now'|'signups_today'|'new_users_7d'|'listings_today'
+  |'active_listings'|'chats_today'|'unreplied_chats'|'messages_hour'|'push_unreachable';
+
+function Drill({ kind, label, go, onClose }:{
+  kind:DrillKind; label:string; go:(k:string)=>void; onClose:()=>void;
+}){
+  const [rows,setRows]=useState<any[]|null>(null);
+  const [err,setErr]=useState<string|null>(null);
+  useEffect(()=>{
+    let alive=true;
+    supabase.rpc('admin_drill',{ p_kind:kind, p_limit:200 }).then(({data,error})=>{
+      if(!alive) return;
+      if(error){ setErr(error.message); setRows([]); return; }
+      setRows((data as any[])||[]);
+    });
+    return ()=>{ alive=false; };
+  },[kind]);
+
+  return (
+    <Modal title={label} onClose={onClose}>
+      {err && <div className="empty" style={{color:'var(--danger)'}}>Could not load: {err}</div>}
+      {!rows ? <Loading/> : rows.length===0 ? <div className="empty">Nothing here right now.</div> : (
+        <table>
+          <thead><tr><th>{label}</th><th></th><th className="right">When</th></tr></thead>
+          <tbody>
+            {rows.map((r,i)=>(
+              <tr key={r.row_kind+r.id+i}>
+                <td style={{fontWeight:600}}>
+                  {r.row_kind==='user' ? <UserLink id={r.id}>{r.title}</UserLink>
+                    : r.row_kind==='listing' ? <ListingLink id={r.id}>{r.title}</ListingLink>
+                    : r.title}
+                  {r.subtitle && <div className="muted" style={{fontSize:11.5,fontWeight:400}}>{r.subtitle}</div>}
+                </td>
+                <td className="muted" style={{fontSize:12}}>{r.meta||''}</td>
+                <td className="right muted" style={{fontSize:11.5,whiteSpace:'nowrap'}}>
+                  {r.at ? timeAgo(r.at) : ''}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {rows && rows.length>0 && rows[0].row_kind==='chat' && (
+        <button className="btn ghost sm" style={{alignSelf:'flex-start'}}
+          onClick={()=>{ onClose(); go('chats'); }}>Open the Chats section →</button>
+      )}
+      {rows && rows.length>=200 && (
+        <div className="muted" style={{fontSize:12}}>Showing the first 200.</div>
+      )}
+    </Modal>
+  );
+}
+
 export default function Dashboard({ go, counts }:{
   go:(k:any,qp?:Record<string,string>)=>void;
   counts:Record<string,any>;
@@ -57,6 +113,7 @@ export default function Dashboard({ go, counts }:{
   const [feed,setFeed]=useState<any[]>([]);
   const [regions,setRegions]=useState<{state:string;district:string;n:number}[]>([]);
   const [sysOpen,setSysOpen]=useState(false);
+  const [drillKind,setDrillKind]=useState<{kind:DrillKind;label:string}|null>(null);
   const feedSince=useRef(new Date(Date.now()-24*3600e3).toISOString());
   const feedSeen=useRef<Set<string>>(new Set());
   // "Since you last looked": the timestamp of the newest event you had already
@@ -190,13 +247,14 @@ export default function Dashboard({ go, counts }:{
     totalPending>0 ? `${totalPending} ${totalPending===1?'item':'items'} need review` : 'queue clear',
   ].filter(Boolean).join('  ·  ');
 
-  const cards=[
-    { lab:'Total users', val:counts.users, delta:`+${counts.new_users_7d} this week`, Icon:Users },
+  // `drill` opens the rows behind the number; `go` jumps to a section instead.
+  const cards:{lab:string;val:any;delta?:string;Icon:any;go?:string;drill?:DrillKind}[]=[
+    { lab:'Total users', val:counts.users, delta:`+${counts.new_users_7d} this week`, Icon:Users, drill:'new_users_7d' },
     { lab:'Came back D1', val:d1===null?'—':d1+'%', delta:y?`of ${y.signups} yesterday`:'no cohort yet', Icon:Repeat, go:'analytics' },
-    { lab:'Active listings', val:counts.active_listings, delta:`${counts.listings_today} posted today`, Icon:ListChecks, go:'listings' },
-    { lab:'Reachable by push', val:reach?`${reachPct}%`:'—', delta:reach?`${reach.active30_no_token} active users have no token`:undefined, Icon:HeartPulse },
-    { lab:'Chats with no reply', val:fh?fh.chats_no_seller_reply:'—', delta:fh?`of ${fh.chats} in 30d`:undefined, Icon:MessagesSquare, go:'analytics' },
-    { lab:'Median first reply', val:fh?.median_first_reply_min!=null?`${fh.median_first_reply_min}m`:'—', delta:'seller → buyer', Icon:Clock },
+    { lab:'Active listings', val:counts.active_listings, delta:`${counts.listings_today} posted today`, Icon:ListChecks, drill:'active_listings' },
+    { lab:'Reachable by push', val:reach?`${reachPct}%`:'—', delta:reach?`${reach.active30_no_token} active users have no token`:undefined, Icon:HeartPulse, drill:'push_unreachable' },
+    { lab:'Chats with no reply', val:fh?fh.chats_no_seller_reply:'—', delta:fh?`of ${fh.chats} in 30d`:undefined, Icon:MessagesSquare, drill:'unreplied_chats' },
+    { lab:'Median first reply', val:fh?.median_first_reply_min!=null?`${fh.median_first_reply_min}m`:'—', delta:'seller → buyer', Icon:Clock, go:'analytics' },
   ];
 
   return (
@@ -274,32 +332,40 @@ export default function Dashboard({ go, counts }:{
       </div>
 
       {/* 4 — LIVE STRIP (60s) + the six KPIs that actually move */}
+      {/* Every one of these opens the rows behind the number. */}
       <div className="pulse">
-        {[
-          { lab:'Online now', val:pulse?.online_now, Icon:Activity, hot:true },
-          { lab:'Signups today', val:pulse?.signups_today, Icon:UserPlus },
-          { lab:'Listings today', val:pulse?.listings_today, Icon:ListChecks },
-          { lab:'Chats today', val:counts.chats_today, Icon:MessagesSquare },
-          { lab:'Msgs / hour', val:pulse?.messages_hour, Icon:Radio },
-        ].map(p=>(
-          <div key={p.lab} className="p-item">
-            <p.Icon size={13} style={{color:p.hot?'var(--ok)':'var(--muted)'}}/>
+        {([
+          { lab:'Online now', val:pulse?.online_now, Icon:Activity, hot:true, drill:'online_now' },
+          { lab:'Signups today', val:pulse?.signups_today, Icon:UserPlus, drill:'signups_today' },
+          { lab:'Listings today', val:pulse?.listings_today, Icon:ListChecks, drill:'listings_today' },
+          { lab:'Chats today', val:counts.chats_today, Icon:MessagesSquare, drill:'chats_today' },
+          { lab:'Msgs / hour', val:pulse?.messages_hour, Icon:Radio, drill:'messages_hour' },
+        ] as const).map(p=>(
+          <button key={p.lab} className="p-item p-click"
+            onClick={()=>setDrillKind({kind:p.drill as DrillKind,label:p.lab})}
+            title={`See the ${p.lab.toLowerCase()}`}>
+            <p.Icon size={13} style={{color:(p as any).hot?'var(--ok)':'var(--muted)'}}/>
             <span className="p-val">{p.val??'—'}</span>
             <span className="p-lab">{p.lab}</span>
-            {p.hot && <span className="p-dot"/>}
-          </div>
+            {(p as any).hot && <span className="p-dot"/>}
+          </button>
         ))}
       </div>
 
       <div className="kpis">
-        {cards.map(c=>(
-          <div className="kpi" key={c.lab} onClick={c.go?()=>go(c.go):undefined}
-            style={c.go?{cursor:'pointer'}:undefined}>
-            <div className="lab"><c.Icon size={14}/> {c.lab}</div>
-            <div className="val">{c.val}</div>
-            {c.delta && <div className="delta">{c.delta}</div>}
-          </div>
-        ))}
+        {cards.map(c=>{
+          const act = c.drill ? ()=>setDrillKind({kind:c.drill!,label:c.lab})
+                    : c.go   ? ()=>go(c.go!) : undefined;
+          return (
+            <div className="kpi" key={c.lab} onClick={act}
+              title={c.drill?`See the ${c.lab.toLowerCase()}`:undefined}
+              style={act?{cursor:'pointer'}:undefined}>
+              <div className="lab"><c.Icon size={14}/> {c.lab}</div>
+              <div className="val">{c.val}</div>
+              {c.delta && <div className="delta">{c.delta}</div>}
+            </div>
+          );
+        })}
       </div>
 
       {/* Daily actives, with that day's new signups as the darker foot of each
@@ -428,6 +494,10 @@ export default function Dashboard({ go, counts }:{
         </Modal>
       )}
       {open360 && <Listing360 listingId={open360} onClose={()=>setOpen360(null)} onChanged={loadSlow}/>}
+
+      {/* The rows behind whichever number was clicked. */}
+      {drillKind && <Drill kind={drillKind.kind} label={drillKind.label}
+        go={(k)=>go(k)} onClose={()=>setDrillKind(null)}/>}
     </>
   );
 }

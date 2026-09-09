@@ -538,3 +538,16 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .chat-subj-s{ font-size:11.5px; color:var(--muted); text-transform:capitalize; }
+
+/* Live-strip items are buttons now — every number opens the rows behind it. */
+.pulse .p-click{
+  border:none; background:transparent; font:inherit; color:inherit;
+  cursor:pointer; text-align:left; border-radius:8px;
+  padding:4px 8px; margin:-4px 0;
+  transition:background .12s ease;
+}
+.pulse .p-click:hover{ background:var(--glass); }
+.pulse .p-click:active{ transform:scale(.98); }
+.pulse .p-click:focus-visible{ outline:2px solid var(--cta); outline-offset:2px; }
+.kpi[title]{ position:relative; }
+@media (prefers-reduced-motion: reduce){ .pulse .p-click{ transition:none; } }
