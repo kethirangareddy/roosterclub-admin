@@ -522,3 +522,19 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
   color:var(--cta); white-space:nowrap;
 }
 .feedmark::after{ content:''; flex:1; height:1px; background:rgba(186,117,23,.35); }
+
+/* ── Chats: the listing a conversation is about ───────────────────────────── */
+.chat-subj{ display:flex; align-items:center; gap:10px; min-width:0; }
+.chat-thumb{
+  width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0;
+  border:1px solid var(--line); background:var(--glass);
+}
+.chat-thumb-none{
+  display:flex; align-items:center; justify-content:center; font-size:19px;
+}
+.chat-subj-t{
+  display:flex; align-items:center; gap:7px; min-width:0;
+  font-size:13.5px; font-weight:700; color:var(--ink);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.chat-subj-s{ font-size:11.5px; color:var(--muted); text-transform:capitalize; }
