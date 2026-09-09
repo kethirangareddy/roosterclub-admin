@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Siren, Plus, Send } from 'lucide-react';
-import { Modal, Field, Empty, Loading, loc, timeAgo } from '../ui';
+import { Modal, Field, Empty, Loading, loc, timeAgo, UserLink } from '../ui';
 
 const SEV=['low','medium','high'];
 const BLANK={ title:'',description:'',severity:'medium',state:'',district:'',mandal:'',verified:false };
@@ -13,14 +13,16 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
 
   async function load(){
     setLoading(true);
-    const { data, error }=await supabase.from('disease_alerts').select('*').order('created_at',{ascending:false});
+    const { data, error }=await supabase.from('disease_alerts')
+      .select('*, reporter:users!disease_alerts_reported_by_fkey(id,full_name,farm_name,handle,phone,district,state)')
+      .order('created_at',{ascending:false});
     if(error) alert('Could not load alerts: '+error.message);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
 
   async function save(){
-    const v={...edit}; const id=v.id; delete v.id; delete v.created_at; delete v.reported_by; delete v.pushed_at;
+    const v={...edit}; const id=v.id; delete v.id; delete v.created_at; delete v.reported_by; delete v.pushed_at; delete v.reporter;
     if(!v.title?.trim()){ alert('Title required'); return; }
     // Blank region must be NULL, not '' — the app's Alerts list matches state to the
     // user's state OR NULL (all-India); an empty string matches neither and hides the alert.
@@ -54,11 +56,19 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
         </div>
         {loading?<Loading/>:rows.length===0?<Empty text="No reports yet."/>:(
           <table>
-            <thead><tr><th>Title</th><th>Severity</th><th>Region</th><th>Status</th><th>Created</th><th></th></tr></thead>
+            <thead><tr><th>Title</th><th>Reported by</th><th>Severity</th><th>Region</th><th>Status</th><th>Created</th><th></th></tr></thead>
             <tbody>
               {rows.map(r=>(
                 <tr key={r.id}>
                   <td><b>{r.title}</b><div className="muted" style={{maxWidth:280,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.description||''}</div></td>
+                  <td>{r.reporter
+                    ? <><UserLink id={r.reporter.id}>{r.reporter.farm_name||r.reporter.full_name||'Member'}</UserLink>
+                        <div className="muted" style={{fontSize:12}}>
+                          {r.reporter.handle?'@'+r.reporter.handle:''}
+                          {r.reporter.handle&&r.reporter.phone?' · ':''}
+                          {r.reporter.phone?<a href={'tel:+'+String(r.reporter.phone).replace(/\D/g,'')}>{String(r.reporter.phone).replace(/\D/g,'').slice(-10)}</a>:''}
+                        </div></>
+                    : <span className="muted">Admin / system</span>}</td>
                   <td><span className={'badge '+(r.severity==='high'?'b-danger':r.severity==='medium'?'b-warn':'b-mut')}>{r.severity}</span></td>
                   <td className="muted">{loc(r)}</td>
                   <td>
