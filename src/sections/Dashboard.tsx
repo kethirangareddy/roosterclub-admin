@@ -6,6 +6,7 @@ import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope,
   MessagesSquare, Store, Shield, ShieldAlert, Repeat, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
 import Listing360 from './Listing360';
+import Online from './Online';
 
 const FEED_META: Record<string,{Icon:any;c:string}> = {
   signup:{Icon:UserPlus,c:'var(--ok)'}, listing:{Icon:ListChecks,c:'var(--cta)'},
@@ -300,6 +301,12 @@ export default function Dashboard({ go, counts }:{
           </div>
         ))}
       </div>
+
+      {/* Daily actives, with that day's new signups as the darker foot of each
+          bar. Sits below the queue rather than above it — what needs you comes
+          first — but it is back on the Command Center where it belongs, not
+          buried in Analytics. Tap any bar for the roster of who was online. */}
+      <Online/>
 
       {/* 5 — ONE geography panel. "Most active districts" and "Users by district"
           both lived here too and answered the same question; the drill-down

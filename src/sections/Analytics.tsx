@@ -6,7 +6,6 @@ import {
   Repeat, Clock,
 } from 'lucide-react';
 import { useDetail } from '../detail';
-import Online from './Online';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
@@ -380,10 +379,9 @@ function Cohorts() {
         )}
         <div style={{ padding: '0 18px 12px', fontSize: 12 }} className="muted">
           Today's row always shows 0% back — the day isn't over. Read from yesterday up.
+          The daily actives chart lives on the Command Center.
         </div>
       </div>
-
-      <Online />
     </>
   );
 }
