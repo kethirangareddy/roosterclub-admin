@@ -1,7 +1,10 @@
 /* Rooster Club Command Center — service worker
    Goal: make the admin installable + usable offline for the shell,
    while NEVER caching live data (Supabase stays network-only). */
-const CACHE = 'rcc-shell-v1';
+/* BUMP THIS ON EVERY DEPLOY that changes the shell. The activate handler
+   deletes every cache whose name isn't the current one, so changing the string
+   is what actually evicts a stale shell from an already-installed browser. */
+const CACHE = 'rcc-shell-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 

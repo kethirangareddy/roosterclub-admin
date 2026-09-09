@@ -24,6 +24,17 @@
         window.addEventListener('load', function () {
           navigator.serviceWorker.register('./sw.js').catch(function () {});
         });
+        /* Without this, a deployed update sat behind the old service worker
+           until the browser happened to evict it — the admin looked unchanged
+           for hours after a successful deploy. The new worker calls
+           skipWaiting(), so when it takes control we reload once to pick up
+           the new bundle. */
+        var rcReloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (rcReloaded) return;
+          rcReloaded = true;
+          location.reload();
+        });
       }
     </script>
   </body>
