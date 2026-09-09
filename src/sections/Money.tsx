@@ -29,6 +29,7 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
   const [daysRows, setDaysRows] = useState<any[]>([]);
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [dayReceipts, setDayReceipts] = useState<any[]>([]);
+  const [cost, setCost] = useState<any | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -37,13 +38,14 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
     const to = new Date().toISOString();
     const from = new Date(Date.now() - days * 864e5).toISOString();
     (async () => {
-      const [mo, re] = await Promise.all([
+      const [mo, re, co] = await Promise.all([
         supabase.rpc('admin_money', { p_from: from, p_to: to }),
         supabase.rpc('admin_recon_months', { p_months: 12 }),
+        supabase.rpc('admin_costs', { p_days: days }),
       ]);
       if (!alive) return;
       if (mo.error || re.error) { setErr((mo.error || re.error)!.message); return; }
-      setM(mo.data); setMonths(re.data || []);
+      setM(mo.data); setMonths(re.data || []); setCost(co.data);
     })();
     return () => { alive = false; };
   }, [days]);
@@ -117,6 +119,28 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
           </div>
         ))}
       </div>
+
+      {/* What it COSTS to run. Revenue is ₹0 by design today (you take no cut and
+          nobody has bought a boost yet) — so the honest money question is spend
+          per user, not income. Rate is app_config.sms_rate_paise, edit it there. */}
+      {cost && (
+        <div className="card">
+          <div className="card-h"><h2><IndianRupee size={16}/> What it cost to get here</h2>
+            <span className="badge b-mut">last {cost.days} days</span></div>
+          <div className="costgrid">
+            <div><b>{inr(cost.sms_cost)}</b><span>SMS spend</span></div>
+            <div><b>{cost.sms_attempts}</b><span>OTP sends ({cost.sms_failed} failed)</span></div>
+            <div><b>{cost.signups}</b><span>signups</span></div>
+            <div><b>{cost.cost_per_install != null ? inr(cost.cost_per_install) : '—'}</b><span>per signup</span></div>
+            <div><b>{cost.active_users}</b><span>active users</span></div>
+            <div><b>{cost.cost_per_active != null ? inr(cost.cost_per_active) : '—'}</b><span>per active user</span></div>
+          </div>
+          <div style={{ padding: '0 18px 14px', fontSize: 12 }} className="muted">
+            At ₹{(cost.rate_paise/100).toFixed(2)}/SMS. Revenue below stays ₹0 until boosts or
+            featured profiles actually sell — that is a fact about the business, not a broken panel.
+          </div>
+        </div>
+      )}
 
       {/* Revenue over time — boost + feature stacked by day */}
       <div className="card">

@@ -469,3 +469,56 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
   .card>table>tbody>tr>td.ck{justify-content:flex-start}
   .card>table>tbody>tr>td.ck::before{display:none}
 }
+
+/* ── Sep 9: nav "More" group, systems strip, brief, cost grid ─────────────── */
+
+/* Collapsed nav group. Sections whose table has no rows render dimmed rather
+   than looking like live parts of the product. */
+.nav .nav-more{ opacity:.72; font-size:12.5px; letter-spacing:.02em; text-transform:uppercase; }
+.nav .nav-more:hover{ opacity:1; }
+.nav .nav-empty{ opacity:.42; }
+.nav .nav-empty:hover{ opacity:.72; }
+
+/* One-line health bar. Green = nothing to do. Click to expand the detail that
+   used to occupy two whole dashboard cards. */
+.sysbar{
+  display:flex; align-items:center; gap:10px; width:100%;
+  padding:9px 14px; margin:0 0 12px; border-radius:12px; cursor:pointer;
+  border:1px solid rgba(46,125,50,.28); background:rgba(46,125,50,.07);
+  color:var(--ink); font-size:13px; text-align:left;
+}
+.sysbar.bad{ border-color:rgba(192,57,43,.4); background:rgba(192,57,43,.09); }
+.sysbar .sysline{ flex:1; font-weight:600; }
+.sysbar .sysmeta{ font-size:11.5px; color:var(--muted); white-space:nowrap; }
+.sysdot{ width:8px; height:8px; border-radius:50%; background:var(--ok); flex-shrink:0; }
+.sysdot.bad{ background:var(--danger); animation:syspulse 1.6s ease-in-out infinite; }
+@keyframes syspulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+.syspanel{ margin-bottom:12px; }
+.sysgrid,.costgrid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+  gap:12px; padding:14px 18px;
+}
+.sysgrid div,.costgrid div{ display:flex; flex-direction:column; gap:2px; }
+.sysgrid b,.costgrid b{ font-size:19px; line-height:1.1; }
+.sysgrid span,.costgrid span{ font-size:11.5px; color:var(--muted); }
+
+/* Brief: same card, less chrome than the old inline-styled banner. */
+.card.brief{
+  display:flex; align-items:center; gap:10px; padding:14px 18px; margin-bottom:12px;
+  border-color:rgba(123,63,0,.3);
+  background:linear-gradient(180deg,rgba(123,63,0,.10),rgba(123,63,0,.02));
+  font-size:13.5px;
+}
+
+/* Mobile triage: nothing pending is now a sentence, not a grid of zeros. */
+.mtriage-clear{ padding:14px 16px; font-size:13px; color:var(--muted); }
+
+@media (prefers-reduced-motion: reduce){ .sysdot.bad{ animation:none; } }
+
+/* Feed divider: everything above it happened since you last had this open. */
+.feedmark{
+  display:flex; align-items:center; gap:8px;
+  margin:6px 12px; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--cta); white-space:nowrap;
+}
+.feedmark::after{ content:''; flex:1; height:1px; background:rgba(186,117,23,.35); }

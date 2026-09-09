@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
-import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope, BookOpen,
+import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope,
   ShieldCheck, Flag, Award, Gavel, Star, CheckCircle2, ArrowRight, Sparkles,
-  Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText, MessagesSquare,
-  Smartphone } from 'lucide-react';
+  Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText,
+  MessagesSquare, Store, Shield, ShieldAlert, Repeat, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
 import Listing360 from './Listing360';
-import Online from './Online';
 
 const FEED_META: Record<string,{Icon:any;c:string}> = {
   signup:{Icon:UserPlus,c:'var(--ok)'}, listing:{Icon:ListChecks,c:'var(--cta)'},
@@ -18,74 +17,56 @@ const HEAT_AREAS: Record<string,string> = {
   'Karnataka':'ka', 'Telangana':'ts', 'Andhra Pradesh':'ap', 'Tamil Nadu':'tn',
 };
 
-async function cnt(table:string, build?:(q:any)=>any){
-  let q=supabase.from(table).select('id',{count:'exact',head:true});
-  if(build) q=build(q);
-  const { count }=await q; return count||0;
-}
+// The one ranked list. `sev` pins the time-sensitive queues above the merely
+// numerous ones; everything else sorts by size. Counts come from the single
+// admin_counts() RPC the shell already fetched — the dashboard used to re-run
+// all sixteen of these itself.
+const QUEUE: {key:string;label:string;go:string;Icon:any;sev:number;qp?:Record<string,string>}[] = [
+  { key:'theft',      label:'Active theft alerts',          go:'theft',    Icon:ShieldAlert, sev:3 },
+  { key:'flagged',    label:'High-risk users flagged',      go:'users',    Icon:AlertTriangle, sev:3, qp:{tab:'risk'} },
+  { key:'reports',    label:'Open reports',                 go:'reports',  Icon:Flag,        sev:2 },
+  { key:'disease',    label:'Disease reports to verify',    go:'disease',  Icon:Siren,       sev:2 },
+  { key:'approvals',  label:'Listings awaiting approval',   go:'approvals',Icon:Inbox,       sev:1 },
+  { key:'kyc',        label:'KYC verifications pending',    go:'kyc',      Icon:ShieldCheck, sev:1 },
+  { key:'badges',     label:'Badge requests',               go:'badges',   Icon:Award,       sev:1 },
+  { key:'orders',     label:'Shop orders to fulfil',        go:'orders',   Icon:Store,       sev:1 },
+  { key:'syndicates', label:'Syndicates to approve',        go:'syndicates',Icon:Shield,     sev:0 },
+  { key:'auctions',   label:'Auctions to approve',          go:'auctions', Icon:Gavel,       sev:0 },
+  { key:'featured',   label:'Feature requests',             go:'featured', Icon:Star,        sev:0 },
+  { key:'boosts',     label:'Boosts to activate',           go:'boosts',   Icon:Rocket,      sev:0 },
+  { key:'livefeed',   label:'Live-feed sellers waiting',    go:'livefeed', Icon:Truck,       sev:0 },
+  { key:'vets',       label:'Doctors awaiting approval',    go:'vets',     Icon:Stethoscope, sev:0 },
+];
 
-export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=>void }){
-  const [k,setK]=useState<any>(null);
+const pct = (a:number, b:number) => b > 0 ? Math.round(a/b*100) : 0;
+
+export default function Dashboard({ go, counts }:{
+  go:(k:any,qp?:Record<string,string>)=>void;
+  counts:Record<string,any>;
+}){
   const [err,setErr]=useState<string|null>(null);
-  const [recent,setRecent]=useState<any[]>([]);
-  const [distRows,setDistRows]=useState<{state:string;district:string}[]>([]);
-  const [distState,setDistState]=useState<string>('all'); // state filter for "Most active districts"
-  // "Users by district" panel: region counts split by activity (last_seen_at within 30d).
-  const [ureg,setUreg]=useState<{state:string;district:string;active_n:number;inactive_n:number;total_n:number}[]>([]);
-  const [uregState,setUregState]=useState<string>('all');
-  const [uregMode,setUregMode]=useState<'all'|'active'|'inactive'>('all');
-  const [twBal,setTwBal]=useState<{balance:string;currency:string}|null>(null); // Twilio SMS balance
-
-  async function load(){
-    setErr(null);
-    try {
-    const nowIso=new Date().toISOString();
-    const wk=new Date(Date.now()-7*864e5).toISOString();
-    const day=new Date(Date.now()-864e5).toISOString();
-    const [users,newUsers,active,listingsToday,pendL,pendF,pendD,pendKyc,pendRep,pendBadge,pendAuc,pendFeat,vets,arts,boosts,pendTheft]=await Promise.all([
-      cnt('users'),
-      cnt('users',q=>q.gte('created_at',wk)),
-      cnt('listings',q=>q.eq('status','active').eq('approval_status','approved').gt('expires_at',nowIso)),
-      cnt('listings',q=>q.gte('created_at',day)),
-      cnt('listings',q=>q.eq('approval_status','pending')),
-      cnt('live_feed_sellers',q=>q.eq('approved',false)),
-      cnt('disease_alerts',q=>q.eq('verified',false)),
-      cnt('kyc_submissions',q=>q.eq('status','pending')),
-      cnt('reports',q=>q.eq('status','open')),
-      cnt('badge_requests',q=>q.eq('status','pending')),
-      cnt('auctions',q=>q.eq('status','pending')),
-      cnt('feature_requests',q=>q.eq('status','pending')),
-      cnt('vets'), cnt('kukuta_articles'),
-      cnt('boosts',q=>q.is('activated_at',null)),
-      cnt('theft_alerts',q=>q.eq('status','active')),
-    ]);
-    // Item 13 — auto-flag queue: risk ≥ 60 or 3+ reports lands in the attention queue.
-    const { data:fl }=await supabase.rpc('admin_flagged_users');
-    setK({users,newUsers,active,listingsToday,pendL,pendF,pendD,pendKyc,pendRep,pendBadge,pendAuc,pendFeat,vets,arts,boosts,pendTheft,flagged:(fl||[]).length});
-
-    const { data:rl }=await supabase.from('listings')
-      .select('id,breed,type,price,created_at,state,district').order('created_at',{ascending:false}).limit(8);
-    setRecent(rl||[]);
-
-    const { data:all }=await supabase.from('listings').select('state,district').not('district','is',null).limit(1000);
-    setDistRows((all||[]).filter((r:any)=>r.district).map((r:any)=>({ state:r.state||'—', district:r.district })));
-    } catch (e:any) {
-      // Without this, one failed query left the dashboard on "Loading…" forever.
-      console.error('dashboard load failed:', e);
-      setErr(e?.message||'Could not reach the database.');
-    }
-  }
-  useEffect(()=>{ load(); },[]);
-
-  // ---- Eagle eye: pulse (60s), anomalies + fn health (60s), live feed (30s poll) ----
   const [pulse,setPulse]=useState<any|null>(null);
   const [anoms,setAnoms]=useState<any[]>([]);
   const [health,setHealth]=useState<any|null>(null);
   const [sms,setSms]=useState<any|null>(null);
+  const [twBal,setTwBal]=useState<{balance:string;currency:string}|null>(null);
+  const [reach,setReach]=useState<any|null>(null);
+  const [fh,setFh]=useState<any|null>(null);       // funnel health (30d)
+  const [coh,setCoh]=useState<any[]>([]);          // last few signup cohorts
   const [feed,setFeed]=useState<any[]>([]);
   const [regions,setRegions]=useState<{state:string;district:string;n:number}[]>([]);
+  const [sysOpen,setSysOpen]=useState(false);
   const feedSince=useRef(new Date(Date.now()-24*3600e3).toISOString());
   const feedSeen=useRef<Set<string>>(new Set());
+  // "Since you last looked": the timestamp of the newest event you had already
+  // seen, frozen for this visit so the divider doesn't crawl while you read.
+  const lastVisit=useRef<string>(localStorage.getItem('rc_last_visit')||'');
+  useEffect(()=>{
+    const mark=()=>{ try{ localStorage.setItem('rc_last_visit',new Date().toISOString()); }catch{} };
+    const t=setInterval(mark,60_000);
+    window.addEventListener('beforeunload',mark);
+    return ()=>{ clearInterval(t); window.removeEventListener('beforeunload',mark); mark(); };
+  },[]);
 
   // ---- Region drill-down: state → districts → listings (click anything geographic) ----
   type Drill={ level:'states'|'districts'|'listings'; state?:string; district?:string; prev?:Drill|null };
@@ -106,10 +87,11 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
     setDrillList(data||[]); setDrillBusy(false);
   }
 
+  // Live strip + health, every 60s.
   async function tick(){
     const [p,a,h,s]=await Promise.all([
-      supabase.rpc('admin_pulse'), supabase.rpc('admin_anomalies'), supabase.rpc('admin_fn_health'),
-      supabase.rpc('admin_sms_health'),
+      supabase.rpc('admin_pulse'), supabase.rpc('admin_anomalies'),
+      supabase.rpc('admin_fn_health'), supabase.rpc('admin_sms_health'),
     ]);
     if(!p.error) setPulse(p.data);
     if(!a.error) setAnoms((a.data as any[])||[]);
@@ -128,10 +110,27 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
       setFeed(f=>[...fresh,...f].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,40));
     }
   }
+
+  // Slow-moving panels: fetched once per mount.
+  async function loadSlow(){
+    setErr(null);
+    try {
+      const [rg,rc,fn,co]=await Promise.all([
+        supabase.rpc('admin_users_by_region'),
+        supabase.rpc('admin_push_reach'),
+        supabase.rpc('admin_funnel_health',{ p_days:30 }),
+        supabase.rpc('admin_cohorts',{ p_days:3 }),
+      ]);
+      setRegions((rg.data as any[])||[]);
+      setReach(rc.data); setFh(fn.data); setCoh((co.data as any[])||[]);
+    } catch(e:any){
+      console.error('dashboard load failed:', e);
+      setErr(e?.message||'Could not reach the database.');
+    }
+  }
+
   useEffect(()=>{
-    tick(); pollFeed();
-    supabase.rpc('admin_users_by_region').then(({data})=>setRegions((data as any[])||[]));
-    supabase.rpc('admin_users_by_region_activity').then(({data})=>setUreg((data as any[])||[]));
+    tick(); pollFeed(); loadSlow();
     supabase.functions.invoke('twilio-balance').then(({data})=>{ if(data && !(data as any).error) setTwBal(data as any); });
     const t1=setInterval(tick,60_000), t2=setInterval(pollFeed,30_000);
     return ()=>{ clearInterval(t1); clearInterval(t2); };
@@ -140,74 +139,63 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
   const stateTotals:Record<string,number>={};
   regions.forEach(r=>{ if(r.state) stateTotals[r.state]=(stateTotals[r.state]||0)+Number(r.n); });
   const heatMax=Math.max(1,...Object.values(stateTotals));
-  // "Rest of India": every state outside the 4 mapped tiles.
   const restStates=Object.entries(stateTotals).filter(([s])=>!HEAT_AREAS[s]).sort((a,b)=>b[1]-a[1]);
   const restTotal=restStates.reduce((a,[,n])=>a+n,0);
 
-  if(err && !k) return (
+  if(err && !counts.users) return (
     <>
       <h1 className="h1">Command Center</h1>
       <div className="card"><div className="empty">
         Couldn't load the dashboard — {err}
-        <div style={{marginTop:12}}><button className="btn" onClick={load}>Retry</button></div>
+        <div style={{marginTop:12}}><button className="btn" onClick={loadSlow}>Retry</button></div>
       </div></div>
     </>
   );
-  if(!k) return <Loading/>;
+  if(!counts.users) return <Loading/>;
 
-  // Ranked attention queue — only what actually needs the founder.
-  const queue = [
-    { label:'High-risk users flagged',     n:k.flagged,  go:'users', qp:{tab:'risk'}, Icon:AlertTriangle },
-    { label:'Listings awaiting approval', n:k.pendL,    go:'approvals', Icon:Inbox },
-    { label:'KYC verifications pending',   n:k.pendKyc,  go:'kyc',       Icon:ShieldCheck },
-    { label:'Open reports',                n:k.pendRep,  go:'reports',   Icon:Flag },
-    { label:'Badge requests',              n:k.pendBadge,go:'badges',    Icon:Award },
-    { label:'Auctions to approve',         n:k.pendAuc,  go:'auctions',  Icon:Gavel },
-    { label:'Feature requests',            n:k.pendFeat, go:'featured',  Icon:Star },
-    { label:'Live-feed sellers waiting',   n:k.pendF,    go:'livefeed',  Icon:Truck },
-    { label:'Disease reports to verify',   n:k.pendD,    go:'disease',   Icon:Siren },
-    { label:'Active theft alerts',         n:k.pendTheft,go:'theft',     Icon:Siren },
-    { label:'Boosts to activate',          n:k.boosts,   go:'boosts',    Icon:Rocket },
-  ].filter(q=>q.n>0).sort((a,b)=>b.n-a.n);
+  const queue=QUEUE.map(q=>({...q,n:Number(counts[q.key]||0)}))
+    .filter(q=>q.n>0)
+    .sort((a,b)=>b.sev-a.sev || b.n-a.n);
+  const totalPending=queue.reduce((s,q)=>s+q.n,0);
 
-  const totalPending = queue.reduce((s,q)=>s+q.n,0);
+  // Yesterday's signup cohort — did they come back? This is the number that says
+  // whether an SMS/ads push bought users or bought installs.
+  const y=coh.find(c=>{
+    const d=new Date(); d.setDate(d.getDate()-1);
+    return c.cohort===d.toISOString().slice(0,10);
+  });
+  const d1=y && Number(y.signups)>0 ? pct(Number(y.d1_back),Number(y.signups)) : null;
 
-  // "Most active districts" — rank districts by listing volume, filterable by state.
-  const rankDistricts = (rows:{state:string;district:string}[]) => {
-    const m:Record<string,number>={};
-    rows.forEach(r=>{ m[r.district]=(m[r.district]||0)+1; });
-    return Object.entries(m).map(([district,n])=>({district,n:n as number})).sort((a,b)=>b.n-a.n).slice(0,6);
-  };
-  const distStates = Array.from(new Set(distRows.map(r=>r.state).filter(s=>s && s!=='—'))).sort();
-  const districtsAll = rankDistricts(distRows);
-  const districts = distState==='all' ? districtsAll : rankDistricts(distRows.filter(r=>r.state===distState));
-  const topDistrict = districtsAll[0]?.district;
+  // How many feed rows landed after your last visit. Feed is newest-first, so
+  // this is also the index the divider goes at.
+  const newSince = lastVisit.current ? feed.filter(e=>e.at>lastVisit.current).length : 0;
 
-  // "Users by district" — counts per district, filter by state + activity (active/inactive/all).
-  const uregStates = Array.from(new Set(ureg.map(r=>r.state).filter(s=>s && s!=='—'))).sort();
-  const uregMetric = (r:any)=> uregMode==='active'?Number(r.active_n):uregMode==='inactive'?Number(r.inactive_n):Number(r.total_n);
-  const uregRows = ureg.filter(r=> uregState==='all' || r.state===uregState)
-    .slice().sort((a,b)=>uregMetric(b)-uregMetric(a))
-    .filter(r=> uregMode==='all' ? Number(r.total_n)>0 : uregMetric(r)>0)
-    .slice(0,10);
+  const reachable = reach ? Number(reach.with_token) : 0;
+  const reachPct  = reach ? pct(reachable, Number(reach.users)) : 0;
 
-  // Computed brief (not LLM — real numbers, reads like a briefing).
-  const brief = [
-    `${k.newUsers} new ${k.newUsers===1?'user':'users'} this week`,
-    `${k.listingsToday} ${k.listingsToday===1?'listing':'listings'} today`,
+  // Systems: one line. Green when nothing is wrong, red with the reason when it is.
+  const smsBad = !!sms && ((sms.failed_1h??0)>0 || ((sms.sent_1h??0)>=6 && (sms.logins_1h??0)===0) || (sms.stuck_2h??0)>=8);
+  const fnBad  = (health?.http_fails_24h??0)>0;
+  const sysBad = smsBad||fnBad;
+  const sysLine = smsBad ? 'OTP / SMS — logins at risk'
+    : fnBad ? `${health.http_fails_24h} push/function failures in 24h`
+    : 'OTP, push and functions all healthy';
+
+  const brief=[
+    `${counts.signups_today} ${counts.signups_today===1?'signup':'signups'} today`,
+    `${counts.new_users_7d} this week`,
+    d1!==null ? `${d1}% of yesterday's signups came back` : null,
+    `${counts.listings_today} ${counts.listings_today===1?'listing':'listings'} today`,
     totalPending>0 ? `${totalPending} ${totalPending===1?'item':'items'} need review` : 'queue clear',
-    topDistrict ? `${topDistrict} leads activity` : null,
   ].filter(Boolean).join('  ·  ');
 
-  const cards = [
-    { lab:'Total users', val:k.users, delta:`+${k.newUsers} this week`, Icon:Users },
-    { lab:'Active listings', val:k.active, Icon:ListChecks },
-    { lab:'Listings today', val:k.listingsToday, Icon:Inbox },
-    { lab:'Needs review', val:totalPending, delta:totalPending?'open queue':'all clear', Icon:Inbox, go:queue[0]?.go },
-    { lab:'Active theft alerts', val:k.pendTheft, delta:k.pendTheft?'needs attention':undefined, Icon:Siren, go:'theft' },
-    { lab:'Vets listed', val:k.vets, Icon:Stethoscope, go:'vets' },
-    { lab:'Kukuta articles', val:k.arts, Icon:BookOpen, go:'kukuta' },
-    { lab:'Twilio balance', val: twBal ? `${twBal.currency||''} ${twBal.balance}`.trim() : '—', Icon:MessagesSquare },
+  const cards=[
+    { lab:'Total users', val:counts.users, delta:`+${counts.new_users_7d} this week`, Icon:Users },
+    { lab:'Came back D1', val:d1===null?'—':d1+'%', delta:y?`of ${y.signups} yesterday`:'no cohort yet', Icon:Repeat, go:'analytics' },
+    { lab:'Active listings', val:counts.active_listings, delta:`${counts.listings_today} posted today`, Icon:ListChecks, go:'listings' },
+    { lab:'Reachable by push', val:reach?`${reachPct}%`:'—', delta:reach?`${reach.active30_no_token} active users have no token`:undefined, Icon:HeartPulse },
+    { lab:'Chats with no reply', val:fh?fh.chats_no_seller_reply:'—', delta:fh?`of ${fh.chats} in 30d`:undefined, Icon:MessagesSquare, go:'analytics' },
+    { lab:'Median first reply', val:fh?.median_first_reply_min!=null?`${fh.median_first_reply_min}m`:'—', delta:'seller → buyer', Icon:Clock },
   ];
 
   return (
@@ -215,28 +203,44 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
       <h1 className="h1">Command Center</h1>
       <p className="sub">Rooster Club · {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</p>
 
-      {/* Who was online each day, 00:00–23:59 IST. Tap a bar for that day's roster. */}
-      <Online/>
-
-      {/* Live pulse — auto-refreshes every 60s */}
-      <div className="pulse">
-        {[
-          { lab:'Online now', val:pulse?.online_now, Icon:Activity, hot:true },
-          { lab:'Signups today', val:pulse?.signups_today, Icon:UserPlus },
-          { lab:'Listings today', val:pulse?.listings_today, Icon:ListChecks },
-          { lab:'Msgs / hour', val:pulse?.messages_hour, Icon:MessagesSquare },
-          { lab:'Push fails 24h', val:pulse?.push_fails_24h, Icon:HeartPulse, bad:(pulse?.push_fails_24h??0)>0 },
-        ].map(p=>(
-          <div key={p.lab} className={'p-item'+(p.bad?' bad':'')}>
-            <p.Icon size={13} style={{color:p.hot?'var(--ok)':p.bad?'var(--danger)':'var(--muted)'}}/>
-            <span className="p-val">{p.val??'—'}</span>
-            <span className="p-lab">{p.lab}</span>
-            {p.hot && <span className="p-dot"/>}
+      {/* 1 — SYSTEMS. One line. It only opens when something is actually wrong. */}
+      <button className={'sysbar'+(sysBad?' bad':'')} onClick={()=>setSysOpen(v=>!v)}>
+        <span className={'sysdot'+(sysBad?' bad':'')}/>
+        <span className="sysline">{sysLine}</span>
+        {sms?.last_ok_provider && <span className="sysmeta">{sms.last_ok_provider}</span>}
+        {twBal && <span className="sysmeta">SMS bal {`${twBal.currency||''} ${twBal.balance}`.trim()}</span>}
+        {sysOpen?<ChevronDown size={14}/>:<ChevronRight size={14}/>}
+      </button>
+      {sysOpen && (
+        <div className="card syspanel">
+          <div className="sysgrid">
+            <div><b>{sms?.sent_1h??'—'}</b><span>OTP sent 1h</span></div>
+            <div><b style={{color:(sms?.sent_1h>=6&&sms?.logins_1h===0)?'var(--danger)':undefined}}>{sms?.logins_1h??'—'}</b><span>logins 1h</span></div>
+            <div><b style={{color:sms?.stuck_2h>=8?'var(--danger)':undefined}}>{sms?.stuck_2h??'—'}</b><span>stuck 2h</span></div>
+            <div><b style={{color:fnBad?'var(--danger)':undefined}}>{health?.http_fails_24h??0}</b><span>push fails 24h</span></div>
+            <div><b>{reach?.tokens??'—'}</b><span>push tokens</span></div>
+            <div><b style={{color:(reach?.stale_tokens??0)>0?'var(--warn)':undefined}}>{reach?.stale_tokens??'—'}</b><span>stale 60d+</span></div>
           </div>
-        ))}
+          {sms?.last_ok_at && <div className="muted" style={{fontSize:12.5,padding:'0 18px 6px'}}>
+            Carrier <b style={{color:'var(--ink)'}}>{sms.last_ok_provider}</b> · last OK {timeAgo(sms.last_ok_at)}
+            {sms.failovers_24h>0 && <span style={{color:'var(--warn)'}}> · {sms.failovers_24h} failover{sms.failovers_24h>1?'s':''} in 24h</span>}
+          </div>}
+          {[...(sms?.alerts||[]).map((a:any)=>({t:a.detail,at:a.at})),
+            ...(health?.fn_recent||[]).map((e:any)=>({t:`${e.fn}: ${e.message||'error'}`,at:e.at})),
+            ...(health?.http_recent||[]).map((e:any)=>({t:`push HTTP ${e.status??'ERR'}${e.error?' — '+e.error:''}`,at:e.at}))]
+            .slice(0,6).map((e,i)=>(
+              <div key={i} style={{fontSize:12,color:'var(--danger)',padding:'0 18px 4px'}}>{e.t}
+                <span className="muted" style={{marginLeft:6}}>{timeAgo(e.at)}</span></div>
+          ))}
+        </div>
+      )}
+
+      {/* 2 — BRIEF */}
+      <div className="card brief">
+        <Sparkles size={16} style={{color:'#7B3F00',flexShrink:0}}/>
+        <span>{brief}.</span>
       </div>
 
-      {/* Anomaly alerts — today vs the 30-day baseline */}
       {anoms.length>0 && (
         <div className="anom">
           <AlertTriangle size={15} style={{flexShrink:0,marginTop:1}}/>
@@ -244,25 +248,11 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
         </div>
       )}
 
-      {/* Theft alerts are time-sensitive — surface unresolved ones at the top. */}
-      {k.pendTheft>0 && (
-        <div className="anom" style={{cursor:'pointer',borderColor:'rgba(192,57,43,.4)',background:'rgba(192,57,43,.08)'}} onClick={()=>go('theft')}>
-          <Siren size={15} style={{flexShrink:0,marginTop:1,color:'var(--danger)'}}/>
-          <div>{k.pendTheft} active theft {k.pendTheft===1?'alert':'alerts'} — tap to review</div>
-        </div>
-      )}
-
       <div className="dash-cols">
       <div className="dash-main">
-      {/* Brief */}
-      <div className="card" style={{borderColor:'rgba(123,63,0,.3)',background:'linear-gradient(180deg,rgba(123,63,0,.10),rgba(123,63,0,.02))'}}>
-        <div style={{padding:'14px 18px',display:'flex',alignItems:'center',gap:10}}>
-          <Sparkles size={16} style={{color:'#7B3F00',flexShrink:0}}/>
-          <span style={{fontSize:13.5,color:'var(--ink)'}}>{brief}.</span>
-        </div>
-      </div>
 
-      {/* Attention queue */}
+      {/* 3 — ATTENTION QUEUE. The theft banner used to be a separate red box above
+          this; it's just the top row of the queue now (sev 3). */}
       <div className="card">
         <div className="card-h"><h2><Inbox size={16}/> Needs your attention</h2>
           {totalPending>0 && <span className="badge b-info">{totalPending} open</span>}</div>
@@ -270,16 +260,34 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
           ? <div className="empty"><CheckCircle2 size={26} style={{color:'var(--ok)',marginBottom:8}}/><div>All clear — nothing needs you right now.</div></div>
           : <table><tbody>
               {queue.map(q=>(
-                <tr key={q.label} style={{cursor:'pointer'}} onClick={()=>go(q.go,(q as any).qp)}>
-                  <td style={{width:38}}><q.Icon size={17} style={{color:'var(--cta)'}}/></td>
+                <tr key={q.key} style={{cursor:'pointer'}} onClick={()=>go(q.go,q.qp)}>
+                  <td style={{width:38}}><q.Icon size={17} style={{color:q.sev>=3?'var(--danger)':'var(--cta)'}}/></td>
                   <td style={{fontWeight:600}}>{q.label}</td>
-                  <td className="right"><span className="badge b-warn">{q.n}</span></td>
+                  <td className="right"><span className={'badge '+(q.sev>=3?'b-danger':'b-warn')}>{q.n}</span></td>
                   <td className="right" style={{width:120}}>
                     <button className="btn sm ghost">Review <ArrowRight size={12} style={{verticalAlign:-1}}/></button>
                   </td>
                 </tr>
               ))}
             </tbody></table>}
+      </div>
+
+      {/* 4 — LIVE STRIP (60s) + the six KPIs that actually move */}
+      <div className="pulse">
+        {[
+          { lab:'Online now', val:pulse?.online_now, Icon:Activity, hot:true },
+          { lab:'Signups today', val:pulse?.signups_today, Icon:UserPlus },
+          { lab:'Listings today', val:pulse?.listings_today, Icon:ListChecks },
+          { lab:'Chats today', val:counts.chats_today, Icon:MessagesSquare },
+          { lab:'Msgs / hour', val:pulse?.messages_hour, Icon:Radio },
+        ].map(p=>(
+          <div key={p.lab} className="p-item">
+            <p.Icon size={13} style={{color:p.hot?'var(--ok)':'var(--muted)'}}/>
+            <span className="p-val">{p.val??'—'}</span>
+            <span className="p-lab">{p.lab}</span>
+            {p.hot && <span className="p-dot"/>}
+          </div>
+        ))}
       </div>
 
       <div className="kpis">
@@ -293,210 +301,67 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
         ))}
       </div>
 
-      {/* Eagle eye: where the users are + is anything failing */}
-      <div className="grid2">
-        <div className="card">
-          <div className="card-h"><h2><MapIcon size={16}/> Users by state</h2></div>
-          <div className="heatgrid">
-            {Object.entries(HEAT_AREAS).map(([state,area])=>{
-              const n=stateTotals[state]||0;
-              return (
-                <button key={state} className="heatcell" title={`See ${state} districts`}
-                  onClick={()=>setDrill({level:'districts',state,prev:null})}
-                  style={{gridArea:area,
-                  background:`rgba(186,117,23,${0.08+0.55*(n/heatMax)})`,
-                  color:n/heatMax>0.55?'#fff':'var(--ink)'}}>
-                  <div className="h-n">{n}</div>
-                  <div className="h-s">{state}</div>
-                </button>
-              );
-            })}
-            <button className="heatcell rest" title="See other states"
-              onClick={()=>setDrill({level:'states',prev:null})}
-              style={{gridArea:'rest',background:`rgba(186,117,23,${0.08+0.55*(Math.min(restTotal,heatMax)/heatMax)})`,
-                color:restTotal/heatMax>0.55?'#fff':'var(--ink)'}}>
-              <span className="h-n">{restTotal}</span>
-              <span className="h-s">Rest of India{restStates.length?` · ${restStates.length} state${restStates.length>1?'s':''}`:''}</span>
-            </button>
-          </div>
-          <div style={{padding:'0 18px 12px',fontSize:12}} className="muted">
-            Top districts: {regions.filter(r=>r.district).slice(0,4).map(r=>`${r.district} ${r.n}`).join(' · ')||'—'}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-h"><h2><HeartPulse size={16}/> Function health</h2>
-            {(health?.http_fails_24h??0)>0
-              ? <span className="badge b-danger">{health.http_fails_24h} failed 24h</span>
-              : <span className="badge b-ok">healthy</span>}
-          </div>
-          {(!health || (health.http_recent.length===0 && health.fn_recent.length===0))
-            ? <div className="empty" style={{padding:'26px 16px'}}>No push/edge-function failures in 24h.</div>
-            : <div style={{padding:'10px 18px 14px',display:'grid',gap:6}}>
-                {[...(health.fn_recent||[]).map((e:any)=>({t:`${e.fn}: ${e.message||'error'}`,at:e.at})),
-                  ...(health.http_recent||[]).map((e:any)=>({t:`push HTTP ${e.status??'ERR'}${e.error?' — '+e.error:''}`,at:e.at}))]
-                  .slice(0,8).map((e,i)=>(
-                  <div key={i} style={{fontSize:12,color:'var(--danger)'}}>{e.t}
-                    <span className="muted" style={{marginLeft:6}}>{timeAgo(e.at)}</span>
-                  </div>
-                ))}
-              </div>}
-        </div>
-
-        {/* OTP / SMS health — the login path. On 7 Sep Fortius answered "Success" for
-            five hours while delivering nothing; the only visible symptom was OTPs going
-            out with nobody getting in. That comparison is the headline here. */}
-        <div className="card">
-          <div className="card-h"><h2><Smartphone size={16}/> OTP / SMS health</h2>
-            {(() => {
-              const bad = (sms?.failed_1h??0)>0
-                || ((sms?.sent_1h??0)>=6 && (sms?.logins_1h??0)===0)
-                || (sms?.stuck_2h??0)>=8;
-              return bad
-                ? <span className="badge b-danger">LOGINS AT RISK</span>
-                : <span className="badge b-ok">healthy</span>;
-            })()}
-          </div>
-          {!sms
-            ? <div className="empty" style={{padding:'26px 16px'}}>Loading…</div>
-            : <div style={{padding:'10px 18px 14px'}}>
-                <div style={{display:'flex',gap:18,flexWrap:'wrap',marginBottom:10}}>
-                  <div><b style={{fontSize:18}}>{sms.sent_1h}</b> <span className="muted" style={{fontSize:12}}>sent 1h</span></div>
-                  <div><b style={{fontSize:18,color:(sms.sent_1h>=6&&sms.logins_1h===0)?'var(--danger)':'inherit'}}>{sms.logins_1h}</b> <span className="muted" style={{fontSize:12}}>logins 1h</span></div>
-                  <div><b style={{fontSize:18,color:sms.stuck_2h>=8?'var(--danger)':'inherit'}}>{sms.stuck_2h}</b> <span className="muted" style={{fontSize:12}}>stuck 2h</span></div>
-                  {sms.failed_1h>0 && <div><b style={{fontSize:18,color:'var(--danger)'}}>{sms.failed_1h}</b> <span className="muted" style={{fontSize:12}}>all-carrier fails 1h</span></div>}
-                </div>
-                <div className="muted" style={{fontSize:12.5}}>
-                  Carrier: <b style={{color:'var(--ink)'}}>{sms.last_ok_provider||'—'}</b>
-                  {sms.last_ok_at && <> · last OK {timeAgo(sms.last_ok_at)}</>}
-                  {sms.failovers_24h>0 && <span style={{color:'var(--warn)'}}> · {sms.failovers_24h} failover{sms.failovers_24h>1?'s':''} in 24h</span>}
-                </div>
-                {(sms.alerts||[]).length>0 && (
-                  <div style={{marginTop:10,display:'grid',gap:4}}>
-                    {sms.alerts.slice(0,3).map((a:any,i:number)=>(
-                      <div key={i} style={{fontSize:12,color:'var(--danger)'}}>{a.detail}
-                        <span className="muted" style={{marginLeft:6}}>{timeAgo(a.at)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {(sms.recent_fails||[]).length>0 && (
-                  <div style={{marginTop:10,display:'grid',gap:4}}>
-                    {sms.recent_fails.slice(0,5).map((f:any,i:number)=>(
-                      <div key={i} style={{fontSize:12,color:'var(--muted)'}}>
-                        <b>{f.provider}</b> {f.code}{f.detail?` — ${f.detail}`:''}
-                        <span className="muted" style={{marginLeft:6}}>{timeAgo(f.at)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>}
-        </div>
-      </div>
-
-      <div className="grid2">
-        <div className="card">
-          <div className="card-h"><h2><ListChecks size={16}/> Latest listings</h2></div>
-          <table>
-            <thead><tr><th>Breed</th><th>Type</th><th>Price</th><th>Location</th><th>Posted</th></tr></thead>
-            <tbody>
-              {recent.map(r=>(
-                <tr key={r.id}>
-                  <td style={{fontWeight:600}}>{r.breed||'—'}</td>
-                  <td><span className="badge b-mut">{r.type}</span></td>
-                  <td>{r.price?'₹'+r.price.toLocaleString('en-IN'):'—'}</td>
-                  <td className="muted">{[r.district,r.state].filter(Boolean).join(', ')||'—'}</td>
-                  <td className="muted">{timeAgo(r.created_at)}</td>
-                </tr>
-              ))}
-              {recent.length===0 && <tr><td colSpan={5} className="empty">No listings yet.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="card">
-          <div className="card-h" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
-            <h2>Most active districts</h2>
-            <select value={distState} onChange={e=>setDistState(e.target.value)}
-              style={{fontSize:12,padding:'4px 8px',borderRadius:8}} title="Filter by state">
-              <option value="all">All states</option>
-              {distStates.map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <table>
-            <thead><tr><th>District</th><th className="right">Listings</th></tr></thead>
-            <tbody>
-              {districts.map(d=>(
-                <tr key={d.district} style={{cursor:'pointer'}} title="See listings in this district"
-                  onClick={()=>openListings(d.district, distState==='all'?undefined:distState)}>
-                  <td>{d.district}</td><td className="right">{d.n}</td></tr>
-              ))}
-              {districts.length===0 && <tr><td colSpan={2} className="empty">No data yet.</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {/* Users by district — counts per district, filter by state + activity */}
+      {/* 5 — ONE geography panel. "Most active districts" and "Users by district"
+          both lived here too and answered the same question; the drill-down
+          (state → district → listings) already covers them. */}
       <div className="card">
-        <div className="card-h" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
-          <h2><Users size={16}/> Users by district</h2>
-          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-            <div style={{display:'flex',gap:6}}>
-              {(['all','active','inactive'] as const).map(m=>(
-                <button key={m} className={'btn sm'+(uregMode===m?'':' ghost')} onClick={()=>setUregMode(m)}>
-                  {m==='all'?'All':m==='active'?'Active':'Inactive'}
-                </button>
-              ))}
-            </div>
-            <select value={uregState} onChange={e=>setUregState(e.target.value)}
-              style={{fontSize:12,padding:'4px 8px',borderRadius:8}} title="Filter by state">
-              <option value="all">All states</option>
-              {uregStates.map(s=><option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
+        <div className="card-h"><h2><MapIcon size={16}/> Where your users are</h2>
+          <button className="btn sm ghost" onClick={()=>go('analytics',{tab:'liquidity'})}>Supply gaps <ArrowRight size={12} style={{verticalAlign:-1}}/></button>
         </div>
-        <table>
-          <thead><tr><th>District</th>{uregState==='all'&&<th>State</th>}
-            <th className="right">{uregMode==='active'?'Active':uregMode==='inactive'?'Inactive':'Users'}</th></tr></thead>
-          <tbody>
-            {uregRows.map(r=>(
-              <tr key={r.state+'|'+r.district}>
-                <td>{r.district}</td>
-                {uregState==='all'&&<td className="muted">{r.state}</td>}
-                <td className="right">{uregMetric(r)}</td>
-              </tr>
-            ))}
-            {uregRows.length===0 && <tr><td colSpan={uregState==='all'?3:2} className="empty">No data yet.</td></tr>}
-          </tbody>
-        </table>
+        <div className="heatgrid">
+          {Object.entries(HEAT_AREAS).map(([state,area])=>{
+            const n=stateTotals[state]||0;
+            return (
+              <button key={state} className="heatcell" title={`See ${state} districts`}
+                onClick={()=>setDrill({level:'districts',state,prev:null})}
+                style={{gridArea:area,
+                background:`rgba(186,117,23,${0.08+0.55*(n/heatMax)})`,
+                color:n/heatMax>0.55?'#fff':'var(--ink)'}}>
+                <div className="h-n">{n}</div>
+                <div className="h-s">{state}</div>
+              </button>
+            );
+          })}
+          <button className="heatcell rest" title="See other states"
+            onClick={()=>setDrill({level:'states',prev:null})}
+            style={{gridArea:'rest',background:`rgba(186,117,23,${0.08+0.55*(Math.min(restTotal,heatMax)/heatMax)})`,
+              color:restTotal/heatMax>0.55?'#fff':'var(--ink)'}}>
+            <span className="h-n">{restTotal}</span>
+            <span className="h-s">Rest of India{restStates.length?` · ${restStates.length} state${restStates.length>1?'s':''}`:''}</span>
+          </button>
+        </div>
         <div style={{padding:'0 18px 12px',fontSize:12}} className="muted">
-          Active = opened the app in the last 30 days · Inactive = not seen in 30+ days.
+          Top districts: {regions.filter(r=>r.district).slice(0,4).map(r=>`${r.district} ${r.n}`).join(' · ')||'—'}
         </div>
       </div>
       </div>{/* /dash-main */}
 
-      {/* Security camera for the marketplace — new events, newest first (30s poll) */}
+      {/* 6 — Live event stream (30s poll) */}
       <aside className="dash-feed">
         <div className="card" style={{position:'sticky',top:14}}>
-          <div className="card-h"><h2><Radio size={15}/> Happening now</h2><span className="p-dot"/></div>
+          <div className="card-h"><h2><Radio size={15}/> Happening now</h2>
+            {newSince>0 && <span className="badge b-info">{newSince} new</span>}
+            <span className="p-dot"/></div>
           <div className="feedlist">
             {feed.length===0
               ? <div className="empty" style={{padding:'24px 12px'}}>Quiet right now — new signups, listings, receipts and alerts stream in here.</div>
-              : feed.map((e:any)=>{
+              : feed.map((e:any,idx:number)=>{
                   const m=FEED_META[e.kind]||FEED_META.listing;
                   return (
-                    <div key={e.kind+e.id} className="feedrow">
-                      <m.Icon size={14} style={{color:m.c,flexShrink:0,marginTop:2}}/>
-                      <div style={{minWidth:0}}>
-                        {/* the feed carries the row id — a new signup opens that
-                            person, a new listing opens that listing */}
-                        <div className="f-t">
-                          {e.kind==='signup' ? <UserLink id={e.id}>{e.title}</UserLink>
-                            : e.kind==='listing' ? <ListingLink id={e.id}>{e.title}</ListingLink>
-                            : e.kind==='receipt' ? <ReceiptLink id={e.id}>{e.title}</ReceiptLink>
-                            : e.title}
+                    <div key={e.kind+e.id}>
+                      {/* One divider, at the point your last visit ended. */}
+                      {idx===newSince && newSince>0 && <div className="feedmark">↑ since you last looked</div>}
+                      <div className="feedrow">
+                        <m.Icon size={14} style={{color:m.c,flexShrink:0,marginTop:2}}/>
+                        <div style={{minWidth:0}}>
+                          <div className="f-t">
+                            {e.kind==='signup' ? <UserLink id={e.id}>{e.title}</UserLink>
+                              : e.kind==='listing' ? <ListingLink id={e.id}>{e.title}</ListingLink>
+                              : e.kind==='receipt' ? <ReceiptLink id={e.id}>{e.title}</ReceiptLink>
+                              : e.title}
+                          </div>
+                          <div className="f-s">{e.kind} · {e.subtitle} · {timeAgo(e.at)}</div>
                         </div>
-                        <div className="f-s">{e.kind} · {e.subtitle} · {timeAgo(e.at)}</div>
                       </div>
                     </div>
                   );
@@ -555,7 +420,7 @@ export default function Dashboard({ go }:{ go:(k:any,qp?:Record<string,string>)=
           )}
         </Modal>
       )}
-      {open360 && <Listing360 listingId={open360} onClose={()=>setOpen360(null)} onChanged={load}/>}
+      {open360 && <Listing360 listingId={open360} onClose={()=>setOpen360(null)} onChanged={loadSlow}/>}
     </>
   );
 }

@@ -3,7 +3,10 @@ import { supabase } from '../supabase';
 import { Loading } from '../ui';
 import {
   IndianRupee, TrendingUp, Users, ListChecks, Eye, MessageSquare, Receipt, Filter, MapPin, ChevronDown, ChevronRight,
+  Repeat, Clock,
 } from 'lucide-react';
+import { useDetail } from '../detail';
+import Online from './Online';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
@@ -26,7 +29,7 @@ const RANGES = [
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
 const fmtDay = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
-export default function Analytics() {
+function Overview() {
   const [days, setDays] = useState(30);
   const [m, setM] = useState<Metrics | null>(null);
   const [funnel, setFunnel] = useState<Funnel | null>(null);
@@ -119,7 +122,6 @@ export default function Analytics() {
     <>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 className="h1">Analytics</h1>
           <p className="sub">Marketplace performance · last {days} days</p>
         </div>
         <div className="toolbar">
@@ -280,3 +282,371 @@ const tt = {
   background: '#FFFFFF', border: '1px solid rgba(44,24,16,.14)', borderRadius: 10,
   color: '#2C1810', fontSize: 12, boxShadow: '0 8px 24px rgba(44,24,16,.14)',
 } as const;
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   COHORTS — the question a marketing push has to answer: did the people who
+   installed come BACK, and did they do anything? Signups alone can't tell you.
+   ───────────────────────────────────────────────────────────────────────────── */
+type Cohort = { cohort: string; signups: number; d1_back: number; d7_back: number; posted: number; chatted: number; dealt: number };
+
+function heat(p: number) {
+  return { background: `rgba(46,125,50,${0.06 + 0.5 * (p / 100)})`, fontWeight: p >= 40 ? 600 : 400 };
+}
+
+function Cohorts() {
+  const [rows, setRows] = useState<Cohort[]>([]);
+  const [days, setDays] = useState(21);
+  const [source, setSource] = useState<string>('');
+  const [sources, setSources] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true); setErr(null);
+    (async () => {
+      const [co, ac] = await Promise.all([
+        supabase.rpc('admin_cohorts', { p_days: days, p_source: source || null }),
+        supabase.rpc('admin_acquisition_counts'),
+      ]);
+      if (!alive) return;
+      if (co.error) { setErr(co.error.message); setLoading(false); return; }
+      setRows((co.data as Cohort[]) || []);
+      setSources(((ac.data as any[]) || []).map(r => r.source).filter(Boolean));
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [days, source]);
+
+  const tot = rows.reduce((s, r) => ({
+    signups: s.signups + Number(r.signups), d1: s.d1 + Number(r.d1_back),
+    posted: s.posted + Number(r.posted), chatted: s.chatted + Number(r.chatted),
+  }), { signups: 0, d1: 0, posted: 0, chatted: 0 });
+  const p = (a: number, b: number) => (b > 0 ? Math.round(a / b * 100) : 0);
+
+  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load cohorts: {err}</div>;
+
+  return (
+    <>
+      <div className="toolbar" style={{ justifyContent: 'space-between' }}>
+        <p className="sub" style={{ margin: 0 }}>Each row is one day's signups. Did they come back, and did they do anything?</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select value={source} onChange={e => setSource(e.target.value)} title="Filter by how they heard about us">
+            <option value="">All sources</option>
+            {sources.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="tabbar" style={{ margin: 0 }}>
+            {[7, 21, 60].map(d => (
+              <button key={d} className={days === d ? 'active' : ''} onClick={() => setDays(d)}>{d}d</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="kpis">
+        <div className="kpi grad-iris"><div className="lab"><Users size={14} /> Signups</div>
+          <div className="val">{tot.signups}</div><div className="delta">last {days} days</div></div>
+        <div className="kpi grad-green"><div className="lab"><Repeat size={14} /> Came back D1</div>
+          <div className="val">{p(tot.d1, tot.signups)}%</div><div className="delta">{tot.d1} of {tot.signups}</div></div>
+        <div className="kpi grad-amber"><div className="lab"><ListChecks size={14} /> Posted a listing</div>
+          <div className="val">{p(tot.posted, tot.signups)}%</div><div className="delta">{tot.posted} sellers</div></div>
+        <div className="kpi grad-blue"><div className="lab"><MessageSquare size={14} /> Started a chat</div>
+          <div className="val">{p(tot.chatted, tot.signups)}%</div><div className="delta">{tot.chatted} users</div></div>
+      </div>
+
+      <div className="card">
+        <div className="card-h"><h2><Repeat size={16} /> Retention &amp; activation by signup day</h2></div>
+        {loading ? <Loading /> : rows.length === 0 ? <div className="empty">No signups in this range.</div> : (
+          <table>
+            <thead><tr>
+              <th>Signup day</th><th className="right">Signups</th>
+              <th className="right">Back D1</th><th className="right">Back in 7d</th>
+              <th className="right">Posted</th><th className="right">Chatted</th><th className="right">Dealt</th>
+            </tr></thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.cohort}>
+                  <td style={{ fontWeight: 600 }}>{new Date(r.cohort).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</td>
+                  <td className="right">{r.signups}</td>
+                  <td className="right" style={heat(p(r.d1_back, r.signups))}>{p(r.d1_back, r.signups)}%</td>
+                  <td className="right" style={heat(p(r.d7_back, r.signups))}>{p(r.d7_back, r.signups)}%</td>
+                  <td className="right" style={heat(p(r.posted, r.signups))}>{p(r.posted, r.signups)}%</td>
+                  <td className="right" style={heat(p(r.chatted, r.signups))}>{p(r.chatted, r.signups)}%</td>
+                  <td className="right">{r.dealt || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div style={{ padding: '0 18px 12px', fontSize: 12 }} className="muted">
+          Today's row always shows 0% back — the day isn't over. Read from yesterday up.
+        </div>
+      </div>
+
+      <Online />
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LIQUIDITY — a marketplace dies where there are buyers and nothing to buy.
+   Districts with users and views but zero active listings, worst first.
+   ───────────────────────────────────────────────────────────────────────────── */
+type Liq = { state: string; district: string; users: number; active_listings: number; views: number; chats: number; users_per_listing: number };
+
+function Liquidity() {
+  const [rows, setRows] = useState<Liq[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [onlyGaps, setOnlyGaps] = useState(true);
+
+  useEffect(() => {
+    supabase.rpc('admin_liquidity', { p_days: 30 }).then(({ data, error }) => {
+      if (error) alert('Could not load liquidity: ' + error.message);
+      setRows((data as Liq[]) || []); setLoading(false);
+    });
+  }, []);
+
+  const shown = onlyGaps ? rows.filter(r => Number(r.active_listings) === 0 && Number(r.users) > 0) : rows;
+  const gapUsers = rows.filter(r => Number(r.active_listings) === 0).reduce((s, r) => s + Number(r.users), 0);
+
+  return (
+    <>
+      <div className="toolbar" style={{ justifyContent: 'space-between' }}>
+        <p className="sub" style={{ margin: 0 }}>Districts ranked by demand with no supply. These are the places to recruit sellers.</p>
+        <div className="tabbar" style={{ margin: 0 }}>
+          <button className={onlyGaps ? 'active' : ''} onClick={() => setOnlyGaps(true)}>Supply gaps</button>
+          <button className={!onlyGaps ? 'active' : ''} onClick={() => setOnlyGaps(false)}>All districts</button>
+        </div>
+      </div>
+
+      <div className="kpis">
+        <div className="kpi grad-amber"><div className="lab"><MapPin size={14} /> Users with no local supply</div>
+          <div className="val">{gapUsers}</div><div className="delta">{rows.filter(r => Number(r.active_listings) === 0).length} districts</div></div>
+        <div className="kpi grad-green"><div className="lab"><ListChecks size={14} /> Districts with listings</div>
+          <div className="val">{rows.filter(r => Number(r.active_listings) > 0).length}</div><div className="delta">of {rows.length} with users</div></div>
+      </div>
+
+      <div className="card">
+        <div className="card-h"><h2><MapPin size={16} /> Supply vs demand by district</h2>
+          <span className="badge b-mut">{shown.length}</span></div>
+        {loading ? <Loading /> : shown.length === 0 ? <div className="empty">No districts match.</div> : (
+          <table>
+            <thead><tr>
+              <th>District</th><th>State</th><th className="right">Users</th>
+              <th className="right">Views 30d</th><th className="right">Chats 30d</th>
+              <th className="right">Active listings</th><th className="right">Users / listing</th>
+            </tr></thead>
+            <tbody>
+              {shown.slice(0, 60).map(r => {
+                const gap = Number(r.active_listings) === 0;
+                return (
+                  <tr key={r.state + '|' + r.district}>
+                    <td style={{ fontWeight: 600 }}>{r.district}</td>
+                    <td className="muted">{r.state}</td>
+                    <td className="right">{r.users}</td>
+                    <td className="right">{r.views}</td>
+                    <td className="right">{r.chats}</td>
+                    <td className="right">
+                      {gap ? <span className="badge b-danger">none</span> : r.active_listings}
+                    </td>
+                    <td className="right" style={{ fontWeight: gap ? 600 : 400, color: gap ? 'var(--danger)' : undefined }}>
+                      {gap ? '∞' : r.users_per_listing}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        <div style={{ padding: '0 18px 12px', fontSize: 12 }} className="muted">
+          A district with users, views and zero listings is a district where buyers open the app and find nothing.
+          Announcements can target exactly these — pick the state/district there.
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   FUNNEL HEALTH — the Overview tab shows WHERE the funnel narrows. This shows
+   WHO to go and talk to about it: the listings nobody messages, the sellers who
+   never answer.
+   ───────────────────────────────────────────────────────────────────────────── */
+function FunnelHealth() {
+  const [d, setD] = useState<any | null>(null);
+  const [days, setDays] = useState(30);
+  const [err, setErr] = useState<string | null>(null);
+  const { openUser, openListing } = useDetail();
+
+  useEffect(() => {
+    let alive = true;
+    setD(null);
+    supabase.rpc('admin_funnel_health', { p_days: days }).then(({ data, error }) => {
+      if (!alive) return;
+      if (error) { setErr(error.message); return; }
+      setD(data);
+    });
+    return () => { alive = false; };
+  }, [days]);
+
+  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load: {err}</div>;
+  if (!d) return <Loading />;
+  const p = (a: number, b: number) => (b > 0 ? Math.round(a / b * 100) : 0);
+
+  return (
+    <>
+      <div className="toolbar" style={{ justifyContent: 'space-between' }}>
+        <p className="sub" style={{ margin: 0 }}>Where deals stall, and who is stalling them.</p>
+        <div className="tabbar" style={{ margin: 0 }}>
+          {[7, 30, 90].map(n => <button key={n} className={days === n ? 'active' : ''} onClick={() => setDays(n)}>{n}d</button>)}
+        </div>
+      </div>
+
+      <div className="kpis">
+        <div className="kpi grad-blue"><div className="lab"><Eye size={14} /> Views</div>
+          <div className="val">{d.views}</div><div className="delta">{d.listings_viewed_no_chat} listings got views but no chat</div></div>
+        <div className="kpi grad-amber"><div className="lab"><MessageSquare size={14} /> Chats</div>
+          <div className="val">{d.chats}</div><div className="delta">{p(d.chats, d.views)}% of views</div></div>
+        <div className="kpi grad-iris"><div className="lab"><Clock size={14} /> Median first reply</div>
+          <div className="val">{d.median_first_reply_min != null ? d.median_first_reply_min + 'm' : '—'}</div>
+          <div className="delta">seller answering a buyer</div></div>
+        <div className="kpi grad-green"><div className="lab"><Receipt size={14} /> Receipts issued</div>
+          <div className="val">{d.issued}</div><div className="delta">{d.acked} confirmed</div></div>
+      </div>
+
+      <div className="card" style={{ borderColor: 'rgba(192,57,43,.3)' }}>
+        <div className="card-h"><h2><MessageSquare size={16} /> Chats the seller never answered</h2>
+          <span className="badge b-danger">{d.chats_no_seller_reply} of {d.chats}</span></div>
+        <div style={{ padding: '0 18px 14px' }} className="muted">
+          {p(d.chats_no_seller_reply, d.chats)}% of buyers who reached out got silence. That is the single
+          biggest leak between a view and a sale.
+        </div>
+        {(d.slow_sellers || []).length > 0 && (
+          <table>
+            <thead><tr><th>Seller</th><th className="right">Ignored chats</th><th></th></tr></thead>
+            <tbody>
+              {d.slow_sellers.map((s: any) => (
+                <tr key={s.id}>
+                  <td style={{ fontWeight: 600 }}>{s.name}</td>
+                  <td className="right"><span className="badge b-warn">{s.ignored_chats}</span></td>
+                  <td className="right"><button className="btn ghost sm" onClick={() => openUser(s.id)}>Open</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-h"><h2><Eye size={16} /> Most-viewed listings with zero chats</h2></div>
+        {(d.stalled || []).length === 0 ? <div className="empty">Every viewed listing got at least one chat.</div> : (
+          <table>
+            <thead><tr><th>Breed</th><th>District</th><th className="right">Price</th><th className="right">Views</th><th></th></tr></thead>
+            <tbody>
+              {d.stalled.map((l: any) => (
+                <tr key={l.id}>
+                  <td style={{ fontWeight: 600 }}>{l.breed || '—'}</td>
+                  <td className="muted">{l.district || '—'}</td>
+                  <td className="right">{inr(l.price)}</td>
+                  <td className="right">{l.views}</td>
+                  <td className="right"><button className="btn ghost sm" onClick={() => openListing(l.id)}>Open</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <div style={{ padding: '0 18px 12px', fontSize: 12 }} className="muted">
+          Lots of views and no messages usually means the price is wrong, the photos are bad, or the
+          contact route is broken. Worth opening a few by hand.
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SOURCES — was its own top-level "Acquisition" nav item showing one table.
+   It belongs next to the cohorts it explains.
+   ───────────────────────────────────────────────────────────────────────────── */
+function Sources() {
+  const [rows, setRows] = useState<{ source: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.rpc('admin_acquisition_counts').then(({ data, error }) => {
+      if (error) alert('Could not load acquisition data: ' + error.message);
+      setRows(((data as any[]) || []).map(r => ({ source: r.source, count: Number(r.n) })));
+      setLoading(false);
+    });
+  }, []);
+
+  const total = rows.reduce((s, r) => s + r.count, 0);
+
+  return (
+    <>
+      <p className="sub">Self-reported “How did you hear about us?” at signup. Cross-check any spike here against the Cohorts tab — installs are not users.</p>
+      <div className="card">
+        <div className="card-h"><h2><TrendingUp size={16} /> Sign-ups by source ({total})</h2></div>
+        {loading ? <Loading /> : rows.length === 0 ? <div className="empty">No sign-ups yet.</div> : (
+          <table>
+            <thead><tr><th>Source</th><th className="right">Users</th><th className="right">Share</th></tr></thead>
+            <tbody>
+              {rows.map(r => {
+                const pc = total ? Math.round(r.count / total * 100) : 0;
+                return (
+                  <tr key={r.source}>
+                    <td style={{ fontWeight: 600 }}>{r.source}</td>
+                    <td className="right">{r.count}</td>
+                    <td className="right">
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 90, height: 6, borderRadius: 3, background: 'rgba(44,24,16,.10)', overflow: 'hidden', display: 'inline-block' }}>
+                          <span style={{ display: 'block', width: `${pc}%`, height: '100%', background: '#BA7517' }} />
+                        </span>
+                        <span className="muted" style={{ minWidth: 32, textAlign: 'right' }}>{pc}%</span>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ─── Tab shell. ?tab= keeps every view bookmarkable, same as ?view=. ─── */
+const TABS = [
+  { key: 'overview',  label: 'Overview',      C: Overview },
+  { key: 'cohorts',   label: 'Retention',     C: Cohorts },
+  { key: 'funnel',    label: 'Funnel health', C: FunnelHealth },
+  { key: 'liquidity', label: 'Supply gaps',   C: Liquidity },
+  { key: 'sources',   label: 'Sources',       C: Sources },
+];
+
+export default function Analytics() {
+  const [tab, setTab] = useState(() => {
+    const t = new URLSearchParams(location.search).get('tab');
+    return TABS.some(x => x.key === t) ? t! : 'overview';
+  });
+  function pick(k: string) {
+    setTab(k);
+    const u = new URL(location.href);
+    u.searchParams.set('view', 'analytics');
+    if (k === 'overview') u.searchParams.delete('tab'); else u.searchParams.set('tab', k);
+    history.replaceState(null, '', u);
+  }
+  const Active = (TABS.find(t => t.key === tab) || TABS[0]).C;
+  return (
+    <>
+      <h1 className="h1">Analytics</h1>
+      <div className="tabbar">
+        {TABS.map(t => (
+          <button key={t.key} className={tab === t.key ? 'active' : ''} onClick={() => pick(t.key)}>{t.label}</button>
+        ))}
+      </div>
+      <Active />
+    </>
+  );
+}
