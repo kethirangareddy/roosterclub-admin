@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabase';
+import { supabase, adminPhones } from '../supabase';
 import { Siren, Plus, Send } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, timeAgo, UserLink } from '../ui';
 
@@ -13,11 +13,22 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
 
   async function load(){
     setLoading(true);
+    // users.phone is NOT selectable by `authenticated` — the Jul 2 PII lockdown
+    // granted SELECT on named columns only, and phone is not among them. Asking
+    // for it inside the embed made PostgREST reject the WHOLE query (42501), so
+    // this section showed nothing at all. Phones come from the admin_user_phones
+    // RPC instead, the same way Approvals and Boosts get them.
     const { data, error }=await supabase.from('disease_alerts')
-      .select('*, reporter:users!disease_alerts_reported_by_fkey(id,full_name,farm_name,handle,phone,district,state)')
+      .select('*, reporter:users!disease_alerts_reported_by_fkey(id,full_name,farm_name,handle,district,state)')
       .order('created_at',{ascending:false});
-    if(error) alert('Could not load alerts: '+error.message);
-    setRows(data||[]); setLoading(false);
+    if(error){ alert('Could not load alerts: '+error.message); setLoading(false); return; }
+    const list=data||[];
+    const phones=await adminPhones(list.map((r:any)=>r.reported_by));
+    setRows(list.map((r:any)=>({
+      ...r,
+      reporter: r.reporter ? { ...r.reporter, phone: phones[r.reported_by]||null } : r.reporter,
+    })));
+    setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
 
