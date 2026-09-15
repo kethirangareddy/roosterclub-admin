@@ -25,8 +25,13 @@ export default function UsersSection(){
   const [q,setQ]=useState('');
   const [viewId,setViewId]=useState<string|null>(null);
   // Items 12–14: All (created desc) | High risk (auto-flag queue) | Duplicates (ban evasion)
-  const [tab,setTab]=useParamState<'all'|'risk'|'dups'>('tab','all');
+  const [tab,setTab]=useParamState<'all'|'risk'|'dups'|'refs'>('tab','all');
   const [dups,setDups]=useState<any[]>([]);
+  // Referrals get their own tab because they CANNOT be read off the All-users list:
+  // that list is newest-first capped at `lim`, and every early referrer dropped off
+  // the bottom the day the users table passed 1000 rows. admin_referral_pairs returns
+  // the pairs themselves, so it stays complete however large users grows.
+  const [refs,setRefs]=useState<any[]>([]);
   const [fState,setFState]=useState<string>('all'); // location filters (All users tab)
   const [fDist,setFDist]=useState<string>('all');
   const [fCred,setFCred]=useState<'all'|'has'>('all'); // feature-credits filter (All users tab)
@@ -41,6 +46,11 @@ export default function UsersSection(){
 
   async function load(){
     setLoading(true);
+    if(tab==='refs'){
+      const { data, error }=await supabase.rpc('admin_referral_pairs');
+      if(error) alert('Could not load referrals: '+error.message);
+      setRefs(data||[]); setLoading(false); return;
+    }
     if(tab==='dups'){
       const { data, error }=await supabase.rpc('admin_duplicates');
       if(error) alert('Could not load duplicates: '+error.message);
@@ -136,9 +146,43 @@ export default function UsersSection(){
         <button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>All users</button>
         <button className={tab==='risk'?'active':''} onClick={()=>setTab('risk')}><ShieldAlert size={13} style={{verticalAlign:-2}}/> High risk</button>
         <button className={tab==='dups'?'active':''} onClick={()=>setTab('dups')}><CopyX size={13} style={{verticalAlign:-2}}/> Duplicates</button>
+        <button className={tab==='refs'?'active':''} onClick={()=>setTab('refs')}><Award size={13} style={{verticalAlign:-2}}/> Referrals</button>
       </div>
 
-      {tab==='dups' ? (
+      {tab==='refs' ? (
+        <div className="card">
+          <div className="card-h">
+            <h2><Award size={16}/> Referrals ({refs.length} joined via {new Set(refs.map((r:any)=>r.referrer_id)).size} referrers)</h2>
+          </div>
+          {loading?<Loading/>:refs.length===0?<Empty text="Nobody has joined via a referral code yet."/>:(
+            <table>
+              <thead><tr><th>Referrer</th><th>Referred</th><th>District</th><th>Joined</th></tr></thead>
+              <tbody>
+                {refs.map((r:any,i:number)=>{
+                  // Only label the first row of each referrer's run — the RPC already
+                  // orders by referral count desc, then referrer, so runs are contiguous.
+                  const first = i===0 || refs[i-1].referrer_id!==r.referrer_id;
+                  return (
+                    <tr key={r.referred_id}>
+                      <td>{first ? (
+                        <div>
+                          <UserLink id={r.referrer_id}>{r.referrer_name||('@'+r.referrer_handle)}</UserLink>
+                          <div className="muted" style={{fontSize:11.5}}>
+                            {r.referrer_total} referred · {r.referrer_credits} credits{r.referrer_district?' · '+r.referrer_district:''}
+                          </div>
+                        </div>
+                      ) : <span className="muted" style={{fontSize:11.5}}>↳</span>}</td>
+                      <td><UserLink id={r.referred_id}>{r.referred_name||('@'+r.referred_handle)}</UserLink></td>
+                      <td className="muted" style={{fontSize:12}}>{r.referred_district||'—'}</td>
+                      <td className="muted" style={{fontSize:12}}>{timeAgo(r.referred_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : tab==='dups' ? (
         <div className="card">
           <div className="card-h"><h2><CopyX size={16}/> Duplicate &amp; ban-evasion clusters ({dups.length})</h2></div>
           {loading?<Loading/>:dups.length===0?<Empty text="No suspicious clusters — no shared UPI ids, no same-day referral bursts."/>:(
