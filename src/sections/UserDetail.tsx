@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Modal } from '../ui';
-import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users, BellRing, Send } from 'lucide-react';
+import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users, BellRing, Send, Gift } from 'lucide-react';
+import { useDetail } from '../detail';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -9,6 +10,8 @@ const day = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: 'numer
 
 export default function UserDetail({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [d, setD] = useState<any | null>(null);
+  const [refs, setRefs] = useState<any | null>(null);
+  const { openUser } = useDetail();
   const [kyc, setKyc] = useState<any | null>(null);
   const [zoom, setZoom] = useState<{ url: string; label: string } | null>(null);
   const [compose, setCompose] = useState(false);
@@ -29,6 +32,11 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
     // Distinguish a real load failure from a genuinely missing user, instead of
     // collapsing every error into "User not found."
     supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data, error }) => setD(error ? { __error: error.message } : (data ?? {})));
+  }, [userId]);
+  useEffect(() => {
+    // Who referred this user, and whom they referred (users.referred_by is the source of truth).
+    setRefs(null);
+    supabase.rpc('admin_user_referrals', { p_user: userId }).then(({ data, error }) => setRefs(error ? { __error: error.message } : (data ?? {})));
   }, [userId]);
   useEffect(() => {
     // Pull the user's latest KYC submission + signed photo URLs (1h) so the admin can
@@ -95,6 +103,46 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
               </div>
             </div>
           )}
+
+          {/* referrals — who brought this user in, and whom they brought */}
+          <div style={{ marginTop: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+              <Gift size={13} style={{ verticalAlign: -2 }} /> Referrals
+            </div>
+            {!refs ? <div className="muted" style={{ fontSize: 12.5 }}>Loading…</div>
+              : refs.__error ? <div className="muted" style={{ fontSize: 12.5 }}>Could not load referrals: {refs.__error}</div> : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ fontSize: 13 }}>
+                  <span className="muted">Referred by: </span>
+                  {refs.referred_by ? (
+                    <>
+                      <a style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--cta)' }} onClick={() => openUser(refs.referred_by.id)}>
+                        {refs.referred_by.name || 'User'}
+                      </a>
+                      <span className="muted"> {refs.referred_by.handle ? '@' + refs.referred_by.handle : ''}{refs.referred_by.district ? ' · ' + refs.referred_by.district : ''} · {new Date(refs.referred_by.referred_at).toLocaleDateString('en-IN')}</span>
+                    </>
+                  ) : refs.acquisition_source === 'Referral'
+                    ? <span style={{ color: 'var(--warn)' }}>said "Referral" at signup, but no code was credited</span>
+                    : <span className="muted">— (not referred)</span>}
+                </div>
+                <div style={{ fontSize: 13 }}>
+                  <span className="muted">Referred {(refs.referred || []).length} {(refs.referred || []).length === 1 ? 'person' : 'people'}</span>
+                  {(refs.referred || []).length > 0 && (
+                    <div style={{ display: 'grid', gap: 4, marginTop: 6, maxHeight: 220, overflowY: 'auto' }}>
+                      {refs.referred.map((r: any) => (
+                        <div key={r.id} onClick={() => openUser(r.id)}
+                          style={{ cursor: 'pointer', background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, display: 'flex', gap: 8 }}>
+                          <b style={{ color: 'var(--cta)' }}>{r.name || 'User'}</b>
+                          <span className="muted">{r.handle ? '@' + r.handle : ''}{r.district ? ' · ' + r.district : ''}</span>
+                          <span className="muted" style={{ marginLeft: 'auto' }}>{new Date(r.referred_at).toLocaleDateString('en-IN')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* KYC photos */}
           <div style={{ marginTop: 14 }}>
