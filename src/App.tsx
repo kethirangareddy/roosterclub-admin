@@ -37,10 +37,11 @@ import Auctions from './sections/Auctions';
 import Reports from './sections/Reports';
 import Kyc from './sections/Kyc';
 import BadgeRequests from './sections/BadgeRequests';
+import WaInbox from './sections/WaInbox';
 import Competitions from './sections/Competitions';
 import Syndicates from './sections/Syndicates';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'appconfig';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig';
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
@@ -58,6 +59,7 @@ const CORE: NavItem[] = [
   { key:'badges', label:'Badge Requests', Icon:Award },
   { key:'reports', label:'Reports', Icon:Flag },
   { key:'chats', label:'Chats', Icon:MessagesSquare },
+  { key:'whatsapp', label:'WhatsApp', Icon:MessagesSquare },
   { key:'announce', label:'Announcements', Icon:Megaphone },
   { key:'activity', label:'Activity', Icon:HistoryIcon },
   { key:'appconfig', label:'App Config', Icon:SlidersHorizontal },
@@ -339,6 +341,7 @@ export default function App(){
     boosts:<Boosts/>, users:<UsersSection/>, announce:<Announcements/>, auctions:<Auctions onChange={refreshCounts}/>,
     community:<Community onChange={refreshCounts}/>,
     chats:<Chats/>,
+    whatsapp:<WaInbox/>,
     theft:<Theft onChange={refreshCounts}/>,
     appconfig:<AppConfig/>,
   };
