@@ -7,6 +7,7 @@ import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope,
 import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
 import Listing360 from './Listing360';
 import Online from './Online';
+import TopActive from './TopActive';
 
 const FEED_META: Record<string,{Icon:any;c:string}> = {
   signup:{Icon:UserPlus,c:'var(--ok)'}, listing:{Icon:ListChecks,c:'var(--cta)'},
@@ -373,6 +374,9 @@ export default function Dashboard({ go, counts }:{
           first — but it is back on the Command Center where it belongs, not
           buried in Analytics. Tap any bar for the roster of who was online. */}
       <Online/>
+
+      {/* Leaderboard: who is on the app most / posting most, with a tap-to-call phone. */}
+      <TopActive/>
 
       {/* 5 — ONE geography panel. "Most active districts" and "Users by district"
           both lived here too and answered the same question; the drill-down
