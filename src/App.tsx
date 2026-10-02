@@ -40,8 +40,9 @@ import BadgeRequests from './sections/BadgeRequests';
 import WaInbox from './sections/WaInbox';
 import Competitions from './sections/Competitions';
 import Syndicates from './sections/Syndicates';
+import Ads from './sections/Ads';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads';
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
@@ -61,6 +62,7 @@ const CORE: NavItem[] = [
   { key:'chats', label:'Chats', Icon:MessagesSquare },
   { key:'whatsapp', label:'WhatsApp', Icon:MessagesSquare },
   { key:'announce', label:'Announcements', Icon:Megaphone },
+  { key:'ads', label:'Ads', Icon:Megaphone },
   { key:'activity', label:'Activity', Icon:HistoryIcon },
   { key:'appconfig', label:'App Config', Icon:SlidersHorizontal },
 ];
@@ -342,6 +344,7 @@ export default function App(){
     community:<Community onChange={refreshCounts}/>,
     chats:<Chats/>,
     whatsapp:<WaInbox/>,
+    ads:<Ads/>,
     theft:<Theft onChange={refreshCounts}/>,
     appconfig:<AppConfig/>,
   };
