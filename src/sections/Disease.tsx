@@ -71,7 +71,14 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
             <tbody>
               {rows.map(r=>(
                 <tr key={r.id}>
-                  <td><b>{r.title}</b><div className="muted" style={{maxWidth:280,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.description||''}</div></td>
+                  <td><b>{r.title}</b><div className="muted" style={{maxWidth:280,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.description||''}</div>
+                    {(r.symptoms?.length||r.sick_count||r.deaths)?<div style={{fontSize:12,marginTop:3,maxWidth:280}}>
+                      {(r.symptoms||[]).map((x:string)=>x.replace(/_/g,' ')).join(', ')}
+                      {r.sick_count?` · sick: ${r.sick_count}`:''}{r.deaths?` · deaths (3d): ${r.deaths}`:''}
+                    </div>:null}
+                    {r.photos?.length?<div style={{display:'flex',gap:4,marginTop:4}}>
+                      {r.photos.map((u:string)=><a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="" style={{width:40,height:40,objectFit:'cover',borderRadius:4}}/></a>)}
+                    </div>:null}</td>
                   <td>{r.reporter
                     ? <><UserLink id={r.reporter.id}>{r.reporter.farm_name||r.reporter.full_name||'Member'}</UserLink>
                         <div className="muted" style={{fontSize:12}}>
@@ -106,6 +113,7 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
                     <button className="btn" onClick={save}>Save</button></>}>
           <Field label="Title"><input style={{width:'100%'}} value={edit.title} onChange={e=>setEdit({...edit,title:e.target.value})} placeholder="e.g. Ranikhet outbreak reported"/></Field>
           <Field label="Description"><textarea rows={4} style={{width:'100%',resize:'vertical'}} value={edit.description||''} onChange={e=>setEdit({...edit,description:e.target.value})}/></Field>
+          <Field label="What to do now — one step per line (shown to farmers; blank = general safety steps)"><textarea rows={3} style={{width:'100%',resize:'vertical'}} value={edit.advice||''} onChange={e=>setEdit({...edit,advice:e.target.value})} placeholder={'Give Lasota vaccine to birds not done in 2 months\nKeep new birds apart for 14 days'}/></Field>
           <Field label="Severity"><select style={{width:'100%'}} value={edit.severity} onChange={e=>setEdit({...edit,severity:e.target.value})}>{SEV.map(s=><option key={s}>{s}</option>)}</select></Field>
           <div className="grid2">
             <Field label="State"><input style={{width:'100%'}} value={edit.state||''} onChange={e=>setEdit({...edit,state:e.target.value})}/></Field>
