@@ -3,7 +3,8 @@ import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, ListChecks, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
-  Rocket, Users as UsersIcon, Truck, Store, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield, ChevronDown, ChevronRight
+  Rocket, Users as UsersIcon, Truck, Store, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield, ChevronDown, ChevronRight,
+  Wheat,
 } from 'lucide-react';
 import CommandK, { Hit } from './CommandK';
 import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
@@ -32,6 +33,7 @@ import UsersSection from './sections/UsersSection';
 import LiveFeed from './sections/LiveFeed';
 import Shop from './sections/Shop';
 import Orders from './sections/Orders';
+import FeedOrders from './sections/FeedOrders';
 import Announcements from './sections/Announcements';
 import Auctions from './sections/Auctions';
 import Reports from './sections/Reports';
@@ -42,7 +44,7 @@ import Competitions from './sections/Competitions';
 import Syndicates from './sections/Syndicates';
 import Ads from './sections/Ads';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads';
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
@@ -81,6 +83,7 @@ const MORE: NavItem[] = [
   { key:'livefeed', label:'Live Feed', Icon:Truck, totalKey:'livefeed' },
   { key:'shop', label:'Shop', Icon:Store, totalKey:'shop' },
   { key:'orders', label:'Orders', Icon:Store, totalKey:'orders' },
+  { key:'feedorders', label:'Feed orders', Icon:Wheat },
   { key:'vets', label:'Doctors', Icon:Stethoscope, totalKey:'vets' },
   { key:'community', label:'Community', Icon:MessagesSquare, totalKey:'community' },
   { key:'kukuta', label:'Kukuta', Icon:BookOpen, totalKey:'kukuta' },
@@ -118,6 +121,7 @@ const TRIAGE: {key:Key;label:string;Icon:any}[]=[
   {key:'auctions',label:'Auctions',Icon:Gavel},
   {key:'livefeed',label:'Live feed',Icon:Truck},
   {key:'orders',label:'Orders',Icon:Store},
+  {key:'feedorders',label:'Feed orders',Icon:Wheat},
 ];
 function MobileTriage({counts,go}:{counts:Record<string,any>;go:(k:Key)=>void}){
   const items=TRIAGE.filter(i=>(counts[i.key]||0)>0).sort((a,b)=>(counts[b.key]||0)-(counts[a.key]||0));
@@ -338,7 +342,7 @@ export default function App(){
     competitions:<Competitions/>,
     syndicates:<Syndicates onChange={refreshCounts}/>,
     featured:<Featured onChange={refreshCounts}/>,
-    livefeed:<LiveFeed onChange={refreshCounts}/>, shop:<Shop/>, orders:<Orders/>, vets:<Vets onChange={refreshCounts}/>,
+    livefeed:<LiveFeed onChange={refreshCounts}/>, shop:<Shop/>, orders:<Orders/>, feedorders:<FeedOrders/>, vets:<Vets onChange={refreshCounts}/>,
     kukuta:<Kukuta/>, breeds:<Breeds/>, disease:<Disease onChange={refreshCounts}/>,
     boosts:<Boosts/>, users:<UsersSection/>, announce:<Announcements/>, auctions:<Auctions onChange={refreshCounts}/>,
     community:<Community onChange={refreshCounts}/>,
