@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Store, Plus, Pencil, ImagePlus } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, Modal, Field } from '../ui';
+import { AccessoryEditor, DetailsForm, fromForm, toForm } from './AccessoryEditor';
+import { ApparelEditor, ApparelState, StockGrid, apparelPayload, defaultGrid, emptyApparel, loadVariants, saveVariants } from './ApparelEditor';
 
 // Values MUST match the DB check constraint shop_products_category_check (lowercase).
 const CATEGORIES = [
@@ -14,7 +16,7 @@ const CATEGORIES = [
   { value: 'cages',           label: 'Cages' },
   { value: 'apparel',         label: 'Apparel' },
 ];
-const empty = { id: '', name: '', brand: '', category: 'feed', price: '', mrp: '', unit: '', stock_count: '', description: '', image_url: '', images: [] as string[], state: '', district: '', mandal: '', status: 'active' };
+const empty = { id: '', name: '', name_te: '', prepaid: true, delivery_included: true, brand: '', category: 'feed', price: '', mrp: '', unit: '', stock_count: '', description: '', image_url: '', images: [] as string[], state: '', district: '', mandal: '', status: 'active' };
 
 export default function Shop() {
   const [rows, setRows] = useState<any[]>([]);
@@ -23,6 +25,43 @@ export default function Shop() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Apparel only: garment details + the colour × size stock grid.
+  const [apparel, setApparel] = useState<ApparelState | null>(null);
+  const [grid, setGrid] = useState<StockGrid>({});
+  const isApparel = edit?.category === 'apparel';
+  // Accessories: box, steps, specs, Q&A, starter-kit items (shop_products.details).
+  const [details, setDetails] = useState<DetailsForm | null>(null);
+  const isAcc = edit?.category === 'accessories';
+
+  async function openEdit(row: any | null) {
+    if (!row) { setEdit({ ...empty }); setApparel(null); setGrid({}); setDetails(null); return; }
+    setDetails(row.category === 'accessories' ? toForm(row.details) : null);
+    setEdit({ ...empty, ...row, price: row.price ?? '', brand: row.brand ?? '', unit: row.unit ?? '', stock_count: row.stock_count ?? '', description: row.description ?? '', name_te: row.name_te ?? '' });
+    if (row.category === 'apparel') {
+      const a: ApparelState = row.apparel ? { ...emptyApparel(), ...row.apparel, badge: row.apparel.badge ?? '', model: { ...(row.apparel.model ?? {}) } } : emptyApparel();
+      setApparel(a);
+      const g = await loadVariants(row.id);
+      setGrid(Object.keys(g).length ? g : defaultGrid(a));
+    } else { setApparel(null); setGrid({}); }
+  }
+
+  function setCategory(category: string) {
+    setEdit((cur: any) => ({ ...cur, category }));
+    if (category === 'accessories' && !details) setDetails(toForm(null));
+    if (category === 'apparel' && !apparel) { const a = emptyApparel(); setApparel(a); setGrid(defaultGrid(a)); }
+  }
+
+  async function uploadUrls(files: File[]): Promise<string[]> {
+    const urls: string[] = [];
+    for (const file of files.filter(f => f.type.startsWith('image/'))) {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `admin/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true });
+      if (up.error) { alert('Image upload failed: ' + up.error.message); break; }
+      urls.push(supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl);
+    }
+    return urls;
+  }
 
   async function load() {
     setLoading(true);
@@ -129,18 +168,33 @@ export default function Shop() {
         : Math.max(Number(edit.mrp), edit.price === '' ? 0 : Number(edit.price)),
       state: edit.state?.trim() || '', district: edit.district?.trim() || '', mandal: edit.mandal?.trim() || '',
       status: edit.status || 'active',
+      name_te: edit.name_te?.trim() || null,
     };
-    let error;
+    if (isApparel && apparel) {
+      if (!apparel.colours.length) { setSaving(false); alert('Add at least one colour.'); return; }
+      if (!Object.values(grid).some((r) => Object.keys(r).length)) { setSaving(false); alert('Tick at least one size.'); return; }
+      // Printed tees: paid by UPI up front, printed and shipped by our print partner.
+      payload.apparel = apparelPayload(apparel);
+      payload.prepaid = !!edit.prepaid;
+      payload.delivery_included = !!edit.delivery_included;
+      payload.ships_from = 'maker';
+      payload.maker_name = 'Rooster Club Apparel';
+      payload.stock_count = 999; // real stock lives on each size
+    }
+    if (isAcc && details) payload.details = fromForm(details);
+    let error: any; let id = edit.id;
     if (edit.id) {
       ({ error } = await supabase.from('shop_products').update(payload).eq('id', edit.id));
     } else {
       const { data: { user } } = await supabase.auth.getUser();
       payload.user_id = user?.id;   // store admin as the owner for house/official products
-      ({ error } = await supabase.from('shop_products').insert(payload));
+      const r = await supabase.from('shop_products').insert(payload).select('id').single();
+      error = r.error; id = r.data?.id;
     }
+    if (!error && isApparel && id) error = await saveVariants(id, grid);
     setSaving(false);
     if (error) { alert('Could not save: ' + error.message); return; }
-    setEdit(null); load();
+    setEdit(null); setApparel(null); load();
   }
 
   return (
@@ -150,7 +204,7 @@ export default function Shop() {
           <h1 className="h1">Shop</h1>
           <p className="sub">Add, edit, moderate storefront products — with photos.</p>
         </div>
-        <button className="btn" onClick={() => setEdit({ ...empty })}><Plus size={15} style={{ verticalAlign: -3 }} /> Add product</button>
+        <button className="btn" onClick={() => openEdit(null)}><Plus size={15} style={{ verticalAlign: -3 }} /> Add product</button>
       </div>
 
       <div className="card">
@@ -171,7 +225,7 @@ export default function Shop() {
                   <td><span className={'badge ' + (r.status === 'active' ? 'b-ok' : 'b-mut')}>{r.status || 'active'}</span></td>
                   <td className="muted">{timeAgo(r.created_at)}</td>
                   <td><div className="row-acts">
-                    <button className="btn ghost sm" onClick={() => setEdit({ ...empty, ...r, price: r.price ?? '', brand: r.brand ?? '', unit: r.unit ?? '', stock_count: r.stock_count ?? '', description: r.description ?? '' })}><Pencil size={12} /> Edit</button>
+                    <button className="btn ghost sm" onClick={() => openEdit(r)}><Pencil size={12} /> Edit</button>
                     {r.status !== 'removed' && <button className="btn ghost sm" onClick={() => toggle(r)}>{r.status === 'active' ? 'Suspend' : 'Activate'}</button>}
                     <button className={r.status === 'removed' ? 'btn ok sm' : 'btn danger sm'} onClick={() => remove(r)}>{r.status === 'removed' ? 'Restore' : 'Remove'}</button>
                   </div></td>
@@ -227,11 +281,14 @@ export default function Shop() {
               ))}
             </div>
           )}
-          <Field label="Name"><input value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. Growth booster feed" /></Field>
+          <div className="grid2">
+            <Field label="Name"><input value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} placeholder="e.g. Growth booster feed" /></Field>
+            <Field label="Name in Telugu (optional)"><input value={edit.name_te ?? ''} onChange={e => setEdit({ ...edit, name_te: e.target.value })} /></Field>
+          </div>
           <div className="grid2">
             <Field label="Brand"><input value={edit.brand} onChange={e => setEdit({ ...edit, brand: e.target.value })} /></Field>
             <Field label="Category">
-              <select value={edit.category} onChange={e => setEdit({ ...edit, category: e.target.value })}>
+              <select value={edit.category} onChange={e => setCategory(e.target.value)}>
                 {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </Field>
@@ -250,11 +307,28 @@ export default function Shop() {
             <Field label="Stock count"><input type="number" value={edit.stock_count} onChange={e => setEdit({ ...edit, stock_count: e.target.value })} /></Field>
             <Field label="Status">
               <select value={edit.status} onChange={e => setEdit({ ...edit, status: e.target.value })}>
-                <option value="active">active</option><option value="out_of_stock">out_of_stock</option>
+                <option value="active">active</option><option value="out_of_stock">out_of_stock</option><option value="draft">draft (only you see it)</option>
               </select>
             </Field>
           </div>
           <Field label="Description"><textarea rows={3} value={edit.description} onChange={e => setEdit({ ...edit, description: e.target.value })} /></Field>
+          {isApparel && apparel && (
+            <>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 6 }}>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={!!edit.prepaid} onChange={e => setEdit({ ...edit, prepaid: e.target.checked })} /> UPI prepaid only (recommended for printed tees)</label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={!!edit.delivery_included} onChange={e => setEdit({ ...edit, delivery_included: e.target.checked })} /> Price includes delivery</label>
+              </div>
+              <ApparelEditor value={apparel} onChange={setApparel} grid={grid} onGrid={setGrid} upload={uploadUrls} />
+            </>
+          )}
+          {isAcc && details && (
+            <AccessoryEditor
+              value={details}
+              onChange={setDetails}
+              others={rows.filter((r) => r.category === 'accessories' && r.id !== edit.id && r.status !== 'removed' && !(r.details?.kit_ids?.length))
+                .map((r) => ({ id: r.id, name: r.name, price: r.price }))}
+            />
+          )}
           <div className="grid2">
             <Field label="State"><input value={edit.state} onChange={e => setEdit({ ...edit, state: e.target.value })} /></Field>
             <Field label="District"><input value={edit.district} onChange={e => setEdit({ ...edit, district: e.target.value })} /></Field>
