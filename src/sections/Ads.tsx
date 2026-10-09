@@ -12,6 +12,7 @@ const PLACES = [
   { value: 'reel', label: 'Home reels' },
   { value: 'listing', label: 'Bird page' },
   { value: 'shop', label: 'Shop (Featured)' },
+  { value: 'home', label: 'Home banner' },
 ];
 const TYPES = [
   { value: 'fighter', label: 'Game' }, { value: 'breeder', label: 'Breeder' }, { value: 'patta', label: 'Patta' },

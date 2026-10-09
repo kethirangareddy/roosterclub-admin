@@ -43,8 +43,9 @@ import WaInbox from './sections/WaInbox';
 import Competitions from './sections/Competitions';
 import Syndicates from './sections/Syndicates';
 import Ads from './sections/Ads';
+import Support from './sections/Support';
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads'|'support';
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
@@ -61,6 +62,7 @@ const CORE: NavItem[] = [
   { key:'kyc', label:'Verifications', Icon:ShieldCheck },
   { key:'badges', label:'Badge Requests', Icon:Award },
   { key:'reports', label:'Reports', Icon:Flag },
+  { key:'support', label:'Support', Icon:MessagesSquare },
   { key:'chats', label:'Chats', Icon:MessagesSquare },
   { key:'whatsapp', label:'WhatsApp', Icon:MessagesSquare },
   { key:'announce', label:'Announcements', Icon:Megaphone },
@@ -109,6 +111,7 @@ const GNAV: Record<string,Key> = {
 // never had an item. Now it mirrors the desktop attention queue: only what's
 // actually pending, ranked, biggest first.
 const TRIAGE: {key:Key;label:string;Icon:any}[]=[
+  {key:'support',label:'Support',Icon:MessagesSquare},
   {key:'approvals',label:'Approvals',Icon:Inbox},
   {key:'kyc',label:'Verify',Icon:ShieldCheck},
   {key:'badges',label:'Badges',Icon:Award},
@@ -305,10 +308,13 @@ export default function App(){
   // totals the "More" group uses to dim sections that have no rows, and the
   // headline numbers the dashboard used to re-count for itself.
   async function refreshCounts(){
-    const { data, error }=await supabase.rpc('admin_counts');
+    const [{ data, error }, sup]=await Promise.all([
+      supabase.rpc('admin_counts'),
+      supabase.rpc('admin_support_unread'),
+    ]);
     // Keep the last known counts — a transient blip shouldn't blank the sidebar.
     if(error){ console.error('refreshCounts failed:', error.message); return; }
-    setCounts((data as any)||{});
+    setCounts({ ...((data as any)||{}), support: sup.error ? 0 : Number(sup.data)||0 });
   }
   // Deliberately NOT keyed on `view`: this used to refire 11 queries on every
   // section change (~110 queries per 10 clicks). Sections call refreshCounts()
@@ -347,6 +353,7 @@ export default function App(){
     boosts:<Boosts/>, users:<UsersSection/>, announce:<Announcements/>, auctions:<Auctions onChange={refreshCounts}/>,
     community:<Community onChange={refreshCounts}/>,
     chats:<Chats/>,
+    support:<Support onChange={refreshCounts}/>,
     whatsapp:<WaInbox/>,
     ads:<Ads/>,
     theft:<Theft onChange={refreshCounts}/>,
