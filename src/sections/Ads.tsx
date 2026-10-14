@@ -13,6 +13,9 @@ const PLACES = [
   { value: 'listing', label: 'Bird page' },
   { value: 'shop', label: 'Shop (Featured)' },
   { value: 'home', label: 'Home banner' },
+  { value: 'sellers', label: 'Sellers page' },
+  { value: 'buyers', label: 'Buyers page' },
+  { value: 'alerts', label: 'Alerts page' },
 ];
 const TYPES = [
   { value: 'fighter', label: 'Game' }, { value: 'breeder', label: 'Breeder' }, { value: 'patta', label: 'Patta' },
