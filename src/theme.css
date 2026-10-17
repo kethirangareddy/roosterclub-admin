@@ -732,7 +732,7 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 .split2-back{display:none}
 @media (max-width:860px){
   .split2{grid-template-columns:1fr!important}
-  .split2.has-sel>:first-child{display:none}
-  .split2:not(.has-sel)>:last-child{display:none}
+  .split2.has-sel>:first-child{display:none!important}
+  .split2:not(.has-sel)>:last-child{display:none!important}
   .split2-back{display:inline-flex}
 }

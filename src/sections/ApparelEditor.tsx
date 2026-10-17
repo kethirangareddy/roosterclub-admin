@@ -226,7 +226,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
                   <label style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', fontWeight: 700, cursor: 'pointer' }}>
                     <input type="checkbox" checked={on} onChange={() => toggleSize(c.key, s)} /> {s}
                   </label>
-                  {on && <input type="number" value={grid[c.key][s]} onChange={(e) => setStock(c.key, s, e.target.value)} style={{ width: 52, marginTop: 3 }} title="Stock (0 = sold out)" />}
+                  {on && <input type="number" value={grid[c.key][s]} onChange={(e) => setStock(c.key, s, e.target.value)} style={{ width: 68, padding: '6px 8px', marginTop: 3 }} title="Stock (0 = sold out)" />}
                 </div>
               );
             })}
