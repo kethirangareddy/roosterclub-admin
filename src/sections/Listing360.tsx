@@ -52,8 +52,12 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     load(); onChanged?.(); emitChanged();
   }
   async function restore(){
+    // Bring it back to what it really is: a sold bird stays sold, a lapsed one
+    // stays expired — never "for sale" by accident.
+    const sold=!!l?.sold_at, lapsed=!!l?.expires_at && new Date(l.expires_at)<new Date();
+    const status=sold?'sold':lapsed?'expired':'active';
     const { error }=await supabase.from('listings')
-      .update({ status:'active', removed_at:null }).eq('id',listingId);
+      .update({ status, removed_at:null }).eq('id',listingId);
     if(error){ toast(error.message); return; }
     load(); onChanged?.(); emitChanged();
   }

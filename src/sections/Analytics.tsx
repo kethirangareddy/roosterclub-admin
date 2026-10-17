@@ -318,6 +318,11 @@ function Cohorts() {
     return () => { alive = false; };
   }, [days, source]);
 
+  // D1 only counts cohorts whose day-1 window has closed (not today/yesterday, IST).
+  const istDay = (ms: number) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const openDays = new Set([istDay(Date.now()), istDay(Date.now() - 864e5)]);
+  const d1Tot = rows.filter(r => !openDays.has(String(r.cohort).slice(0, 10)))
+    .reduce((s, r) => ({ signups: s.signups + Number(r.signups), d1: s.d1 + Number(r.d1_back) }), { signups: 0, d1: 0 });
   const tot = rows.reduce((s, r) => ({
     signups: s.signups + Number(r.signups), d1: s.d1 + Number(r.d1_back),
     posted: s.posted + Number(r.posted), chatted: s.chatted + Number(r.chatted),
@@ -347,7 +352,7 @@ function Cohorts() {
         <div className="kpi grad-iris"><div className="lab"><Users size={14} /> Signups</div>
           <div className="val">{tot.signups}</div><div className="delta">last {days} days</div></div>
         <div className="kpi grad-green"><div className="lab"><Repeat size={14} /> Came back D1</div>
-          <div className="val">{p(tot.d1, tot.signups)}%</div><div className="delta">{tot.d1} of {tot.signups}</div></div>
+          <div className="val">{p(d1Tot.d1, d1Tot.signups)}%</div><div className="delta">{d1Tot.d1} of {d1Tot.signups} (finished days only)</div></div>
         <div className="kpi grad-amber"><div className="lab"><ListChecks size={14} /> Posted a listing</div>
           <div className="val">{p(tot.posted, tot.signups)}%</div><div className="delta">{tot.posted} sellers</div></div>
         <div className="kpi grad-blue"><div className="lab"><MessageSquare size={14} /> Started a chat</div>

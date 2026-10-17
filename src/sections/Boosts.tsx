@@ -72,13 +72,16 @@ export default function Boosts(){
     const days = Number(input)||5;
     const now=new Date(); const exp=new Date(now.getTime()+days*864e5);
     const { data:{ user } }=await supabase.auth.getUser();
-    const e1=await supabase.from('boosts').update({
-      activated_at:now.toISOString(), expires_at:exp.toISOString(), activated_by:user?.id
-    }).eq('id',b.id);
+    // Boost the listing FIRST; only mark the payment activated once that worked,
+    // so a failure leaves the Activate button there to try again.
     const e2=await supabase.from('listings').update({
       boost_level:b.level, boost_expires_at:exp.toISOString()
     }).eq('id',b.listing_id);
-    if(e1.error||e2.error){ toast((e1.error||e2.error)?.message); return; }
+    if(e2.error){ toast('Could not boost the listing: '+e2.error.message); load(); return; }
+    const e1=await supabase.from('boosts').update({
+      activated_at:now.toISOString(), expires_at:exp.toISOString(), activated_by:user?.id
+    }).eq('id',b.id);
+    if(e1.error){ toast('Listing boosted, but the payment row could not be marked: '+e1.error.message); }
     load();
   }
 

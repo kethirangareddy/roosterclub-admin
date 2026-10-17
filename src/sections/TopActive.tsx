@@ -41,7 +41,7 @@ export default function TopActive() {
     setBusy(true); setErr(null);
     supabase.rpc('admin_top_active', { p_days: days, p_sort: sort, p_limit: 25 }).then(({ data, error }) => {
       if (!live) return;
-      if (error) setErr(error.message); else setRows((data as Row[]) || []);
+      if (error) { setErr(error.message); setRows([]); } else { setErr(null); setRows((data as Row[]) || []); }
       setBusy(false);
     });
     return () => { live = false; };

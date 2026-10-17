@@ -115,9 +115,12 @@ export default function Shop() {
   // Item 16 — soft delete: restorable for 30 days, then the purge cron hard-deletes it.
   async function remove(r: any) {
     if (r.status === 'removed') {
-      const { error } = await supabase.from('shop_products').update({ status: 'active', removed_at: null }).eq('id', r.id);
+      // Restored products come back as a draft (only you see it) — you decide
+      // when it goes live again, instead of it reappearing for everyone.
+      const { error } = await supabase.from('shop_products').update({ status: 'draft', removed_at: null }).eq('id', r.id);
       if (error) { toast('Could not restore: ' + error.message); return; }
-      setRows(x => x.map(p => p.id === r.id ? { ...p, status: 'active', removed_at: null } : p));
+      setRows(x => x.map(p => p.id === r.id ? { ...p, status: 'draft', removed_at: null } : p));
+      toast('Restored as a draft — set it to active when ready.', 'ok');
       return;
     }
     if (!await ask('Remove this product? It disappears from the app and can be restored for 30 days.')) return;
