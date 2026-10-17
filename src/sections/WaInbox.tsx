@@ -16,19 +16,21 @@ export default function WaInbox(){
   const [draft,setDraft]=useState('');
   const [busy,setBusy]=useState(false);
   const endRef=useRef<HTMLDivElement>(null);
+  const selRef=useRef<string|null>(null); selRef.current=sel;
 
   async function loadThreads(){
     const { data, error }=await supabase.rpc('admin_wa_threads');
-    if(error) alert(error.message);
+    if(error){ console.error(error.message); setLoading(false); return; }
     setThreads(data||[]); setLoading(false);
   }
   async function loadThread(n:string){
     const { data }=await supabase.rpc('admin_wa_thread',{ p_number:n });
+    if(selRef.current!==n) return; // you've moved to another number since
     setMsgs(data||[]);
     setTimeout(()=>endRef.current?.scrollIntoView({block:'end'}),50);
   }
   useEffect(()=>{ loadThreads(); const t=setInterval(loadThreads,20000); return ()=>clearInterval(t); },[]);
-  useEffect(()=>{ if(!sel) return; loadThread(sel); const t=setInterval(()=>loadThread(sel),10000); return ()=>clearInterval(t); },[sel]);
+  useEffect(()=>{ setMsgs([]); if(!sel) return; loadThread(sel); const t=setInterval(()=>loadThread(sel),10000); return ()=>clearInterval(t); },[sel]);
 
   const cur=threads.find(t=>t.customer_number===sel);
   const windowOpen=!!cur?.last_in_at && Date.now()-new Date(cur.last_in_at).getTime()<DAY;

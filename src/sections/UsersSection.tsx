@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
 import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink } from '../ui';
-import UserDetail from './UserDetail';
+import { useDetail } from '../detail';
 
 const BADGES:{v:string;label:string}[]=[
   {v:'',label:'No badge'},
@@ -23,7 +23,7 @@ export default function UsersSection(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [q,setQ]=useState('');
-  const [viewId,setViewId]=useState<string|null>(null);
+  const { openUser }=useDetail();
   // Items 12–14: All (created desc) | High risk (auto-flag queue) | Duplicates (ban evasion)
   const [tab,setTab]=useParamState<'all'|'risk'|'dups'|'refs'>('tab','all');
   const [dups,setDups]=useState<any[]>([]);
@@ -196,7 +196,7 @@ export default function UsersSection(){
                     <td>
                       <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                         {(d.members||[]).map((u:any)=>(
-                          <button key={u.id} className="btn ghost sm" onClick={()=>setViewId(u.id)}>
+                          <button key={u.id} className="btn ghost sm" onClick={()=>openUser(u.id)}>
                             {u.name||('@'+(u.handle||'user'))}{u.banned?' · banned':''}
                             <span className="muted" style={{marginLeft:4,fontSize:11}}>{u.district||''} · {timeAgo(u.created_at)}</span>
                           </button>
@@ -224,7 +224,7 @@ export default function UsersSection(){
                     <td>{u.open_reports||0}</td>
                     <td>{u.reports_24h||0}</td>
                     <td>{u.shared_upi?<span className="badge b-danger">yes</span>:<span className="badge b-mut">—</span>}</td>
-                    <td className="right"><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
+                    <td className="right"><button className="btn ghost sm" onClick={()=>openUser(u.id)}><Eye size={13}/> View</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -307,7 +307,7 @@ export default function UsersSection(){
                     </select>
                   </td>
                   <td><WaButton phone={u.phone} lang={u.language}/></td>
-                  <td><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
+                  <td><button className="btn ghost sm" onClick={()=>openUser(u.id)}><Eye size={13}/> View</button></td>
                   <td><button className={'btn sm '+(u.banned?'ghost':'danger')} onClick={()=>toggleBan(u)}>{u.banned?'Unban':'Ban'}</button></td>
                 </tr>
               ))}
@@ -316,7 +316,6 @@ export default function UsersSection(){
         )}
       </div>
       )}
-      {viewId && <UserDetail userId={viewId} onClose={()=>setViewId(null)}/>}
     </>
   );
 }

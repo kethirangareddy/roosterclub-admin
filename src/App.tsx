@@ -168,7 +168,7 @@ export default function App(){
     setDetail(next);
     const u=new URL(location.href);
     if(next.length) u.searchParams.set('d',encodeDetail(next)); else u.searchParams.delete('d');
-    if(push) history.pushState(null,'',u); else history.replaceState(null,'',u);
+    if(push) history.pushState({rcDetail:next.length},'',u); else history.replaceState(history.state,'',u);
   }
 
   function openHit(h:Hit){
@@ -177,8 +177,20 @@ export default function App(){
     else if(h.kind==='auction') setView('auctions');
     else if(h.kind==='report') setView('reports');
   }
-  const pushDetail=(d:Detail)=>commitDetail([...detail,d],true);
-  const popDetail=()=>commitDetail(detail.slice(0,-1),false);
+  // Tapping the thing that's already open does nothing (it used to stack a
+  // second copy, so Close appeared not to work).
+  const pushDetail=(d:Detail)=>{
+    const t=detail[detail.length-1];
+    if(t && t.kind===d.kind && t.id===d.id) return;
+    commitDetail([...detail,d],true);
+  };
+  // Closing a panel we opened = one step Back, so the phone's Back button and
+  // the ✕ agree. (Closing used to leave a dead history entry: the next Back
+  // press did nothing, the one after jumped to a different screen.)
+  const popDetail=()=>{
+    if(history.state?.rcDetail===detail.length) history.back();
+    else commitDetail(detail.slice(0,-1),false);
+  };
 
   // What every section calls. Ignores empty ids so a missing seller_id can't
   // open a blank modal.
@@ -339,7 +351,7 @@ export default function App(){
 
   const sections:Record<Key,JSX.Element>={
     dash:<Dashboard go={setView} counts={counts}/>, analytics:<Analytics/>,
-    money:<Money openReceipt={(id:string)=>setDetail([{kind:'receipt',id}])} go={setView}/>,
+    money:<Money openReceipt={(id:string)=>detailApi.openReceipt(id)} go={setView}/>,
     activity:<Activity/>,
     approvals:<Approvals onChange={refreshCounts}/>,
     listings:<Listings/>,
@@ -422,10 +434,13 @@ export default function App(){
       {cmdk && <CommandK onOpenResult={openHit}
         onGo={(v,qp)=>{ setCmdk(false); setView(v as Key,qp); }}
         onClose={()=>setCmdk(false)}/>}
-      {top?.kind==='user' && <UserDetail userId={top.id} onClose={popDetail}/>}
-      {top?.kind==='listing' && <Listing360 listingId={top.id} onClose={popDetail}
+      {/* key = kind+id+depth: opening user B from inside user A must mount a
+          fresh panel. Without it React reused A's panel and kept A's photos,
+          KYC and stats on screen under B's name. */}
+      {top?.kind==='user' && <UserDetail key={'u'+top.id+detail.length} userId={top.id} onClose={popDetail}/>}
+      {top?.kind==='listing' && <Listing360 key={'l'+top.id+detail.length} listingId={top.id} onClose={popDetail}
         onOpenUser={(id)=>pushDetail({kind:'user',id})} onChanged={refreshCounts}/>}
-      {top?.kind==='receipt' && <Receipt360 receiptId={top.id} onClose={popDetail}
+      {top?.kind==='receipt' && <Receipt360 key={'r'+top.id+detail.length} receiptId={top.id} onClose={popDetail}
         onOpenUser={(id)=>pushDetail({kind:'user',id})} onOpenListing={(id)=>pushDetail({kind:'listing',id})}/>}
     </div>
     </DetailCtx.Provider>

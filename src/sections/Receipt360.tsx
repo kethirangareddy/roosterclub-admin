@@ -11,8 +11,10 @@ export default function Receipt360({ receiptId, onClose, onOpenUser, onOpenListi
 }){
   const [d,setD]=useState<any|null>(null);
   useEffect(()=>{
+    let alive=true; setD(null);
     supabase.rpc('admin_receipt_overview',{ p_receipt:receiptId })
-      .then(({data,error})=>setD(error?{__error:error.message}:(data??{})));
+      .then(({data,error})=>{ if(alive) setD(error?{__error:error.message}:(data??{})); });
+    return ()=>{ alive=false; };
   },[receiptId]);
 
   const r=d?.receipt;

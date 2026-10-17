@@ -5,7 +5,7 @@ import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope,
   Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText,
   MessagesSquare, Store, Shield, ShieldAlert, Repeat, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
-import Listing360 from './Listing360';
+import { useDetail, useOnChanged } from '../detail';
 import Online from './Online';
 import TopActive from './TopActive';
 
@@ -132,7 +132,8 @@ export default function Dashboard({ go, counts }:{
   const [drill,setDrill]=useState<Drill|null>(null);
   const [drillList,setDrillList]=useState<any[]>([]);
   const [drillBusy,setDrillBusy]=useState(false);
-  const [open360,setOpen360]=useState<string|null>(null);
+  const { openListing }=useDetail();
+  useOnChanged(()=>loadSlow());
 
   async function openListings(district:string, state?:string, prev?:Drill|null){
     setDrill({ level:'listings', district, state, prev:prev??null });
@@ -485,7 +486,7 @@ export default function Dashboard({ go, counts }:{
             drillList.length===0 ? <div className="empty">No listings in {drill.district}.</div> :
             <table><thead><tr><th>Breed</th><th>Type</th><th>Price</th><th>Status</th><th>Posted</th></tr></thead><tbody>
               {drillList.map(l=>(
-                <tr key={l.id} style={{cursor:'pointer'}} title="Open listing 360" onClick={()=>setOpen360(l.id)}>
+                <tr key={l.id} style={{cursor:'pointer'}} title="Open listing 360" onClick={()=>openListing(l.id)}>
                   <td style={{fontWeight:600}}>{l.breed||'—'}<div className="muted" style={{fontSize:11}}>{[l.village,l.mandal].filter(Boolean).join(', ')}</div></td>
                   <td><span className="badge b-mut">{l.type}</span></td>
                   <td>{inr(l.price)}</td>
@@ -497,7 +498,6 @@ export default function Dashboard({ go, counts }:{
           )}
         </Modal>
       )}
-      {open360 && <Listing360 listingId={open360} onClose={()=>setOpen360(null)} onChanged={loadSlow}/>}
 
       {/* The rows behind whichever number was clicked. */}
       {drillKind && <Drill kind={drillKind.kind} label={drillKind.label}

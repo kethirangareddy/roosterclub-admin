@@ -551,3 +551,7 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 .pulse .p-click:focus-visible{ outline:2px solid var(--cta); outline-offset:2px; }
 .kpi[title]{ position:relative; }
 @media (prefers-reduced-motion: reduce){ .pulse .p-click{ transition:none; } }
+
+/* Chats list rows — one tap target per row */
+.chat-row{text-align:left;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:border-color .12s,background .12s}
+.chat-row:hover,.chat-row:focus-visible{border-color:var(--cta);outline:none}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { ListChecks, Search, Eye } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, useParamState, UserLink } from '../ui';
-import Listing360 from './Listing360';
+import { useDetail, useOnChanged } from '../detail';
 
 type Filter = 'all' | 'live' | 'pending' | 'sold' | 'expired' | 'removed';
 const FILTERS: { v: Filter; label: string }[] = [
@@ -15,7 +15,8 @@ export default function Listings() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useParamState<Filter>('f', 'all');
-  const [open360, setOpen360] = useState<string | null>(null);
+  const { openListing } = useDetail();
+  useOnChanged(() => load());
 
   async function load() {
     setLoading(true);
@@ -77,7 +78,7 @@ export default function Listings() {
               {rows.map(r => {
                 const st = liveLabel(r);
                 return (
-                  <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => setOpen360(r.id)}>
+                  <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => openListing(r.id)}>
                     <td><b>{r.breed || '—'}</b><div className="muted">{r.type}</div></td>
                     {/* the row opens the listing; the seller link stops propagation and opens the user instead */}
                     <td><UserLink id={r.user_id}>{r.users?.full_name || (r.users?.handle ? '@' + r.users.handle : 'View seller')}</UserLink></td>
@@ -86,7 +87,7 @@ export default function Listings() {
                     <td><span className={'badge ' + (st === 'active' ? 'b-ok' : st === 'sold' ? 'b-info' : st === 'expired' ? 'b-warn' : 'b-mut')}>{st}</span></td>
                     <td><span className={'badge ' + (r.approval_status === 'approved' ? 'b-ok' : r.approval_status === 'rejected' ? 'b-danger' : 'b-warn')}>{r.approval_status}</span></td>
                     <td className="muted">{timeAgo(r.created_at)}</td>
-                    <td onClick={e => e.stopPropagation()}><button className="btn ghost sm" onClick={() => setOpen360(r.id)}><Eye size={13} /> View</button></td>
+                    <td onClick={e => e.stopPropagation()}><button className="btn ghost sm" onClick={() => openListing(r.id)}><Eye size={13} /> View</button></td>
                   </tr>
                 );
               })}
@@ -94,7 +95,6 @@ export default function Listings() {
           </table>
         )}
       </div>
-      {open360 && <Listing360 listingId={open360} onClose={() => setOpen360(null)} onChanged={load} />}
     </>
   );
 }

@@ -26,9 +26,12 @@ export default function ChatMessages({ chatId, sellerId }:{ chatId: string; sell
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
 
   useEffect(() => {
+    // Guard: if you tap chat A then chat B, A's slower reply must not land under B.
+    let alive = true;
     setMsgs(null);
     supabase.rpc('admin_chat_messages', { p_chat: chatId })
-      .then(({ data, error }) => setMsgs(error ? [] : (data || [])));
+      .then(({ data, error }) => { if (alive) setMsgs(error ? [] : (data || [])); });
+    return () => { alive = false; };
   }, [chatId]);
 
   if (msgs === null) return <div className="loading">Loading messages…</div>;

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
+import { emitChanged } from '../detail';
 import { Modal, timeAgo, inr } from '../ui';
 import { Check, X, Star, Trash2, User, Eye, MessagesSquare, ReceiptText, Rocket, Instagram } from 'lucide-react';
 import ListingChats from './ListingChats';
@@ -13,11 +14,15 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
   const [pushMsg,setPushMsg]=useState('');
   const [showChats,setShowChats]=useState(false);
 
+  // Only the answer for the listing that is open right now may land on screen —
+  // a slow reply for the previous listing used to overwrite the current one.
+  const want=useRef(listingId); want.current=listingId;
   function load(){
-    supabase.rpc('admin_listing_overview',{ p_listing:listingId })
-      .then(({data,error})=>setD(error?{__error:error.message}:(data??{})));
+    const asked=listingId;
+    supabase.rpc('admin_listing_overview',{ p_listing:asked })
+      .then(({data,error})=>{ if(want.current===asked) setD(error?{__error:error.message}:(data??{})); });
   }
-  useEffect(load,[listingId]);
+  useEffect(()=>{ setD(null); setShowChats(false); setPushMsg(''); load(); },[listingId]);
 
   const l=d?.listing;
   async function setApproval(approval_status:string){
@@ -25,7 +30,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     const { error }=await supabase.from('listings').update({ approval_status }).eq('id',listingId);
     setBusy(false);
     if(error){ alert(error.message); return; }
-    load(); onChanged?.();
+    load(); onChanged?.(); emitChanged();
   }
   async function feature(days:number|null){
     setBusy(true);
@@ -41,13 +46,13 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     const { error }=await supabase.from('listings')
       .update({ status:'removed', removed_at:new Date().toISOString() }).eq('id',listingId);
     if(error){ alert(error.message); return; }
-    load(); onChanged?.();
+    load(); onChanged?.(); emitChanged();
   }
   async function restore(){
     const { error }=await supabase.from('listings')
       .update({ status:'active', removed_at:null }).eq('id',listingId);
     if(error){ alert(error.message); return; }
-    load(); onChanged?.();
+    load(); onChanged?.(); emitChanged();
   }
   // Manual Instagram push — fires the ig-autopost pipeline server-side via a SECURITY DEFINER
   // RPC (is_admin-guarded), so the shared secret never ships in this public bundle.

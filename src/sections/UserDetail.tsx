@@ -31,27 +31,34 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
   useEffect(() => {
     // Distinguish a real load failure from a genuinely missing user, instead of
     // collapsing every error into "User not found."
-    supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data, error }) => setD(error ? { __error: error.message } : (data ?? {})));
+    let alive = true; setD(null);
+    supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data, error }) => { if (alive) setD(error ? { __error: error.message } : (data ?? {})); });
+    return () => { alive = false; };
   }, [userId]);
   useEffect(() => {
     // Who referred this user, and whom they referred (users.referred_by is the source of truth).
-    setRefs(null);
-    supabase.rpc('admin_user_referrals', { p_user: userId }).then(({ data, error }) => setRefs(error ? { __error: error.message } : (data ?? {})));
+    let alive = true; setRefs(null);
+    supabase.rpc('admin_user_referrals', { p_user: userId }).then(({ data, error }) => { if (alive) setRefs(error ? { __error: error.message } : (data ?? {})); });
+    return () => { alive = false; };
   }, [userId]);
   useEffect(() => {
     // Pull the user's latest KYC submission + signed photo URLs (1h) so the admin can
     // eyeball the Aadhaar/selfie right here without hopping to the Verifications tab.
+    let alive = true;
+    setZoom(null); setCompose(false);
     (async () => {
       setKyc(null);
       const { data } = await supabase.from('kyc_submissions')
         .select('aadhaar_path,selfie_path,status,created_at')
         .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (!alive) return;
       if (!data) { setKyc({ none: true }); return; }
       const out: any = { status: data.status };
       if (data.aadhaar_path) { const a = await supabase.storage.from('kyc').createSignedUrl(data.aadhaar_path, 3600); out.a_url = a.data?.signedUrl; }
       if (data.selfie_path) { const s = await supabase.storage.from('kyc').createSignedUrl(data.selfie_path, 3600); out.s_url = s.data?.signedUrl; }
-      setKyc(out);
+      if (alive) setKyc(out);
     })();
+    return () => { alive = false; };
   }, [userId]);
 
   const p = d?.profile;

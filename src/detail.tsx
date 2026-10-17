@@ -3,7 +3,7 @@
    Sections never own the 360 modals — they just call openUser/openListing/
    openReceipt from context. App.tsx holds the stack and renders the modals,
    so a link buried nine components deep still works without prop-drilling. */
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
 
 export type DetailKind = 'user' | 'listing' | 'receipt';
 export type Detail = { kind: DetailKind; id: string };
@@ -22,6 +22,18 @@ export const DetailCtx = createContext<DetailApi>({
 });
 
 export function useDetail(){ return useContext(DetailCtx); }
+
+/* A 360 that approves/removes/features something tells every open list to
+   refresh, so the row you just acted on doesn't keep showing its old state. */
+export function emitChanged(){ window.dispatchEvent(new Event('rc:changed')); }
+export function useOnChanged(fn: () => void){
+  const ref = useRef(fn); ref.current = fn;
+  useEffect(() => {
+    const h = () => ref.current();
+    window.addEventListener('rc:changed', h);
+    return () => window.removeEventListener('rc:changed', h);
+  }, []);
+}
 
 /* ---- URL <-> stack, so a 360 is bookmarkable and Back closes it ---- */
 export function encodeDetail(stack: Detail[]){
