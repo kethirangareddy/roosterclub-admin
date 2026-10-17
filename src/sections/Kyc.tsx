@@ -127,7 +127,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
 
       <UidaiCerts/>
 
-      {open && <Review r={open} onClose={()=>setOpen(null)} onDone={()=>{ setOpen(null); load(); onChange?.(); }}/>}
+      {open && <Review r={open} onClose={()=>setOpen(null)} onDone={()=>{ const id=open.id; setPicked(p=>{ if(!p.has(id)) return p; const s=new Set(p); s.delete(id); return s; }); setOpen(null); load(); onChange?.(); }}/>}
     </>
   );
 }

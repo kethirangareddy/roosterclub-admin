@@ -27,7 +27,7 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
   const [m, setM] = useState<any | null>(null);
   const [months, setMonths] = useState<any[]>([]);
   const [openMonth, setOpenMonth] = useState<string | null>(null);
-  const [daysRows, setDaysRows] = useState<any[]>([]);
+  const [daysRows, setDaysRows] = useState<any[] | null>([]); // null = loading
   const [openDay, setOpenDay] = useState<string | null>(null);
   const [dayReceipts, setDayReceipts] = useState<any[]>([]);
   const [cost, setCost] = useState<any | null>(null);
@@ -57,11 +57,11 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
     if (openMonth === month) { setOpenMonth(null); setOpenDay(null); return; }
     // Clear the old month's rows first, and only accept the reply for the
     // month that is still open (tapping Sep then Aug showed Sep under Aug).
-    setOpenMonth(month); setOpenDay(null); setDaysRows([]); setDayReceipts([]);
+    setOpenMonth(month); setOpenDay(null); setDaysRows(null); setDayReceipts([]);
     wantMonth.current = month;
     const { data, error } = await supabase.rpc('admin_recon_days', { p_month: month });
     if (wantMonth.current !== month) return;
-    if (error) { toast(error.message); return; }
+    if (error) { toast(error.message); setDaysRows([]); return; }
     setDaysRows(data || []);
   }
   async function toggleDay(day: string) {
@@ -253,11 +253,12 @@ function MonthRows({ r, open, onToggle, daysRows, openDay, onToggleDay, dayRecei
         <td className="right">{r.confirmed}</td>
         <td className="right" style={{ fontWeight: 600 }}>{inr(Number(r.gmv))}</td>
       </tr>
-      {open && daysRows.map((d: any) => (
+      {open && daysRows === null && <tr><td colSpan={4} className="loading" style={{ padding: 12 }}>Loading…</td></tr>}
+      {open && (daysRows || []).map((d: any) => (
         <MonthDay key={d.day} d={d} open={openDay === d.day} onToggle={() => onToggleDay(d.day)}
           receipts={dayReceipts} openReceipt={openReceipt}/>
       ))}
-      {open && daysRows.length === 0 && <tr><td colSpan={4} className="empty" style={{ padding: 12 }}>No receipts this month.</td></tr>}
+      {open && daysRows !== null && daysRows.length === 0 && <tr><td colSpan={4} className="empty" style={{ padding: 12 }}>No receipts this month.</td></tr>}
     </>
   );
 }
