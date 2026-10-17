@@ -99,9 +99,10 @@ function Drill({ kind, label, go, onClose }:{
   );
 }
 
-export default function Dashboard({ go, counts }:{
+export default function Dashboard({ go, counts, countsFailed=false, retryCounts }:{
   go:(k:any,qp?:Record<string,string>)=>void;
   counts:Record<string,any>;
+  countsFailed?:boolean; retryCounts?:()=>void;
 }){
   // counts arrive a moment after the page — show a dash, never "undefined".
   const cv=(k:string)=>counts?.[k]??'—';
@@ -213,12 +214,12 @@ export default function Dashboard({ go, counts }:{
   const restStates=Object.entries(stateTotals).filter(([s])=>!HEAT_AREAS[s]).sort((a,b)=>b[1]-a[1]);
   const restTotal=restStates.reduce((a,[,n])=>a+n,0);
 
-  if(err && !counts.users) return (
+  if((err || countsFailed) && !counts.users) return (
     <>
       <h1 className="h1">Command Center</h1>
       <div className="card"><div className="empty">
-        Couldn't load the dashboard — {err}
-        <div style={{marginTop:12}}><button className="btn" onClick={loadSlow}>Retry</button></div>
+        Couldn't load the dashboard — {err || 'the numbers did not arrive'}
+        <div style={{marginTop:12}}><button className="btn" onClick={()=>{ loadSlow(); retryCounts?.(); }}>Retry</button></div>
       </div></div>
     </>
   );

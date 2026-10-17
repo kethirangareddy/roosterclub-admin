@@ -55,7 +55,7 @@ export default function Listings() {
       <p className="sub">Every listing on the marketplace — live, pending, sold, expired or removed. Tap a row to open the full 360.</p>
       <div className="card">
         <div className="card-h">
-          <h2><ListChecks size={16} /> Listings ({rows.length})</h2>
+          <h2><ListChecks size={16} /> Listings ({rows.length >= 200 ? 'newest 200 — search to find older' : rows.length})</h2>
           <div className="toolbar">
             <input placeholder="Search breed / type…" value={q}
               onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && load()} style={{ width: 220 }} />

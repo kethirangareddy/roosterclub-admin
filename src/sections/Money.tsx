@@ -89,7 +89,7 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
     URL.revokeObjectURL(url);
   }
 
-  if (err) return <><h1 className="h1">Money Desk</h1><div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load: {err}</div></>;
+  if (err) return <><h1 className="h1">Money Desk</h1><div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load: {err} <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Retry</button></div></>;
   if (!m) return <><h1 className="h1">Money Desk</h1><Loading/></>;
 
   const pending = [

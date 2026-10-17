@@ -194,7 +194,12 @@ export function Loading(){ return <div className="loading">Loading…</div>; }
 
 export function timeAgo(iso?:string|null){
   if(!iso) return '—';
-  const s=Math.floor((Date.now()-new Date(iso).getTime())/1000);
+  const diff=Math.floor((Date.now()-new Date(iso).getTime())/1000);
+  if(diff<-59){ // future (boost ends, scheduled ads): "in 3h", not "just now"
+    const s=-diff, m=Math.floor(s/60), h=Math.floor(m/60), d=Math.floor(h/24);
+    return 'in '+(m<60?m+'m':h<24?h+'h':d+'d');
+  }
+  const s=Math.max(0,diff);
   if(s<60) return 'just now';
   const m=Math.floor(s/60); if(m<60) return m+'m ago';
   const h=Math.floor(m/60); if(h<24) return h+'h ago';

@@ -105,7 +105,7 @@ function Overview() {
     URL.revokeObjectURL(url); // free the blob instead of leaking it each export
   }
 
-  if (err) return <div className="card" style={{ padding: 24, color: '#c0392b' }}>Could not load analytics: {err}</div>;
+  if (err) return <div className="card" style={{ padding: 24, color: '#c0392b' }}>Could not load analytics: {err} <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Retry</button></div>;
   if (loading) return <Loading />;
   if (!m || !funnel) return <div className="card" style={{ padding: 24 }}>No analytics data yet.</div>;
 
@@ -324,7 +324,7 @@ function Cohorts() {
   }), { signups: 0, d1: 0, posted: 0, chatted: 0 });
   const p = (a: number, b: number) => (b > 0 ? Math.round(a / b * 100) : 0);
 
-  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load cohorts: {err}</div>;
+  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load cohorts: {err} <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Retry</button></div>;
 
   return (
     <>
@@ -479,7 +479,7 @@ function FunnelHealth() {
 
   useEffect(() => {
     let alive = true;
-    setD(null);
+    setD(null); setErr(null);
     supabase.rpc('admin_funnel_health', { p_days: days }).then(({ data, error }) => {
       if (!alive) return;
       if (error) { setErr(error.message); return; }
@@ -488,7 +488,7 @@ function FunnelHealth() {
     return () => { alive = false; };
   }, [days]);
 
-  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load: {err}</div>;
+  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load: {err} <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Retry</button></div>;
   if (!d) return <Loading />;
   const p = (a: number, b: number) => (b > 0 ? Math.round(a / b * 100) : 0);
 

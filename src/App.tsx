@@ -150,7 +150,15 @@ const TRIAGE: {key:Key;label:string;Icon:any}[]=[
   {key:'orders',label:'Orders',Icon:Store},
   {key:'feedorders',label:'Feed orders',Icon:Wheat},
 ];
-function MobileTriage({counts,go}:{counts:Record<string,any>;go:(k:Key)=>void}){
+function MobileTriage({counts,go,status,retry}:{counts:Record<string,any>;go:(k:Key)=>void;status:'loading'|'ok'|'error';retry:()=>void}){
+  // Never say "all clear" before the numbers are in, or when they failed to load.
+  if(status!=='ok') return (
+    <div className="mtriage mobile-only">
+      <div className="mtriage-h">Today</div>
+      {status==='loading' ? <div className="mtriage-clear">Loading…</div>
+        : <div className="mtriage-clear">Couldn't load what's waiting. <button className="btn ghost sm" onClick={retry}>Retry</button></div>}
+    </div>
+  );
   const items=TRIAGE.filter(i=>(counts[i.key]||0)>0).sort((a,b)=>(counts[b.key]||0)-(counts[a.key]||0));
   const pending=items.reduce((n,i)=>n+(counts[i.key]||0),0);
   return (
@@ -433,6 +441,7 @@ export default function App(){
   // totals the "More" group uses to dim sections that have no rows, and the
   // headline numbers the dashboard used to re-count for itself.
   const countsReq=useRef(0);
+  const [countsStatus,setCountsStatus]=useState<'loading'|'ok'|'error'>('loading');
   async function refreshCounts(){
     const my=++countsReq.current; // an older, slower reply must not overwrite newer counts
     const [{ data, error }, sup]=await Promise.all([
@@ -441,7 +450,8 @@ export default function App(){
     ]);
     // Keep the last known counts — a transient blip shouldn't blank the sidebar.
     if(my!==countsReq.current) return;
-    if(error){ console.error('refreshCounts failed:', error.message); return; }
+    if(error){ console.error('refreshCounts failed:', error.message); setCountsStatus(s=>s==='ok'?'ok':'error'); return; }
+    setCountsStatus('ok');
     setCounts({ ...((data as any)||{}), support: sup.error ? 0 : Number(sup.data)||0 });
   }
   // Deliberately NOT keyed on `view`: this used to refire 11 queries on every
@@ -466,7 +476,7 @@ export default function App(){
   );
 
   const sections:Record<Key,JSX.Element>={
-    dash:<Dashboard go={setView} counts={counts}/>, analytics:<Analytics/>,
+    dash:<Dashboard go={setView} counts={counts} countsFailed={countsStatus==='error'} retryCounts={refreshCounts}/>, analytics:<Analytics/>,
     money:<Money openReceipt={(id:string)=>detailApi.openReceipt(id)} go={setView}/>,
     activity:<Activity/>,
     approvals:<Approvals onChange={refreshCounts}/>,
@@ -560,7 +570,7 @@ export default function App(){
             </div>
           </div>
         )}
-        {view==='dash' && <MobileTriage counts={counts} go={(k)=>setView(k)}/>}
+        {view==='dash' && <MobileTriage counts={counts} go={(k)=>setView(k)} status={countsStatus} retry={refreshCounts}/>}
         {/* Screens load on first visit (the app used to download all 34 up front). */}
         <div key={view+':'+navTick} className="page"><ScreenBoundary><Suspense fallback={<div className="loading">Loading…</div>}>{sections[view]}</Suspense></ScreenBoundary></div>
       </main>

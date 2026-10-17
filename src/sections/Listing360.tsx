@@ -99,7 +99,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
             <span className={'badge '+(l.approval_status==='approved'?'b-ok':l.approval_status==='rejected'?'b-danger':'b-warn')}>{l.approval_status}</span>
             <span className="badge b-mut">{l.status}</span>
             <span className="badge b-mut">{l.type}</span>
-            {boosted && <span className="badge b-info"><Rocket size={11}/> boost L{l.boost_level} → {timeAgo(l.boost_expires_at).replace(' ago','')}</span>}
+            {boosted && <span className="badge b-info"><Rocket size={11}/> boost L{l.boost_level} → ends {timeAgo(l.boost_expires_at)}</span>}
             {featured && <span className="badge b-info"><Star size={11}/> featured until {new Date(l.featured_until).toLocaleDateString('en-IN')}</span>}
             {l.expires_at && <span className="badge b-mut">expires {new Date(l.expires_at).toLocaleDateString('en-IN')}</span>}
             {l.ig_posted

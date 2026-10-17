@@ -89,7 +89,7 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
         <button className={tab==='all'?'active':''} onClick={()=>setTab('all')}>Active listings</button>
       </div>
       <div className="card">
-        <div className="card-h"><h2><Inbox size={16}/> {tab==='pending'?'Awaiting approval':'Active listings'} ({rows.length})</h2></div>
+        <div className="card-h"><h2><Inbox size={16}/> {tab==='pending'?'Awaiting approval':'Active listings'} ({rows.length>=100?'newest 100':rows.length})</h2></div>
         {picked.size>0 && (
           <div className="bulkbar">
             <b>{picked.size}</b> selected
