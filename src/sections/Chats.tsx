@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { MessagesSquare, Search, ChevronLeft, ArrowRight } from 'lucide-react';
-import { Empty, Loading, timeAgo, inr, UserLink, ListingLink, getParam, setParam } from '../ui';
+import { Empty, Loading, timeAgo, inr, UserLink, ListingLink, getParam, setParam, LoadError } from '../ui';
 import { toast } from '../feedback';
 import ChatMessages from './ChatMessages';
 
@@ -97,7 +97,8 @@ export default function Chats() {
     if (!quiet) setLoading(true);
     const { data, error } = await supabase.rpc('admin_all_chats', { p_q: qRef.current.trim() || null, p_limit: 300 });
     if (my !== reqRef.current) return; // an older search finished late — ignore it
-    if (error) { if (!quiet) toast('Could not load chats: ' + error.message); setLoadErr(true); setLoading(false); return; }
+    // A failed search must not leave the previous search's rows under the new words.
+    if (error) { if (!quiet) setRows([]); setLoadErr(true); setLoading(false); return; }
     setLoadErr(false);
     setRows(data || []); setLoading(false);
   }
@@ -170,7 +171,7 @@ export default function Chats() {
         )}
       </div>
       <div className="chat-list-b">
-        {loading ? <Loading /> : shown.length === 0 ? <Empty text="No conversations match." /> : shown.map(t => {
+        {loading ? <Loading /> : loadErr && rows.length === 0 ? <LoadError what="chats" onRetry={() => load()} /> : shown.length === 0 ? <Empty text="No conversations match." /> : shown.map(t => {
           // Badge counts only what's in this list right now (both filters).
           // The open thread's "Their other chats" lists every chat the two have
           // that has messages (plus empty ones when "include empty" is ticked).

@@ -71,7 +71,8 @@ export function Modal({ title, onClose, children, footer }:{
   useEffect(()=>{
     if(drawer) return;
     const onKey=(e:KeyboardEvent)=>{
-      if(e.key!=='Escape' || document.querySelector('.ask-scrim')) return;
+      // ⌘K or a confirm dialog on top gets the Esc, not this popup underneath.
+      if(e.key!=='Escape' || document.querySelector('.ask-scrim, .cmdk')) return;
       // A side panel opened on top of this popup gets the Esc first.
       if(document.querySelector('.drawer-scrim') && !me.current?.closest('.drawer')) return;
       const all=document.querySelectorAll('.scrim'); if(all[all.length-1]!==me.current) return;

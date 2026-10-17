@@ -58,6 +58,13 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
     return () => { alive = false; };
   }, [userId]);
 
+  // Esc closes the zoomed photo first, not the whole panel behind it.
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); setZoom(null); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [zoom]);
   const p = d?.profile;
   const stats = d ? [
     { lab: 'GMV', val: inr(d.gmv), Icon: IndianRupee, c: 'var(--ok)' },
@@ -161,7 +168,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
                 <button className="btn ghost sm" disabled={kyc.loading} onClick={async () => {
                   setKyc((k: any) => ({ ...k, loading: true }));
                   const { data, error } = await supabase.functions.invoke('kyc-admin', { body: { action: 'view', id: kyc.id } });
-                  if (error || (data as any)?.error) { alert('Could not open photos'); setKyc((k: any) => ({ ...k, loading: false })); return; }
+                  if (error || (data as any)?.error) { toast('Could not open photos', 'danger'); setKyc((k: any) => ({ ...k, loading: false })); return; }
                   setKyc((k: any) => ({ ...k, loading: false, a_url: (data as any).idUrl, s_url: (data as any).selfieUrl }));
                 }}>{kyc.loading ? 'Opening…' : 'Show photos (logged, 5 min)'}</button>
               ) : (
@@ -236,7 +243,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
           )}
 
           {zoom && (
-            <div onClick={() => setZoom(null)}
+            <div className="zoom-scrim" onClick={() => setZoom(null)}
               style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 2000, cursor: 'zoom-out' }}>
               <div style={{ color: '#fff', fontWeight: 600, fontSize: 15 }}>{zoom.label} — click anywhere to close</div>
               <img src={zoom.url} onClick={(e) => e.stopPropagation()}

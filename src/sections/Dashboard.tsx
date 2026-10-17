@@ -35,7 +35,6 @@ const QUEUE: {key:string;label:string;go:string;Icon:any;sev:number;qp?:Record<s
   { key:'support',    label:'Support messages unread',      go:'support',  Icon:MessagesSquare, sev:2 },
   { key:'orders',     label:'Shop orders to fulfil',        go:'orders',   Icon:Store,       sev:1 },
   { key:'feedorders', label:'Feed orders to act on',        go:'feedorders',Icon:Store,      sev:1 },
-  { key:'community',  label:'Forum items to review',        go:'community',Icon:MessagesSquare, sev:0 },
   { key:'syndicates', label:'Syndicates to approve',        go:'syndicates',Icon:Shield,     sev:0 },
   { key:'auctions',   label:'Auctions to approve',          go:'auctions', Icon:Gavel,       sev:0 },
   { key:'featured',   label:'Feature requests',             go:'featured', Icon:Star,        sev:0 },
@@ -483,7 +482,8 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
           {drill.prev!==null && drill.prev!==undefined && (
             <button className="btn ghost sm" style={{alignSelf:'flex-start'}} onClick={()=>setDrill(drill.prev!)}>← Back</button>
           )}
-          {drill.level==='states' && (
+          {drill.level!=='listings' && err ? <LoadError what="region data" onRetry={loadSlow}/> : null}
+          {drill.level==='states' && !err && (
             restStates.length===0 ? <div className="empty">No users outside the four mapped states yet.</div> :
             <table><thead><tr><th>State</th><th className="right">Users</th></tr></thead><tbody>
               {restStates.map(([s,n])=>(
@@ -493,7 +493,7 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
               ))}
             </tbody></table>
           )}
-          {drill.level==='districts' && (()=> {
+          {drill.level==='districts' && !err && (()=> {
             const ds=regions.filter(r=>r.state===drill.state && r.district).sort((a,b)=>Number(b.n)-Number(a.n));
             return ds.length===0 ? <div className="empty">No district data for {drill.state} yet.</div> :
               <table><thead><tr><th>District</th><th className="right">Users</th></tr></thead><tbody>

@@ -59,6 +59,16 @@ export default function CommandK({ onOpenResult, onGo, onClose, screens=[] }:{
   const seq=useRef(0);
 
   useEffect(()=>{ inputRef.current?.focus(); },[]);
+  // Esc closes the search even when the text box isn't focused — and only the search.
+  const closeRef=useRef(onClose); closeRef.current=onClose;
+  useEffect(()=>{
+    const onKey=(e:KeyboardEvent)=>{
+      if(e.key!=='Escape' || document.querySelector('.ask-scrim')) return;
+      e.preventDefault(); e.stopImmediatePropagation(); closeRef.current();
+    };
+    window.addEventListener('keydown',onKey,true);
+    return ()=>window.removeEventListener('keydown',onKey,true);
+  },[]);
 
   const vm=/^(ban|unban|approve|reject)\s+(.+)$/i.exec(q.trim());
   const verb=vm?VERBS.find(v=>v.word===vm[1].toLowerCase())||null:null;

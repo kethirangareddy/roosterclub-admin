@@ -23,7 +23,8 @@ let seq = 0;
 function toneOf(text: string): Tone {
   const t = text.toLowerCase();
   const failedZero = /\bfailed:?\s*0\b|\b0 failed\b/.test(t);
-  if (/(could ?n.?t|cannot|can't|error|not allowed|denied|invalid|required|missing|too (big|large|long)|must )/.test(t)
+  // Database wording counts as an error too (RLS, constraints, expired login…).
+  if (/(could ?n.?t|cannot|can't|error|not allowed|denied|invalid|required|missing|too (big|large|long)|must |violat|exception|admin only|only admins|expired|duplicate|permission|policy|constraint|timeout|timed out|network|fetch|not authori[sz]ed|unauthori[sz]ed)/.test(t)
       || (/failed/.test(t) && !failedZero)) return 'danger';
   if (/(done|saved|sent|delivered|approved|updated|removed|deleted|added|created|copied|✓|restored|posted|queued|scheduled)/.test(t)) return 'ok';
   return 'info';
@@ -37,7 +38,7 @@ export function toast(msg: unknown, tone?: Tone) {
   setTimeout(() => { toasts = toasts.filter(x => x.id !== t.id); emit(); }, t.tone === 'danger' ? 7000 : 3500);
 }
 
-const DANGER_WORDS = /(delete|remove|ban|reject|cancel|end |dismiss|not found|permanent)/i;
+const DANGER_WORDS = /(delete|remove|\bban\b|reject|cancel|end |dismiss|not found|permanent)/i;
 
 /** await ask('Delete this?') → true / false. Red button when the action is destructive. */
 const pendingAsk = new Map<string, Promise<any>>();

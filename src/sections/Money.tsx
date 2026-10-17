@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { IndianRupee, Rocket, Star, Hourglass, RefreshCcw, Users, ChevronDown, ChevronRight, Download } from 'lucide-react';
-import { Empty, Loading, inr } from '../ui';
+import { Empty, Loading, inr, LoadError } from '../ui';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { toast } from '../feedback';
 
@@ -29,7 +29,9 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
   const [openMonth, setOpenMonth] = useState<string | null>(null);
   const [daysRows, setDaysRows] = useState<any[] | null>([]); // null = loading
   const [openDay, setOpenDay] = useState<string | null>(null);
-  const [dayReceipts, setDayReceipts] = useState<any[]>([]);
+  const [dayReceipts, setDayReceipts] = useState<any[] | null>([]); // null = loading
+  const [daysErr, setDaysErr] = useState(false);
+  const [dayErr, setDayErr] = useState(false);
   const [cost, setCost] = useState<any | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -57,20 +59,20 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
     if (openMonth === month) { setOpenMonth(null); setOpenDay(null); return; }
     // Clear the old month's rows first, and only accept the reply for the
     // month that is still open (tapping Sep then Aug showed Sep under Aug).
-    setOpenMonth(month); setOpenDay(null); setDaysRows(null); setDayReceipts([]);
+    setOpenMonth(month); setOpenDay(null); setDaysRows(null); setDayReceipts([]); setDaysErr(false);
     wantMonth.current = month;
     const { data, error } = await supabase.rpc('admin_recon_days', { p_month: month });
     if (wantMonth.current !== month) return;
-    if (error) { toast(error.message); setDaysRows([]); return; }
+    if (error) { setDaysErr(true); setDaysRows([]); return; } // shows Couldn't load, not "No receipts"
     setDaysRows(data || []);
   }
   async function toggleDay(day: string) {
     if (openDay === day) { setOpenDay(null); return; }
-    setOpenDay(day); setDayReceipts([]);
+    setOpenDay(day); setDayReceipts(null); setDayErr(false);
     wantDay.current = day;
     const { data, error } = await supabase.rpc('admin_recon_receipts', { p_day: day });
     if (wantDay.current !== day) return;
-    if (error) { toast(error.message); return; }
+    if (error) { setDayErr(true); setDayReceipts([]); return; }
     setDayReceipts(data || []);
   }
 
@@ -226,7 +228,7 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
               {months.map(r => (
                 <MonthRows key={r.month} r={r} open={openMonth === r.month} onToggle={() => toggleMonth(r.month)}
                   daysRows={daysRows} openDay={openDay} onToggleDay={toggleDay}
-                  dayReceipts={dayReceipts} openReceipt={openReceipt}/>
+                  dayReceipts={dayReceipts} openReceipt={openReceipt} daysErr={daysErr} dayErr={dayErr}/>
               ))}
               <tr style={{ fontWeight: 700, borderTop: '2px solid var(--line)' }}>
                 <td>Total (12 mo)</td>
@@ -242,7 +244,7 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
   );
 }
 
-function MonthRows({ r, open, onToggle, daysRows, openDay, onToggleDay, dayReceipts, openReceipt }: any) {
+function MonthRows({ r, open, onToggle, daysRows, openDay, onToggleDay, dayReceipts, openReceipt, daysErr, dayErr }: any) {
   return (
     <>
       <tr onClick={onToggle} style={{ cursor: 'pointer' }}>
@@ -256,14 +258,15 @@ function MonthRows({ r, open, onToggle, daysRows, openDay, onToggleDay, dayRecei
       {open && daysRows === null && <tr><td colSpan={4} className="loading" style={{ padding: 12 }}>Loading…</td></tr>}
       {open && (daysRows || []).map((d: any) => (
         <MonthDay key={d.day} d={d} open={openDay === d.day} onToggle={() => onToggleDay(d.day)}
-          receipts={dayReceipts} openReceipt={openReceipt}/>
+          receipts={dayReceipts} openReceipt={openReceipt} err={dayErr}/>
       ))}
-      {open && daysRows !== null && daysRows.length === 0 && <tr><td colSpan={4} className="empty" style={{ padding: 12 }}>No receipts this month.</td></tr>}
+      {open && daysErr && <tr><td colSpan={4}><LoadError what="this month" /></td></tr>}
+      {open && !daysErr && daysRows !== null && daysRows.length === 0 && <tr><td colSpan={4} className="empty" style={{ padding: 12 }}>No receipts this month.</td></tr>}
     </>
   );
 }
 
-function MonthDay({ d, open, onToggle, receipts, openReceipt }: any) {
+function MonthDay({ d, open, onToggle, receipts, openReceipt, err }: any) {
   return (
     <>
       <tr onClick={onToggle} style={{ cursor: 'pointer' }}>
@@ -274,7 +277,9 @@ function MonthDay({ d, open, onToggle, receipts, openReceipt }: any) {
         <td className="right muted">{d.confirmed}</td>
         <td className="right muted">{inr(Number(d.gmv))}</td>
       </tr>
-      {open && receipts.map((x: any) => (
+      {open && receipts === null && <tr><td colSpan={4} className="loading" style={{ paddingLeft: 54 }}>Loading…</td></tr>}
+      {open && err && <tr><td colSpan={4}><LoadError what="this day's receipts" /></td></tr>}
+      {open && (receipts || []).map((x: any) => (
         <tr key={x.id} onClick={() => openReceipt(x.id)} style={{ cursor: 'pointer' }}>
           <td style={{ paddingLeft: 54, fontSize: 12.5 }}>#{x.receipt_no} <span className="muted">· {x.buyer_name || '?'} ← {x.seller_name || '?'}</span></td>
           <td className="right" colSpan={2}><span className={'badge ' + (x.status === 'acknowledged' ? 'b-ok' : x.status === 'declined' ? 'b-danger' : 'b-mut')}>{x.status}</span></td>

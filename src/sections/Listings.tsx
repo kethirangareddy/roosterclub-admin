@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { ListChecks, Search, Eye } from 'lucide-react';
-import { Empty, Loading, loc, inr, timeAgo, useParamState, UserLink } from '../ui';
+import { Empty, Loading, loc, inr, timeAgo, useParamState, UserLink, LoadError } from '../ui';
 import { useDetail, useOnChanged } from '../detail';
 import { toast } from '../feedback';
 
@@ -22,6 +22,7 @@ export default function Listings() {
   // Only the newest request may fill the table — tapping Pending then Removed
   // on a slow network used to show Pending's rows under the Removed tab.
   const reqRef = useRef(0);
+  const [loadErr, setLoadErr] = useState(false);
   async function load() {
     const my = ++reqRef.current;
     setLoading(true);
@@ -39,7 +40,7 @@ export default function Listings() {
     if (term) query = query.or(`breed.ilike.%${term}%,type.ilike.%${term}%`);
     const { data, error } = await query;
     if (my !== reqRef.current) return;
-    if (error) toast('Could not load listings: ' + error.message);
+    setLoadErr(!!error); // a failed load must not read as "no listings"
     setRows(data || []); setLoading(false);
   }
   useEffect(() => { load(); }, [fStatus]);
@@ -81,7 +82,7 @@ export default function Listings() {
             );
           })}
         </div>
-        {loading ? <Loading /> : rows.length === 0 ? <Empty text="No listings match this filter." /> : (
+        {loading ? <Loading /> : loadErr ? <LoadError what="listings" onRetry={load} /> : rows.length === 0 ? <Empty text="No listings match this filter." /> : (
           <table>
             <thead><tr><th>Breed / Type</th><th>Seller</th><th>Price</th><th>Location</th><th>Status</th><th>Approval</th><th>Posted</th><th></th></tr></thead>
             <tbody>

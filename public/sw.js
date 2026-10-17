@@ -4,12 +4,13 @@
 /* BUMP THIS ON EVERY DEPLOY that changes the shell. The activate handler
    deletes every cache whose name isn't the current one, so changing the string
    is what actually evicts a stale shell from an already-installed browser. */
-const CACHE = 'rcc-shell-v3';
+const CACHE = 'rcc-shell-v4';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache:'reload' = fetch fresh from the server, not a browser-cached old copy.
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -30,7 +31,12 @@ self.addEventListener('fetch', (e) => {
   // App navigations: network-first, fall back to cached shell when offline.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))
+      // Keep the offline copy current: every successful online open refreshes it,
+      // so an offline launch never asks for code files that no longer exist.
+      fetch(req).then((res) => {
+        if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('./index.html', copy)); }
+        return res;
+      }).catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))
     );
     return;
   }

@@ -114,7 +114,8 @@ export const HUBS: Hub[] = [
 ];
 // Only these counts mean "something is waiting for you". admin_counts also
 // returns totals like users=1866 — those must never show as a red badge.
-const PENDING=new Set<string>(['approvals','kyc','badges','reports','support','theft','disease','syndicates','featured','boosts','auctions','livefeed','orders','feedorders','vets','community']);
+// (No forum count exists yet, so Forum never shows a badge rather than a fake 0.)
+const PENDING=new Set<string>(['approvals','kyc','badges','reports','support','theft','disease','syndicates','featured','boosts','auctions','livefeed','orders','feedorders','vets']);
 const hubOf=(k:Key)=>HUBS.find(h=>h.items.includes(k))||HUBS[0];
 const NAV: NavItem[] = Object.values(ITEMS);
 const KEYS = NAV.map(n=>n.key);
@@ -149,6 +150,7 @@ const TRIAGE: {key:Key;label:string;Icon:any}[]=[
   {key:'livefeed',label:'Live feed',Icon:Truck},
   {key:'orders',label:'Orders',Icon:Store},
   {key:'feedorders',label:'Feed orders',Icon:Wheat},
+  {key:'vets',label:'Doctors',Icon:Stethoscope},
 ];
 function MobileTriage({counts,go,status,retry}:{counts:Record<string,any>;go:(k:Key)=>void;status:'loading'|'ok'|'error';retry:()=>void}){
   // Never say "all clear" before the numbers are in, or when they failed to load.
@@ -307,7 +309,7 @@ export default function App(){
   // Esc closes the top 360 (matches the scrim click).
   useEffect(()=>{
     if(!detail.length) return;
-    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !e.defaultPrevented && !document.querySelector('.drawer .scrim, .ask-scrim, .cmdk')){ e.preventDefault(); popDetail(); } }
+    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !e.defaultPrevented && !document.querySelector('.drawer .scrim, .ask-scrim, .cmdk, .zoom-scrim')){ e.preventDefault(); popDetail(); } }
     window.addEventListener('keydown',onKey);
     return ()=>window.removeEventListener('keydown',onKey);
   },[detail]);
@@ -447,16 +449,21 @@ export default function App(){
   const [countsStatus,setCountsStatus]=useState<'loading'|'ok'|'error'>('loading');
   async function refreshCounts(){
     const my=++countsReq.current; // an older, slower reply must not overwrite newer counts
-    const [{ data, error }, sup]=await Promise.all([
+    const [{ data, error }, sup, feed]=await Promise.all([
       supabase.rpc('admin_counts'),
       supabase.rpc('admin_support_unread'),
+      // admin_counts has no feed-order number, so count the ones that need you here.
+      supabase.from('custom_feed_orders').select('id',{ count:'exact', head:true })
+        .in('status',['payment_review','paid','milling','packed']),
     ]);
     // Keep the last known counts — a transient blip shouldn't blank the sidebar.
     if(my!==countsReq.current) return;
     if(error){ console.error('refreshCounts failed:', error.message); setCountsStatus(s=>s==='ok'?'ok':'error'); return; }
     setCountsStatus('ok');
     // If only the support count failed, keep the last known number — a failure is not "0 unread".
-    setCounts(prev=>({ ...((data as any)||{}), support: sup.error ? (prev.support??0) : Number(sup.data)||0 }));
+    setCounts(prev=>({ ...((data as any)||{}),
+      support: sup.error ? (prev.support??0) : Number(sup.data)||0,
+      feedorders: feed.error ? (prev.feedorders??0) : (feed.count??0) }));
   }
   // Deliberately NOT keyed on `view`: this used to refire 11 queries on every
   // section change (~110 queries per 10 clicks). Sections call refreshCounts()
