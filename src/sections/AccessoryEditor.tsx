@@ -19,7 +19,8 @@ const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
 export function toForm(d: any): DetailsForm {
   d = d && typeof d === 'object' ? d : {};
   return {
-    group: d.group ?? 'hatching', subtitle: d.subtitle ?? '', subtitle_te: d.subtitle_te ?? '', badge: d.badge ?? '',
+    // 'kit' isn't a shelf you can pick — a kit with its items unticked goes back to Hatching.
+    group: (!d.group || d.group === 'kit') ? 'hatching' : d.group, subtitle: d.subtitle ?? '', subtitle_te: d.subtitle_te ?? '', badge: d.badge ?? '',
     good_for: (d.good_for ?? []).join(', '), ships_days: d.ships_days != null ? String(d.ships_days) : '1', warranty: d.warranty ?? '',
     box: (d.box ?? []).join('\n'), steps: (d.steps ?? []).join('\n'),
     specs: (d.specs ?? []).map((r: [string, string]) => `${r[0]}: ${r[1]}`).join('\n'),

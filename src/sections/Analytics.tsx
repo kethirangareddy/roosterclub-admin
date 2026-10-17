@@ -402,13 +402,16 @@ function Liquidity() {
   const [rows, setRows] = useState<Liq[]>([]);
   const [loading, setLoading] = useState(true);
   const [onlyGaps, setOnlyGaps] = useState(true);
+  const [liqErr, setLiqErr] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.rpc('admin_liquidity', { p_days: 30 }).then(({ data, error }) => {
-      if (error) toast('Could not load liquidity: ' + error.message);
+      if (error) setLiqErr(error.message);
       setRows((data as Liq[]) || []); setLoading(false);
     });
   }, []);
+  // A failed load must not read as "0 users with no local supply".
+  if (liqErr) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load supply gaps: {liqErr} <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Retry</button></div>;
 
   const shown = onlyGaps ? rows.filter(r => Number(r.active_listings) === 0 && Number(r.users) > 0) : rows;
   const gapUsers = rows.filter(r => Number(r.active_listings) === 0).reduce((s, r) => s + Number(r.users), 0);

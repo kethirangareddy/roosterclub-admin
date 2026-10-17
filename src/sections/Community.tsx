@@ -39,10 +39,11 @@ export default function Community({ onChange }: { onChange?: () => void }) {
   async function openReplies(t: any) {
     setViewThread(t); setReplies([]);
     openThreadId.current = t.id;
-    const { data } = await supabase.from('forum_replies')
+    const { data, error } = await supabase.from('forum_replies')
       .select('*, users!forum_replies_user_id_fkey(id, full_name, handle, forum_muted_until)')
       .eq('thread_id', t.id).order('created_at', { ascending: true });
     if (openThreadId.current !== t.id) return;
+    if (error) { toast("Couldn't load the replies — close and open the thread again. " + error.message); }
     setReplies(data || []);
   }
   async function removeReply(id: string) {

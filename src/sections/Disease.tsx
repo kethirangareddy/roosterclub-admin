@@ -61,7 +61,7 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
   // One run at a time: a double-click used to save / push twice.
   const verifyPushBusy=useRef(false);
   async function verifyPush(r:any){
-    if(verifyPushBusy.current) return;
+    if(verifyPushBusy.current){ toast('Another alert is still being pushed — try this one again in a moment.'); return; }
     verifyPushBusy.current=true;
     try{ await verifyPushRun(r); } finally { verifyPushBusy.current=false; }
   }

@@ -18,11 +18,12 @@ export default function ListingChats({ listingId, onClose }:{
 }) {
   const [threads, setThreads] = useState<Thread[] | null>(null);
   const [active, setActive] = useState<Thread | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true; setThreads(null); setActive(null);
     supabase.rpc('admin_listing_chats', { p_listing: listingId })
-      .then(({ data, error }) => { if (alive) setThreads(error ? [] : (data || [])); });
+      .then(({ data, error }) => { if (!alive) return; setLoadErr(error ? error.message : null); setThreads(error ? [] : (data || [])); });
     return () => { alive = false; };
   }, [listingId]);
 
@@ -34,6 +35,7 @@ export default function ListingChats({ listingId, onClose }:{
     <Modal title={title} onClose={onClose}>
       {!active ? (
         threads === null ? <div className="loading">Loading…</div>
+        : loadErr ? <div className="empty" style={{ color: 'var(--danger)' }}>Couldn't load the chats — {loadErr}. Close and open again.</div>
         : threads.length === 0 ? <div className="empty">No one has chatted about this listing yet.</div>
         : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

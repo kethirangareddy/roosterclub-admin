@@ -70,7 +70,7 @@ function Drill({ kind, label, go, onClose }:{
   return (
     <Modal title={label} onClose={onClose}>
       {err && <div className="empty" style={{color:'var(--danger)'}}>Could not load: {err}</div>}
-      {!rows ? <Loading/> : rows.length===0 ? <div className="empty">Nothing here right now.</div> : (
+      {!rows ? <Loading/> : rows.length===0 ? (err ? null : <div className="empty">Nothing here right now.</div>) : (
         <table>
           <thead><tr><th>{label}</th><th></th><th className="right">When</th></tr></thead>
           <tbody>
@@ -139,6 +139,7 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
   const [drill,setDrill]=useState<Drill|null>(null);
   const [drillList,setDrillList]=useState<any[]>([]);
   const [drillBusy,setDrillBusy]=useState(false);
+  const [drillErr,setDrillErr]=useState(false);
   const { openListing }=useDetail();
   // After an approve/remove in the side panel: refresh the numbers AND the
   // district list you're looking at, so its status column isn't stale.
@@ -151,14 +152,15 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
   const drillReq=useRef(0);
   async function openListings(district:string, state?:string, prev?:Drill|null, quiet=false){
     const my=++drillReq.current;
-    if(!quiet){ setDrill({ level:'listings', district, state, prev:prev??null }); setDrillBusy(true); setDrillList([]); }
+    if(!quiet){ setDrill({ level:'listings', district, state, prev:prev??null }); setDrillBusy(true); setDrillList([]); setDrillErr(false); }
     let q=supabase.from('listings')
       .select('id,breed,type,price,status,approval_status,created_at,village,mandal')
       .eq('district',district).order('created_at',{ascending:false}).limit(100);
     if(state) q=q.eq('state',state);
     const { data,error }=await q;
     if(my!==drillReq.current) return;
-    if(error){ if(!quiet) toast('Could not load listings: '+error.message); setDrillBusy(false); return; }
+    if(error){ if(!quiet){ setDrillErr(true); } setDrillBusy(false); return; }
+    setDrillErr(false);
     setDrillList(data||[]); setDrillBusy(false);
   }
 
@@ -499,6 +501,7 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
           })()}
           {drill.level==='listings' && (
             drillBusy ? <Loading/> :
+            drillErr ? <div className="empty" style={{color:'var(--danger)'}}>Couldn't load listings in {drill.district}. Go back and tap it again.</div> :
             drillList.length===0 ? <div className="empty">No listings in {drill.district}.</div> :
             <table><thead><tr><th>Breed</th><th>Type</th><th>Price</th><th>Status</th><th>Posted</th></tr></thead><tbody>
               {drillList.map(l=>(

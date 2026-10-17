@@ -25,18 +25,20 @@ function body(m: Msg) {
 export default function ChatMessages({ chatId, sellerId, live = false }:{ chatId: string; sellerId: string; live?: boolean }) {
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
 
   useEffect(() => {
     // Guard: if you tap chat A then chat B, A's slower reply must not land under B.
     let alive = true;
     setMsgs(null);
     supabase.rpc('admin_chat_messages', { p_chat: chatId })
-      .then(({ data, error }) => { if (alive) setMsgs(error ? [] : (data || [])); });
+      .then(({ data, error }) => { if (!alive) return; setLoadErr(error ? error.message : null); setMsgs(error ? [] : (data || [])); });
     // Live mode: new messages appear on their own every 10s while you read.
     const t = live ? setInterval(() => {
       if (document.hidden) return;
       supabase.rpc('admin_chat_messages', { p_chat: chatId }).then(({ data, error }) => {
         if (!alive || error) return;
+        setLoadErr(null);
         // Always take the fresh copy: same count can still mean a message was deleted.
         setMsgs(data || []);
       });
@@ -46,6 +48,7 @@ export default function ChatMessages({ chatId, sellerId, live = false }:{ chatId
   useEffect(() => { if (live && msgs?.length) endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs?.length]);
 
   if (msgs === null) return <div className="loading">Loading messages…</div>;
+  if (loadErr && msgs.length === 0) return <div className="empty" style={{ color: 'var(--danger)' }}>Couldn't load messages — {loadErr}{live ? ' (trying again every 10s)' : ''}</div>;
   if (msgs.length === 0) return <div className="empty">No messages in this conversation.</div>;
 
   return (
