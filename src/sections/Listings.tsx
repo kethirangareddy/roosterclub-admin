@@ -25,9 +25,9 @@ export default function Listings() {
   const [loadErr, setLoadErr] = useState(false);
   // Background reloads reuse the search you ran, not half-typed text.
   const runQ = useRef('');
-  async function load(quiet = false) {
+  async function load(quiet = false, keepQ = quiet) {
     const my = ++reqRef.current;
-    setLoading(true);
+    if(!quiet) setLoading(true);
     const nowIso = new Date().toISOString();
     let query = supabase.from('listings')
       .select('id,user_id,breed,type,price,status,approval_status,created_at,expires_at,state,district,mandal,village,users!listings_user_id_fkey(full_name,handle)')
@@ -38,7 +38,7 @@ export default function Listings() {
     else if (fStatus === 'expired') query = query.eq('status', 'expired');
     else if (fStatus === 'removed') query = query.eq('status', 'removed');
     // Commas/brackets would break the filter syntax — treat them as spaces.
-    if (!quiet) runQ.current = q;
+    if (!keepQ) runQ.current = q;
     const term = runQ.current.trim().replace(/[,()*%]/g, ' ').trim();
     if (term) query = query.or(`breed.ilike.%${term}%,type.ilike.%${term}%`);
     const { data, error } = await query;
@@ -46,7 +46,7 @@ export default function Listings() {
     setLoadErr(!!error); // a failed load must not read as "no listings"
     setRows(data || []); setLoading(false);
   }
-  useEffect(() => { load(true); }, [fStatus]);
+  useEffect(() => { load(false, true); }, [fStatus]);
 
   function liveLabel(r: any) {
     // Not approved yet (or rejected) — show that, not a green "active".

@@ -33,7 +33,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       // Keep the offline copy current: every successful online open refreshes it,
       // so an offline launch never asks for code files that no longer exist.
-      fetch(req).then((res) => {
+      fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then((res) => {
         if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put('./index.html', copy)); }
         return res;
       }).catch(() => caches.match('./index.html').then((r) => r || caches.match('./')))

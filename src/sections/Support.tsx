@@ -57,10 +57,10 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   async function loadThread(uid:string, markRead=false){
     const { data, error }=await supabase.from('support_messages')
       .select('id, from_admin, body, created_at').eq('user_id',uid)
-      .order('created_at',{ ascending:true }).limit(500);
+      .order('created_at',{ ascending:false }).limit(500); // newest 500, shown oldest-first
     if(selRef.current!==uid) return;
     if(error){ console.error(error.message); setThreadErr(true); return; }
-    setThreadErr(false); setMsgs(data||[]);
+    setThreadErr(false); setMsgs([...(data||[])].reverse());
     // Only jump to the bottom when something new arrived (or on first open) —
     // the 10s refresh used to yank you down while you read older messages.
     const n=(data||[]).length;

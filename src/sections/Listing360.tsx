@@ -24,7 +24,12 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
   // The lock lives outside the panel, so closing and reopening the listing
   // can't unlock the button and queue a second Instagram post.
   const [queued,setQueued]=useState(()=>(INSTA_LOCK.get(listingId)||0)>Date.now());
-  useEffect(()=>{ setQueued((INSTA_LOCK.get(listingId)||0)>Date.now()); },[listingId]);
+  useEffect(()=>{
+    const ms=(INSTA_LOCK.get(listingId)||0)-Date.now();
+    setQueued(ms>0);
+    window.clearTimeout(instaTimer.current);
+    if(ms>0) instaTimer.current=window.setTimeout(()=>{ setQueued(false); load(); }, ms);
+  },[listingId]);
   useEffect(()=>()=>window.clearTimeout(instaTimer.current),[]); // no reload after the panel closes
   function load(){
     const asked=listingId;

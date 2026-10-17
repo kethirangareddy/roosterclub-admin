@@ -49,12 +49,12 @@ export default function UsersSection(){
   const reqRef=useRef(0);
   const [loadErr,setLoadErr]=useState(false); // a failed load must not read as "nobody"
   const runQ=useRef(''); // the search you ran (background reloads reuse it)
-  async function load(quiet=false){
-    if(!quiet) runQ.current=q;
+  async function load(quiet=false, keepQ=quiet){
+    if(!keepQ) runQ.current=q;
     // Newest request wins: a slow 'All users' load must never fill the
     // 'High risk' tab you switched to (with Ban buttons on the wrong people).
     const my=++reqRef.current; const stale=()=>my!==reqRef.current;
-    setLoading(true);
+    if(!quiet) setLoading(true);
     if(tab==='refs'){
       const { data, error }=await supabase.rpc('admin_referral_pairs');
       if(stale()) return;
@@ -104,7 +104,7 @@ export default function UsersSection(){
     }
     setRows(list); setLoading(false);
   }
-  useEffect(()=>{ load(true); },[tab,lim]);
+  useEffect(()=>{ load(false,true); },[tab,lim]);
 
   // Founder's Badge counter — refreshed whenever a badge changes below.
   async function loadFounders(){

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from './supabase';
+import { toast } from './feedback';
 import { KeyRound } from 'lucide-react';
 
 // Shown after the user opens the password-recovery email link. A temporary
@@ -22,7 +23,11 @@ export default function ResetPassword({ onDone, expired=false }:{ onDone:()=>voi
   }
 
   // Leave without changing the password (expired link, or changed your mind).
-  async function backToSignIn(){ await supabase.auth.signOut(); onDone(); }
+  async function backToSignIn(){
+    const { error }=await supabase.auth.signOut();
+    if(error){ toast("Couldn't sign out — you seem to be offline. Try again."); return; }
+    onDone();
+  }
 
   if(expired) return (
     <div className="login">

@@ -433,6 +433,7 @@ export default function App(){
     const h=new URLSearchParams(window.location.hash.replace(/^#/,''));
     if(h.get('error_code') || h.get('error')){
       // Supabase sends expired / already-used links back as #error=…
+      (window as any).__rcNoReload=true; // keep this screen through an app update
       setRecoveryBad(true); setRecovery(true);
       history.replaceState(null,'',window.location.pathname+window.location.search);
       return;
@@ -510,7 +511,7 @@ export default function App(){
   }}/>;
   if(!session) return <Login/>;
   if(isAdmin===null) return <div className="login"><div className="box">{accessErr
-    ? <>Can't reach the server{online?'':' — you are offline'}.<div style={{marginTop:12}}><button className="btn" onClick={()=>setAccessTry(n=>n+1)}>Retry</button></div></>
+    ? <>Can't reach the server{online?'':' — you are offline'}.<div style={{marginTop:12}}><button className="btn" onClick={()=>setAccessTry(n=>n+1)}>Retry</button> <button className="btn ghost" onClick={()=>supabase.auth.signOut()}>Sign out</button></div></>
     : 'Checking access…'}</div></div>;
   if(isAdmin===false) return (
     <div className="login"><div className="box">

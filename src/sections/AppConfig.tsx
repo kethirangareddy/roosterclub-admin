@@ -110,7 +110,7 @@ export default function AppConfig(){
 
       <div className="card">
         <div className="card-h"><h2><Wrench size={16}/> Maintenance banner</h2></div>
-        <div style={{padding:16,display:'grid',gap:12}}>
+        <div style={{padding:16,display:'grid',gap:12,gridTemplateColumns:'minmax(0,1fr)'}}>
           <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
             <input type="checkbox" checked={!!maint.active} onChange={e=>patch('maintenance',v=>({ ...v,active:e.target.checked }))}/>
             <span style={{fontSize:13.5,fontWeight:600}}>Show a banner at the top of Home</span>
@@ -133,7 +133,7 @@ export default function AppConfig(){
           built-in "Message the team" copy. Users get it on next app launch. */}
       <div className="card">
         <div className="card-h"><h2><ImageIcon size={16}/> Home banner</h2></div>
-        <div style={{padding:16,display:'grid',gap:12}}>
+        <div style={{padding:16,display:'grid',gap:12,gridTemplateColumns:'minmax(0,1fr)'}}>
           <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
             <input type="checkbox" checked={banner.active!==false} onChange={e=>patch('banner',v=>({ ...v,active:e.target.checked }))}/>
             <span style={{fontSize:13.5,fontWeight:600}}>Show the banner on Home</span>
@@ -164,7 +164,7 @@ export default function AppConfig(){
           {(['title','sub','cta'] as const).map(part=>(
             <div key={part}>
               <div className="muted" style={{fontSize:12,fontWeight:600,margin:'4px 0'}}>{part==='title'?'Title':part==='sub'?'Second line':'Button text'}</div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,150px),1fr))',gap:8}}>
                 {LANGS.map(([code,name])=>(
                   <input key={code} placeholder={name} maxLength={part==='cta'?24:80} value={banner[part]?.[code]??''}
                     onChange={e=>patch('banner',v=>({ ...v,[part]:{ ...(v[part]??{}),[code]:e.target.value } }))}/>
@@ -180,7 +180,7 @@ export default function AppConfig(){
           Every tap is counted in partner_clicks. Needs app build with the partner card. */}
       <div className="card">
         <div className="card-h"><h2><Link2 size={16}/> Partner app</h2></div>
-        <div style={{padding:16,display:'grid',gap:12}}>
+        <div style={{padding:16,display:'grid',gap:12,gridTemplateColumns:'minmax(0,1fr)'}}>
           <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}}>
             <input type="checkbox" checked={partner.active===true} onChange={e=>patch('partner',v=>({ ...v,active:e.target.checked }))}/>
             <span style={{fontSize:13.5,fontWeight:600}}>Show the partner card on Home</span>
@@ -222,7 +222,7 @@ export default function AppConfig(){
           {(['title','sub','cta'] as const).map(part=>(
             <div key={part}>
               <div className="muted" style={{fontSize:12,fontWeight:600,margin:'4px 0'}}>{part==='title'?'App name':part==='sub'?'Second line':'Button text'}</div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,150px),1fr))',gap:8}}>
                 {LANGS.map(([code,name])=>(
                   <input key={code} placeholder={name} maxLength={part==='cta'?24:80} value={partner[part]?.[code]??''}
                     onChange={e=>patch('partner',v=>({ ...v,[part]:{ ...(v[part]??{}),[code]:e.target.value } }))}/>
@@ -259,7 +259,7 @@ export default function AppConfig(){
 
       <div className="card">
         <div className="card-h"><h2><Smartphone size={16}/> Minimum version</h2></div>
-        <div style={{padding:16,display:'grid',gap:12}}>
+        <div style={{padding:16,display:'grid',gap:12,gridTemplateColumns:'minmax(0,1fr)'}}>
           <div className="grid2">
             <Field label="Minimum supported version (current app is 1.0.0)">
               <input style={{width:'100%'}} value={ver.min_version??''} placeholder="1.0.0"

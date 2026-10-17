@@ -458,7 +458,7 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
     width:auto;border:0;border-bottom:1px solid var(--line);padding:9px 12px;text-align:right}
   .card>table>tbody>tr>td:last-child{border-bottom:0}
   .card>table>tbody>tr>td::before{
-    content:attr(data-label);flex:0 0 auto;text-align:left;
+    content:attr(data-label);flex:0 0 auto;text-align:left;margin-right:auto;
     font-weight:700;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
 
   /* Action cells (empty header) → full-width buttons, easy to thumb. */
