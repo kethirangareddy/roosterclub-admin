@@ -16,7 +16,7 @@ import {
   Rocket, Users as UsersIcon, Truck, Store, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield, ChevronDown, ChevronRight,
   Wheat, Settings as SettingsIcon, ShoppingBag, Sun,
 } from 'lucide-react';
-import { FeedbackHost } from './feedback';
+import { FeedbackHost, toast } from './feedback';
 import { DrawerCtx } from './ui';
 import { ChevronLeft, X } from 'lucide-react';
 const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
@@ -442,11 +442,16 @@ export default function App(){
         access_token: h.get('access_token')!,
         refresh_token: h.get('refresh_token')||'',
       }).then(({error})=>{
+        // Offline / network blip: the link is still good — keep it in the URL
+        // so a reload once back online works, instead of calling it expired.
+        if(error && (!navigator.onLine || /fetch|network/i.test(error.name+' '+error.message))){
+          toast("You're offline — reconnect, then reload this page to reset your password.",'danger');
+          return;
+        }
         (window as any).__rcNoReload=true; // keep the reset screen through an app update
         if(error){ setRecoveryBad(true); } // expired / already used link
         else { try{ sessionStorage.setItem('rc_recovery','1'); }catch{} }
         setRecovery(true);
-      }).finally(()=>{
         history.replaceState(null,'',window.location.pathname+window.location.search);
       });
     }
