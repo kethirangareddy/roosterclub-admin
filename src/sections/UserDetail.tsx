@@ -39,18 +39,14 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
     supabase.rpc('admin_user_referrals', { p_user: userId }).then(({ data, error }) => setRefs(error ? { __error: error.message } : (data ?? {})));
   }, [userId]);
   useEffect(() => {
-    // Pull the user's latest KYC submission + signed photo URLs (1h) so the admin can
-    // eyeball the Aadhaar/selfie right here without hopping to the Verifications tab.
+    // Latest KYC request only. Photos are NOT fetched here — they open on tap through the
+    // kyc-admin service, which issues 5-minute links and logs every view.
     (async () => {
       setKyc(null);
       const { data } = await supabase.from('kyc_submissions')
-        .select('aadhaar_path,selfie_path,status,created_at')
+        .select('id,status,id_type,uidai_verified,photos_purged_at,created_at')
         .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (!data) { setKyc({ none: true }); return; }
-      const out: any = { status: data.status };
-      if (data.aadhaar_path) { const a = await supabase.storage.from('kyc').createSignedUrl(data.aadhaar_path, 3600); out.a_url = a.data?.signedUrl; }
-      if (data.selfie_path) { const s = await supabase.storage.from('kyc').createSignedUrl(data.selfie_path, 3600); out.s_url = s.data?.signedUrl; }
-      setKyc(out);
+      setKyc(data ? { ...data } : { none: true });
     })();
   }, [userId]);
 
@@ -150,11 +146,20 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
               <ShieldCheck size={13} style={{ verticalAlign: -2 }} /> KYC photos{kyc?.status ? <span className="muted"> · {kyc.status}</span> : ''}
             </div>
             {!kyc ? <div className="muted" style={{ fontSize: 12.5 }}>Loading…</div>
-              : kyc.none ? <div className="muted" style={{ fontSize: 12.5 }}>No KYC submitted.</div> : (
+              : kyc.none ? <div className="muted" style={{ fontSize: 12.5 }}>No KYC submitted.</div>
+              : kyc.photos_purged_at ? <div className="muted" style={{ fontSize: 12.5 }}>Photos deleted 30 days after rejection.</div>
+              : !kyc.a_url && !kyc.s_url ? (
+                <button className="btn ghost sm" disabled={kyc.loading} onClick={async () => {
+                  setKyc((k: any) => ({ ...k, loading: true }));
+                  const { data, error } = await supabase.functions.invoke('kyc-admin', { body: { action: 'view', id: kyc.id } });
+                  if (error || (data as any)?.error) { alert('Could not open photos'); setKyc((k: any) => ({ ...k, loading: false })); return; }
+                  setKyc((k: any) => ({ ...k, loading: false, a_url: (data as any).idUrl, s_url: (data as any).selfieUrl }));
+                }}>{kyc.loading ? 'Opening…' : 'Show photos (logged, 5 min)'}</button>
+              ) : (
                 <div style={{ display: 'flex', gap: 10 }}>
                   {kyc.a_url
-                    ? <div><div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>Aadhaar</div>
-                        <img src={kyc.a_url} onClick={() => setZoom({ url: kyc.a_url, label: 'Aadhaar' })}
+                    ? <div><div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>ID</div>
+                        <img src={kyc.a_url} onClick={() => setZoom({ url: kyc.a_url, label: 'ID' })}
                           style={{ height: 70, borderRadius: 6, cursor: 'zoom-in', border: '1px solid var(--line)' }} /></div>
                     : null}
                   {kyc.s_url
