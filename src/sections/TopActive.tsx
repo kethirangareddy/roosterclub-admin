@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Trophy, Phone } from 'lucide-react';
 import { supabase } from '../supabase';
-import { UserLink } from '../ui';
+import { UserLink, waNumber } from '../ui';
 
 // Top-active leaderboard for the Command Center.
 // Data: admin_top_active(p_days, p_sort, p_limit) — admin-only RPC.
@@ -95,7 +95,7 @@ export default function TopActive() {
               <td className="right" style={{ color: r.sold ? 'var(--ok)' : undefined }}>{r.sold}</td>
               <td style={{ whiteSpace: 'nowrap' }}>
                 {r.phone
-                  ? <a href={`tel:+${r.phone.replace(/\D/g, '')}`} title="Call"><Phone size={12} style={{ verticalAlign: -1 }} /> {fmtPhone(r.phone)}</a>
+                  ? <a href={waNumber(r.phone) ? `tel:+${waNumber(r.phone)}` : undefined} title="Call"><Phone size={12} style={{ verticalAlign: -1 }} /> {fmtPhone(r.phone)}</a>
                   : <span className="muted">—</span>}
               </td>
             </tr>

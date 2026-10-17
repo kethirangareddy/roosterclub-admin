@@ -34,7 +34,9 @@ export default function Listings() {
     else if (fStatus === 'sold') query = query.eq('status', 'sold');
     else if (fStatus === 'expired') query = query.eq('status', 'expired');
     else if (fStatus === 'removed') query = query.eq('status', 'removed');
-    if (q.trim()) query = query.or(`breed.ilike.%${q.trim()}%,type.ilike.%${q.trim()}%`);
+    // Commas/brackets would break the filter syntax — treat them as spaces.
+    const term = q.trim().replace(/[,()*%]/g, ' ').trim();
+    if (term) query = query.or(`breed.ilike.%${term}%,type.ilike.%${term}%`);
     const { data, error } = await query;
     if (my !== reqRef.current) return;
     if (error) toast('Could not load listings: ' + error.message);

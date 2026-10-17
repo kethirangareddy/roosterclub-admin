@@ -299,7 +299,7 @@ export default function App(){
   // Esc closes the top 360 (matches the scrim click).
   useEffect(()=>{
     if(!detail.length) return;
-    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !document.querySelector('.drawer .scrim, .ask-scrim, .cmdk')){ e.preventDefault(); popDetail(); } }
+    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !e.defaultPrevented && !document.querySelector('.drawer .scrim, .ask-scrim, .cmdk')){ e.preventDefault(); popDetail(); } }
     window.addEventListener('keydown',onKey);
     return ()=>window.removeEventListener('keydown',onKey);
   },[detail]);

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Siren, Plus, Send } from 'lucide-react';
-import { Modal, Field, Empty, Loading, loc, timeAgo, UserLink } from '../ui';
+import { Modal, Field, Empty, Loading, loc, timeAgo, UserLink, waNumber } from '../ui';
 import { toast, ask } from '../feedback';
 
 const SEV=['low','medium','high'];
@@ -106,7 +106,7 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
                         <div className="muted" style={{fontSize:12}}>
                           {r.reporter.handle?'@'+r.reporter.handle:''}
                           {r.reporter.handle&&r.reporter.phone?' · ':''}
-                          {r.reporter.phone?<a href={'tel:+'+String(r.reporter.phone).replace(/\D/g,'')}>{String(r.reporter.phone).replace(/\D/g,'').slice(-10)}</a>:''}
+                          {r.reporter.phone?<a href={waNumber(r.reporter.phone)?'tel:+'+waNumber(r.reporter.phone):undefined}>{String(r.reporter.phone).replace(/\D/g,'').slice(-10)}</a>:''}
                         </div></>
                     : <span className="muted">Admin / system</span>}</td>
                   <td><span className={'badge '+(r.severity==='high'?'b-danger':r.severity==='medium'?'b-warn':'b-mut')}>{r.severity}</span></td>

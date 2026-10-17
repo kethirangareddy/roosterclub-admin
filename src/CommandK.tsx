@@ -106,7 +106,7 @@ export default function CommandK({ onOpenResult, onGo, onClose, screens=[] }:{
   }
 
   function onKey(e:React.KeyboardEvent){
-    if(e.key==='Escape'){ onClose(); }
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onClose(); } // Esc closes only the search, not the panel under it
     else if(e.key==='ArrowDown'){ e.preventDefault(); setSel(s=>Math.min(total-1,s+1)); }
     else if(e.key==='ArrowUp'){ e.preventDefault(); setSel(s=>Math.max(0,s-1)); }
     else if(e.key==='Enter'){ e.preventDefault(); run(sel); }
