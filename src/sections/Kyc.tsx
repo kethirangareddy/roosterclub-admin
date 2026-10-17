@@ -172,6 +172,7 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
   useEffect(()=>{ fetchUrls(); },[r.id]);
 
   const deciding=useRef(false);
+  const afterG=useRef(0);
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
       if((e.target as HTMLElement)?.tagName==='INPUT' || (e.target as HTMLElement)?.tagName==='TEXTAREA' || (e.target as HTMLElement)?.tagName==='SELECT') return;
@@ -179,6 +180,9 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
       // or a confirm dialog, and never twice while a decision is in flight.
       if(e.metaKey||e.ctrlKey||e.altKey) return;
       if(document.querySelector('.drawer-scrim, .ask-scrim, .cmdk')) return;
+      // "g" starts a jump-to-screen shortcut: the next key is not approve/reject.
+      if(e.key==='g'){ afterG.current=Date.now(); return; }
+      if(Date.now()-afterG.current<1500){ afterG.current=0; return; }
       if(r.status!=='pending' || busy || deciding.current) return;
       if(e.key==='a') approve();
       if(e.key==='r') setRejecting(true);

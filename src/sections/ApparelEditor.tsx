@@ -2,7 +2,7 @@
 // Garment details go in shop_products.apparel (jsonb); sizes and their stock go in
 // shop_product_variants, one row per colour × size. Print-on-demand stock is
 // effectively unlimited, so new sizes default to 999; set 0 to show a size as sold out.
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Field } from '../ui';
 import { toast } from '../feedback';
@@ -85,6 +85,9 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
   upload: (files: File[]) => Promise<string[]>;
 }) {
   const a = value;
+  // Latest details, so a slow photo upload doesn't write back an old copy
+  // (which used to undo whatever you typed while it uploaded).
+  const latest = useRef(a); latest.current = a;
   const [busy, setBusy] = useState<string | null>(null);
   const set = (patch: Partial<ApparelState>) => onChange({ ...a, ...patch });
   const setColour = (i: number, patch: Partial<ApparelColour>) => {
@@ -120,8 +123,11 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
   async function addPhotos(i: number, files: File[]) {
     setBusy(a.colours[i].key);
     try {
+      const key = a.colours[i].key;
       const urls = await upload(files);
-      setColour(i, { images: [...(a.colours[i].images ?? []), ...urls].slice(0, 8) });
+      if (!urls.length) return;
+      const cur = latest.current;
+      onChange({ ...cur, colours: cur.colours.map(c => c.key === key ? { ...c, images: [...(c.images ?? []), ...urls].slice(0, 8) } : c) });
     } finally { setBusy(null); }
   }
   function toggleSize(ck: string, s: string) {

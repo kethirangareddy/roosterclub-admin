@@ -261,10 +261,12 @@ export default function UsersSection(){
             <button className="btn ghost sm" onClick={load}><Search size={14}/> Search</button>
             <select value={fState} onChange={e=>{setFState(e.target.value);setFDist('all');}} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by state">
               <option value="all">All states</option>
+              {fState!=='all' && !uStates.includes(fState) && <option value={fState}>{fState} (none here)</option>}
               {uStates.map(s=><option key={s} value={s}>{s}</option>)}
             </select>
             <select value={fDist} onChange={e=>setFDist(e.target.value)} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by district">
               <option value="all">All districts</option>
+              {fDist!=='all' && !uDists.includes(fDist) && <option value={fDist}>{fDist} (none here)</option>}
               {uDists.map(d=><option key={d} value={d}>{d}</option>)}
             </select>
             <select value={fCred} onChange={e=>setFCred(e.target.value as 'all'|'has')} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by feature credits">

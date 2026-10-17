@@ -157,10 +157,12 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
             <button className={tab==='all'?'btn sm':'btn ghost sm'} onClick={()=>setTab('all')}>All</button>
             <select value={fState} onChange={e=>{setFState(e.target.value);setFDist('all');}} style={{fontSize:12,padding:'4px 8px',borderRadius:8}} title="Filter by state">
               <option value="all">All states</option>
+              {fState!=='all' && !bStates.includes(fState) && <option value={fState}>{fState} (none here)</option>}
               {bStates.map(s=><option key={s} value={s}>{s}</option>)}
             </select>
             <select value={fDist} onChange={e=>setFDist(e.target.value)} style={{fontSize:12,padding:'4px 8px',borderRadius:8}} title="Filter by district">
               <option value="all">All districts</option>
+              {fDist!=='all' && !bDists.includes(fDist) && <option value={fDist}>{fDist} (none here)</option>}
               {bDists.map(d=><option key={d} value={d}>{d}</option>)}
             </select>
           </div>

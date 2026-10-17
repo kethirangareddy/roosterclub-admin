@@ -58,7 +58,17 @@ export default function Shop() {
     if (category === 'apparel' && !apparel) { const a = emptyApparel(); setApparel(a); setGrid(defaultGrid(a)); }
   }
 
+  // Colour-photo uploads count as uploads too (Save waits for them), and are
+  // dropped if the form was closed or another product opened meanwhile.
   async function uploadUrls(files: File[]): Promise<string[]> {
+    const token = editSeq.current;
+    inflight.current++; setUploading(true);
+    try {
+      const urls = await uploadUrlsRaw(files);
+      return editSeq.current === token ? urls : [];
+    } finally { inflight.current--; setUploading(inflight.current > 0); }
+  }
+  async function uploadUrlsRaw(files: File[]): Promise<string[]> {
     const urls: string[] = [];
     for (const file of files.filter(f => f.type.startsWith('image/'))) {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -250,9 +260,9 @@ export default function Shop() {
       </div>
 
       {edit && (
-        <Modal title={edit.id ? 'Edit product' : 'Add product'} onClose={() => setEdit(null)}
+        <Modal title={edit.id ? 'Edit product' : 'Add product'} onClose={() => { if (!saving && !uploading) setEdit(null); }}
           footer={<>
-            <button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button>
+            <button className="btn ghost" disabled={saving || uploading} onClick={() => setEdit(null)}>Cancel</button>
             <button className="btn" onClick={save} disabled={saving || uploading} title={uploading ? 'Wait for the photo upload to finish' : undefined}>{saving ? 'Saving…' : uploading ? 'Uploading photo…' : 'Save product'}</button>
           </>}>
           {/* Drop photos straight from a folder — the whole box is also a file
