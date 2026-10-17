@@ -77,7 +77,7 @@ export default function Announcements(){
   }
 
   async function cancelScheduled(id:string){
-    if(!await ask('Cancel this scheduled announcement?')) return;
+    if(!await ask('Cancel this scheduled announcement?', { okText: 'Cancel it', cancelText: 'Keep it' })) return;
     const { error }=await supabase.from('announcements').delete().eq('id',id).eq('status','scheduled');
     if(error){ toast(error.message); return; }
     load();

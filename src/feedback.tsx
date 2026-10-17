@@ -10,7 +10,7 @@ type Tone = 'ok' | 'danger' | 'info';
 type Toast = { id: number; text: string; tone: Tone };
 type Ask = {
   id: number; text: string; danger: boolean; okText: string; cancelText: string;
-  input?: { value: string }; resolve: (v: any) => void;
+  input?: { value: string }; dismissNull?: boolean; resolve: (v: any) => void;
 };
 
 let toasts: Toast[] = [];
@@ -22,7 +22,9 @@ let seq = 0;
 // Guess the tone from the wording so the 140 existing call sites need no edits.
 function toneOf(text: string): Tone {
   const t = text.toLowerCase();
-  if (/(could ?n.?t|cannot|can't|failed|error|not allowed|denied|invalid|required|missing|too (big|large|long)|must )/.test(t)) return 'danger';
+  const failedZero = /\bfailed:?\s*0\b|\b0 failed\b/.test(t);
+  if (/(could ?n.?t|cannot|can't|error|not allowed|denied|invalid|required|missing|too (big|large|long)|must )/.test(t)
+      || (/failed/.test(t) && !failedZero)) return 'danger';
   if (/(done|saved|sent|delivered|approved|updated|removed|deleted|added|created|copied|✓|restored|posted|queued|scheduled)/.test(t)) return 'ok';
   return 'info';
 }
@@ -38,14 +40,25 @@ export function toast(msg: unknown, tone?: Tone) {
 const DANGER_WORDS = /(delete|remove|ban|reject|cancel|end |dismiss|not found|permanent)/i;
 
 /** await ask('Delete this?') → true / false. Red button when the action is destructive. */
-export function ask(text: string, opts: { danger?: boolean; okText?: string; cancelText?: string } = {}): Promise<boolean> {
-  return new Promise(resolve => {
+const pendingAsk = new Map<string, Promise<any>>();
+/** await ask('Delete this?') → true / false. Red button when the action is destructive.
+    A second identical ask while the first is open returns the SAME answer —
+    so a double-tap on "Send to all" can't queue two dialogs and send twice.
+    nullOnDismiss: Esc / tapping outside gives null instead of false, for
+    two-choice questions where "Cancel" is itself a choice. */
+export function ask(text: string, opts: { danger?: boolean; okText?: string; cancelText?: string; nullOnDismiss?: boolean } = {}): Promise<any> {
+  const existing = pendingAsk.get(text);
+  if (existing) return existing.then(() => false);
+  const p = new Promise<any>(resolve => {
     asks = [...asks, {
       id: ++seq, text, danger: opts.danger ?? DANGER_WORDS.test(text),
-      okText: opts.okText || 'Confirm', cancelText: opts.cancelText || 'Cancel', resolve,
+      okText: opts.okText || 'Confirm', cancelText: opts.cancelText || 'Cancel',
+      dismissNull: !!opts.nullOnDismiss, resolve,
     }];
     emit();
-  });
+  }).finally(() => pendingAsk.delete(text));
+  pendingAsk.set(text, p);
+  return p;
 }
 
 /** await askText('How many days?', '5') → string, or null if cancelled. */
@@ -65,18 +78,19 @@ function AskDialog({ a }: { a: Ask }) {
   const [val, setVal] = useState(a.input?.value ?? '');
   const okRef = useRef<HTMLButtonElement>(null);
   const inRef = useRef<HTMLInputElement>(null);
-  const done = (ok: boolean) => settle(a, a.input ? (ok ? val : null) : ok);
+  const done = (ok: boolean, dismissed = false) =>
+    settle(a, a.input ? (ok ? val : null) : (dismissed && a.dismissNull ? null : ok));
   useEffect(() => {
     (a.input ? inRef.current : okRef.current)?.focus();
     inRef.current?.select();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false, true); }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, []);
   return (
-    <div className="ask-scrim" onClick={() => done(false)}>
+    <div className="ask-scrim" onClick={() => done(false, true)}>
       <div className="ask" role="alertdialog" aria-modal="true" onClick={e => e.stopPropagation()}>
         <div className="ask-t">{a.text}</div>
         {a.input && (

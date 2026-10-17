@@ -610,7 +610,7 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 @media (max-width:860px){ .hubbar{margin:0 -14px 14px!important} }
 
 /* ================= Day 3: one side panel for every 360 ================= */
-.drawer-scrim{position:fixed;inset:0;z-index:45;background:rgba(44,24,16,.22);animation:fade .15s ease}
+.drawer-scrim{position:fixed;inset:0;z-index:55;background:rgba(44,24,16,.22);animation:fade .15s ease}
 .drawer{position:absolute;top:0;right:0;bottom:0;width:min(620px,100%);background:var(--surface);border-left:1px solid var(--line-2);
   box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideIn .22s cubic-bezier(.2,.8,.2,1)}
 @keyframes slideIn{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
@@ -703,3 +703,8 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
   .card>table:not(.qtable)>tbody>tr>td:not([data-label]){flex:0 1 auto;border-bottom:0;padding:10px 6px 10px 12px}
   .card>table:not(.qtable)>tbody>tr>td:not([data-label]):empty{display:none}
 }
+.offline{position:sticky;top:0;z-index:30;margin:0 -30px 12px;padding:9px 30px;background:var(--warnbg);color:var(--warn);font-size:13px;font-weight:600;border-bottom:1px solid var(--line)}
+@media (max-width:860px){ .offline{margin:0 -14px 12px;padding:9px 14px} }
+
+/* popups opened from inside the side panel sit above it */
+.drawer .scrim{z-index:60}

@@ -1,4 +1,14 @@
-import { useEffect, useState } from 'react';
+import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
+
+/* Load a screen on first visit. If a deploy happened while this tab was open,
+   the old screen file no longer exists — reload once to pick up the new app
+   instead of showing a blank screen. */
+function lazyScreen(load:()=>Promise<any>){
+  return lazy(()=>load().catch(err=>{
+    if(!sessionStorage.getItem('rc_chunk_reload')){ sessionStorage.setItem('rc_chunk_reload','1'); location.reload(); }
+    throw err;
+  }).then(m=>{ sessionStorage.removeItem('rc_chunk_reload'); return m; }));
+}
 import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
@@ -12,42 +22,42 @@ import { ChevronLeft, X } from 'lucide-react';
 const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
 import CommandK, { Hit } from './CommandK';
 import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
-import Money from './sections/Money';
-import Activity from './sections/Activity';
+const Money = lazyScreen(() => import('./sections/Money'));
+const Activity = lazyScreen(() => import('./sections/Activity'));
 import UserDetail from './sections/UserDetail';
 import Listing360 from './sections/Listing360';
 import Receipt360 from './sections/Receipt360';
-import AppConfig from './sections/AppConfig';
+const AppConfig = lazyScreen(() => import('./sections/AppConfig'));
 import Login from './Login';
 import ResetPassword from './ResetPassword';
-import Featured from './sections/Featured';
+const Featured = lazyScreen(() => import('./sections/Featured'));
 import Dashboard from './sections/Dashboard';
-import Analytics from './sections/Analytics';
-import Community from './sections/Community';
-import Chats from './sections/Chats';
-import Theft from './sections/Theft';
-import Approvals from './sections/Approvals';
-import Listings from './sections/Listings';
-import Vets from './sections/Vets';
-import Kukuta from './sections/Kukuta';
-import Breeds from './sections/Breeds';
-import Disease from './sections/Disease';
-import Boosts from './sections/Boosts';
-import UsersSection from './sections/UsersSection';
-import LiveFeed from './sections/LiveFeed';
-import Shop from './sections/Shop';
-import Orders from './sections/Orders';
-import FeedOrders from './sections/FeedOrders';
-import Announcements from './sections/Announcements';
-import Auctions from './sections/Auctions';
-import Reports from './sections/Reports';
-import Kyc from './sections/Kyc';
-import BadgeRequests from './sections/BadgeRequests';
-import WaInbox from './sections/WaInbox';
-import Competitions from './sections/Competitions';
-import Syndicates from './sections/Syndicates';
-import Ads from './sections/Ads';
-import Support from './sections/Support';
+const Analytics = lazyScreen(() => import('./sections/Analytics'));
+const Community = lazyScreen(() => import('./sections/Community'));
+const Chats = lazyScreen(() => import('./sections/Chats'));
+const Theft = lazyScreen(() => import('./sections/Theft'));
+const Approvals = lazyScreen(() => import('./sections/Approvals'));
+const Listings = lazyScreen(() => import('./sections/Listings'));
+const Vets = lazyScreen(() => import('./sections/Vets'));
+const Kukuta = lazyScreen(() => import('./sections/Kukuta'));
+const Breeds = lazyScreen(() => import('./sections/Breeds'));
+const Disease = lazyScreen(() => import('./sections/Disease'));
+const Boosts = lazyScreen(() => import('./sections/Boosts'));
+const UsersSection = lazyScreen(() => import('./sections/UsersSection'));
+const LiveFeed = lazyScreen(() => import('./sections/LiveFeed'));
+const Shop = lazyScreen(() => import('./sections/Shop'));
+const Orders = lazyScreen(() => import('./sections/Orders'));
+const FeedOrders = lazyScreen(() => import('./sections/FeedOrders'));
+const Announcements = lazyScreen(() => import('./sections/Announcements'));
+const Auctions = lazyScreen(() => import('./sections/Auctions'));
+const Reports = lazyScreen(() => import('./sections/Reports'));
+const Kyc = lazyScreen(() => import('./sections/Kyc'));
+const BadgeRequests = lazyScreen(() => import('./sections/BadgeRequests'));
+const WaInbox = lazyScreen(() => import('./sections/WaInbox'));
+const Competitions = lazyScreen(() => import('./sections/Competitions'));
+const Syndicates = lazyScreen(() => import('./sections/Syndicates'));
+const Ads = lazyScreen(() => import('./sections/Ads'));
+const Support = lazyScreen(() => import('./sections/Support'));
 
 type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads'|'support';
 
@@ -179,7 +189,34 @@ function useTheme(){
   return [pref,setPref] as const;
 }
 
+/* If a screen fails to load or crashes, show a Retry card for that screen
+   only — the menu and everything else keep working. */
+class ScreenBoundary extends Component<{children:ReactNode},{err:Error|null}>{
+  state={err:null as Error|null};
+  static getDerivedStateFromError(err:Error){ return {err}; }
+  componentDidCatch(err:Error){ console.error('Screen crashed:',err); }
+  render(){
+    if(!this.state.err) return this.props.children;
+    return (
+      <div className="card" style={{padding:24,textAlign:'center'}}>
+        <div style={{fontWeight:700,marginBottom:6}}>This screen didn't load.</div>
+        <div className="muted" style={{fontSize:13,marginBottom:14}}>{navigator.onLine?'Something went wrong while opening it.':'You seem to be offline.'}</div>
+        <button className="btn" onClick={()=>{ sessionStorage.removeItem('rc_chunk_reload'); location.reload(); }}>Retry</button>
+      </div>
+    );
+  }
+}
+
+function useOnline(){
+  const [on,setOn]=useState(()=>navigator.onLine);
+  useEffect(()=>{ const u=()=>setOn(true), d=()=>setOn(false);
+    window.addEventListener('online',u); window.addEventListener('offline',d);
+    return ()=>{ window.removeEventListener('online',u); window.removeEventListener('offline',d); }; },[]);
+  return on;
+}
+
 export default function App(){
+  const online=useOnline();
   const [themePref,setThemePref]=useTheme();
   const [session,setSession]=useState<Session|null>(null);
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
@@ -191,6 +228,7 @@ export default function App(){
   const [counts,setCounts]=useState<Record<string,any>>({});
   const [menuOpen,setMenuOpen]=useState(false);
   const [cmdk,setCmdk]=useState(false);
+  const [navTick,setNavTick]=useState(0);
   // stack: Receipt-360 → seller 360 etc. Mirrored to ?d= so a 360 survives a
   // refresh, can be shared as a link, and closes on browser Back.
   const [detail,setDetail]=useState<Detail[]>(()=>decodeDetail(new URLSearchParams(location.search).get('d')));
@@ -200,12 +238,18 @@ export default function App(){
     setDetail(next);
     const u=new URL(location.href);
     if(next.length) u.searchParams.set('d',encodeDetail(next)); else u.searchParams.delete('d');
-    if(push) history.pushState({rcDetail:next.length},'',u); else history.replaceState(history.state,'',u);
+    if(push){
+      // rcBase = how many panels were open before we started pushing (e.g. a
+      // shared ?d= link). We never go Back past that — it would leave the app.
+      const st=history.state;
+      const base=st?.rcDetail!=null ? (st.rcBase??0) : detail.length;
+      history.pushState({rcDetail:next.length,rcBase:base},'',u);
+    } else history.replaceState(history.state,'',u);
   }
 
   function openHit(h:Hit){
     setCmdk(false);
-    if(h.kind==='user'||h.kind==='listing'||h.kind==='receipt') commitDetail([{ kind:h.kind, id:h.id }],true);
+    if(h.kind==='user'||h.kind==='listing'||h.kind==='receipt') pushDetail({ kind:h.kind, id:h.id });
     else if(h.kind==='auction') setView('auctions');
     else if(h.kind==='report') setView('reports');
   }
@@ -221,11 +265,22 @@ export default function App(){
   // press did nothing, the one after jumped to a different screen.)
   const popDetail=()=>popTo(detail.length-2);
   /** Go back to breadcrumb level i (-1 = close the panel). */
+  // While a Back is in flight, extra taps on ✕ / Esc / Back are ignored —
+  // otherwise a double-tap went back twice and left the screen (or the app).
+  const navigating=useRef(false);
+  const popTarget=useRef<number|null>(null);
   function popTo(i:number){
+    if(navigating.current) return;
     const steps=detail.length-1-i;
     if(steps<=0) return;
-    if(history.state?.rcDetail===detail.length && steps<=detail.length) history.go(-steps);
-    else commitDetail(detail.slice(0,i+1),false);
+    const st=history.state;
+    const ours=st?.rcDetail===detail.length ? detail.length-(st.rcBase??0) : 0;
+    const k=Math.min(steps,ours);
+    if(k<=0){ commitDetail(detail.slice(0,i+1),false); return; }
+    navigating.current=true;
+    setTimeout(()=>{ navigating.current=false; },1000); // safety net
+    popTarget.current=i; // finish the rest after the Back lands (see onPop)
+    history.go(-k);
   }
   const closeAllDetail=()=>popTo(-1);
   // Breadcrumb names: each panel reports its own title once loaded.
@@ -244,7 +299,7 @@ export default function App(){
   // Esc closes the top 360 (matches the scrim click).
   useEffect(()=>{
     if(!detail.length) return;
-    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !document.querySelector('.scrim, .ask-scrim')){ e.preventDefault(); popDetail(); } }
+    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !document.querySelector('.drawer .scrim, .ask-scrim, .cmdk')){ e.preventDefault(); popDetail(); } }
     window.addEventListener('keydown',onKey);
     return ()=>window.removeEventListener('keydown',onKey);
   },[detail]);
@@ -261,7 +316,7 @@ export default function App(){
   // Saved views: section lives at ?view= so any screen is bookmarkable and
   // back/forward works. Switching sections drops stale filter params.
   function setView(k:Key, qp?:Record<string,string>){
-    setViewRaw(k);
+    setViewRaw(k); setNavTick(n=>n+1);
     try{ localStorage.setItem('rc_hub_'+hubOf(k).key,k); }catch{}
     window.scrollTo(0,0);
     setDetail([]); // the URL is about to lose ?d= — drop the stack with it
@@ -276,7 +331,17 @@ export default function App(){
       const p=new URLSearchParams(location.search);
       const v=p.get('view') as Key|null;
       setViewRaw(v && KEYS.includes(v) ? v : 'dash');
-      setDetail(decodeDetail(p.get('d'))); // Back closes / reopens the 360 stack
+      let d=decodeDetail(p.get('d')); // Back closes / reopens the 360 stack
+      navigating.current=false;
+      const t=popTarget.current; popTarget.current=null;
+      if(t!==null && d.length>t+1){
+        // Went back as far as our own entries go; trim the rest in place.
+        d=d.slice(0,t+1);
+        const u=new URL(location.href);
+        if(d.length) u.searchParams.set('d',encodeDetail(d)); else u.searchParams.delete('d');
+        history.replaceState(history.state,'',u);
+      }
+      setDetail(d);
     };
     window.addEventListener('popstate',onPop);
     return ()=>window.removeEventListener('popstate',onPop);
@@ -470,6 +535,7 @@ export default function App(){
         </div>
       </aside>
       <main className="main">
+        {!online && <div className="offline">You're offline — numbers on screen may be out of date. Changes won't save until you're back.</div>}
         {hub.items.length>1 && (
           <div className="hubbar">
             <div className="hubbar-t"><hub.Icon size={16}/> {hub.label}</div>
@@ -489,7 +555,8 @@ export default function App(){
           </div>
         )}
         {view==='dash' && <MobileTriage counts={counts} go={(k)=>setView(k)}/>}
-        <div key={view} className="page">{sections[view]}</div>
+        {/* Screens load on first visit (the app used to download all 34 up front). */}
+        <div key={view+':'+navTick} className="page"><ScreenBoundary><Suspense fallback={<div className="loading">Loading…</div>}>{sections[view]}</Suspense></ScreenBoundary></div>
       </main>
 
       {/* Thumb-reachable bottom bar (phones only) for the most-used sections. */}

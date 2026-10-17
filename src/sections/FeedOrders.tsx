@@ -58,7 +58,7 @@ function OrdersTab() {
     setRows(data ?? []);
   }
   async function setStatus(o: any, s: Status) {
-    if (s === 'cancelled' && !await ask(`Cancel ${o.order_no}? Refund any payment yourself by UPI.`)) return;
+    if (s === 'cancelled' && !await ask(`Cancel ${o.order_no}? Refund any payment yourself by UPI.`, { okText: 'Cancel order', cancelText: 'Keep order' })) return;
     if (s === 'awaiting_payment' && !await ask('Mark payment as NOT found? The farmer is asked to check and pay again.')) return;
     setSaving(true);
     const { error } = await supabase.rpc('admin_set_custom_feed_status', { p_order: o.id, p_status: s, p_note: note || null });

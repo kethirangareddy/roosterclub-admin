@@ -85,10 +85,13 @@ export default function Chats() {
   // and a refresh reopens the same conversation.
   const [activeId, setActiveId] = useState<string | null>(() => getParam('chat'));
   const reqRef = useRef(0);
-  const qRef = useRef(q); qRef.current = q;
+  // The search that was actually run (Enter / Search) — the 30s background
+  // refresh reuses it, not whatever is half-typed in the box.
+  const qRef = useRef('');
   const wide = useWide();
 
   async function load(quiet = false) {
+    if (!quiet) qRef.current = q;
     const my = ++reqRef.current;
     if (!quiet) setLoading(true);
     const { data, error } = await supabase.rpc('admin_all_chats', { p_q: qRef.current.trim() || null, p_limit: 300 });
@@ -112,7 +115,9 @@ export default function Chats() {
     const u = new URL(location.href); u.searchParams.set('chat', id);
     // Side-by-side: switching threads replaces the address (no Back trail per
     // click). Phone: opening pushes, so Back returns to the list.
-    if (wide && activeId) history.replaceState(history.state, '', u);
+    // Already in a thread (e.g. tapping "their other chats"): swap in place,
+    // so "All chats" / Back always returns to the list, not the previous chat.
+    if (activeId) history.replaceState(history.state, '', u);
     else history.pushState({ rcChat: true }, '', u);
     setActiveId(id);
     if (!wide) window.scrollTo(0, 0);

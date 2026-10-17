@@ -74,7 +74,9 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   async function waSendTest(){
     const to=await askText('Send a TEST message to which WhatsApp number? (your own)','9515369756');
     if(!to) return;
-    const lang=await ask('Which language for the test message?', { okText: 'Telugu', cancelText: 'English', danger: false })?'te':'en';
+    const pick=await ask('Which language for the test message?', { okText: 'Telugu', cancelText: 'English', danger: false, nullOnDismiss: true });
+    if(pick===null) return; // closed the dialog = don't send
+    const lang=pick?'te':'en';
     setWaBusy('test');
     const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ template:WA_TEMPLATE, test_to:to, test_lang:lang } });
     setWaBusy(null);

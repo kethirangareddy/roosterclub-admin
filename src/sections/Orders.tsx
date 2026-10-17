@@ -68,7 +68,7 @@ export default function Orders() {
   }
 
   async function setStatus(order: any, status: Status) {
-    if (status === 'cancelled' && !await ask(`Cancel ${order.order_no}? Stock goes back on the shelf.`)) return;
+    if (status === 'cancelled' && !await ask(`Cancel ${order.order_no}? Stock goes back on the shelf.`, { okText: 'Cancel order', cancelText: 'Keep order' })) return;
     setSaving(true);
     const { error } = await supabase.rpc('set_shop_order_status', { p_order: order.id, p_status: status });
     setSaving(false);

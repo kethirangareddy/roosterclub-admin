@@ -110,7 +110,7 @@ function Overview() {
   if (!m || !funnel) return <div className="card" style={{ padding: 24 }}>No analytics data yet.</div>;
 
   const kpis = [
-    { lab: 'GMV (sales value)', val: inr(m.gmv), sub: `${m.sales} sales`, Icon: IndianRupee, accent: 'grad-green' },
+    { lab: 'GMV (sales value)', val: inr(m.gmv), sub: `${m.sales ?? 0} sales`, Icon: IndianRupee, accent: 'grad-green' },
     { lab: 'Avg sale price', val: inr(m.avg_price), sub: 'per receipt', Icon: TrendingUp, accent: 'grad-blue' },
     { lab: 'New users', val: m.new_users, sub: `${m.total_users} total`, Icon: Users, accent: 'grad-iris' },
     { lab: 'New listings', val: m.new_listings, sub: `${m.active_listings} active`, Icon: ListChecks, accent: 'grad-amber' },

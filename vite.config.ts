@@ -7,4 +7,18 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   server: { port: 5180 },
+  // Libraries go in their own files: they rarely change, so after a deploy
+  // the phone only re-downloads the app code, not React/Supabase/charts again.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js'],
+          charts: ['recharts'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 700,
+  },
 });

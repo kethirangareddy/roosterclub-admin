@@ -91,8 +91,8 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
   const conv = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
   const kpis = [
-    { lab: 'Boost revenue', val: inr(m.boost_rev), sub: `${m.boost_activated}/${m.boost_total} activated (${conv(m.boost_activated, m.boost_total)}%)`, Icon: Rocket, accent: 'grad-blue' },
-    { lab: 'Feature revenue', val: inr(m.feature_rev), sub: `${m.feature_activated}/${m.feature_total} activated (${conv(m.feature_activated, m.feature_total)}%)`, Icon: Star, accent: 'grad-amber' },
+    { lab: 'Boost revenue', val: inr(m.boost_rev), sub: `${m.boost_activated ?? 0}/${m.boost_total ?? 0} activated (${conv(m.boost_activated, m.boost_total)}%)`, Icon: Rocket, accent: 'grad-blue' },
+    { lab: 'Feature revenue', val: inr(m.feature_rev), sub: `${m.feature_activated ?? 0}/${m.feature_total ?? 0} activated (${conv(m.feature_activated, m.feature_total)}%)`, Icon: Star, accent: 'grad-amber' },
     { lab: 'Total revenue', val: inr(Number(m.boost_rev) + Number(m.feature_rev)), sub: `last ${days} days`, Icon: IndianRupee, accent: 'grad-green' },
     { lab: 'Waiting on UPI', val: pending.length, sub: pending.length ? `oldest ${daysWaiting(pending[0].at)}d` : 'queue clear', Icon: Hourglass, accent: 'grad-iris' },
   ];

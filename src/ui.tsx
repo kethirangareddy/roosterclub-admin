@@ -70,6 +70,8 @@ export function Modal({ title, onClose, children, footer }:{
     if(drawer) return;
     const onKey=(e:KeyboardEvent)=>{
       if(e.key!=='Escape' || document.querySelector('.ask-scrim')) return;
+      // A side panel opened on top of this popup gets the Esc first.
+      if(document.querySelector('.drawer-scrim') && !me.current?.closest('.drawer')) return;
       const all=document.querySelectorAll('.scrim'); if(all[all.length-1]!==me.current) return;
       e.preventDefault(); e.stopPropagation(); closeRef.current();
     };
