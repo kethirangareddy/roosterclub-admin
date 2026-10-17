@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Flag, Trash2, Ban, X } from 'lucide-react';
 import { Empty, Loading, timeAgo, inr, useParamState, useRowKeys, UserLink, ListingLink } from '../ui';
-import { useDetail } from '../detail';
+import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
 export default function Reports({ onChange }:{ onChange?:()=>void }){
@@ -12,6 +12,7 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
   const [picked,setPicked]=useState<Set<string>>(new Set());
   // j/k + d dismiss. Remove/ban stay click-only — too destructive for a single keystroke.
   const { openUser,openListing }=useDetail();
+  useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
   const [sel]=useRowKeys(rows.length,{
     d:(i)=>{ const r=rows[i]; if(r?.status==='open') mark(r.id,'dismissed'); },
     x:(i)=>{ const r=rows[i]; if(r?.status==='open') togglePick(r.id); },

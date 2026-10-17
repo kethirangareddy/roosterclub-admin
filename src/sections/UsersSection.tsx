@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
 import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink } from '../ui';
-import { useDetail } from '../detail';
+import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
 const BADGES:{v:string;label:string}[]=[
@@ -25,6 +25,7 @@ export default function UsersSection(){
   const [loading,setLoading]=useState(true);
   const [q,setQ]=useState('');
   const { openUser }=useDetail();
+  useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
   // Items 12–14: All (created desc) | High risk (auto-flag queue) | Duplicates (ban evasion)
   const [tab,setTab]=useParamState<'all'|'risk'|'dups'|'refs'>('tab','all');
   const [dups,setDups]=useState<any[]>([]);

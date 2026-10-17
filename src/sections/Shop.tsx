@@ -36,8 +36,9 @@ export default function Shop() {
 
   // Only the product you opened last may fill the size/colour grid.
   const editId = useRef<string | null>(null);
+  const editSeq = useRef(0); // bumps every time a form opens (new or existing)
   async function openEdit(row: any | null) {
-    editId.current = row?.id ?? null;
+    editId.current = row?.id ?? null; editSeq.current++;
     if (!row) { setEdit({ ...empty }); setApparel(null); setGrid({}); setDetails(null); return; }
     setDetails(row.category === 'accessories' ? toForm(row.details) : null);
     setEdit({ ...empty, ...row, price: row.price ?? '', brand: row.brand ?? '', unit: row.unit ?? '', stock_count: row.stock_count ?? '', description: row.description ?? '', name_te: row.name_te ?? '' });
@@ -114,6 +115,10 @@ export default function Shop() {
   async function uploadFiles(files: File[]) {
     const pics = files.filter(f => f.type.startsWith('image/'));
     if (!pics.length || !edit) return;
+    // Remember which form the photos are for: if it was closed or another
+    // product opened while uploading, drop them instead of crashing or
+    // attaching them to the wrong product.
+    const token = editSeq.current, openId = edit.id ?? null;
     setUploading(true);
     try {
       const urls: string[] = [];
@@ -127,6 +132,7 @@ export default function Shop() {
       // `edit` is captured from render, so build off the latest state, not the closure —
       // two drops in quick succession would otherwise lose the first batch.
       setEdit((cur: any) => {
+        if (!cur || (cur.id ?? null) !== openId || editSeq.current !== token) return cur;
         const images = [...(cur.images ?? []), ...urls].slice(0, 8);
         return { ...cur, images, image_url: images[0] ?? cur.image_url };
       });

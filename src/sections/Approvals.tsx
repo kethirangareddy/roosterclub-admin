@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Check, X, Inbox } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, useParamState, useRowKeys, UserLink, ListingLink, Copyable } from '../ui';
-import { useDetail } from '../detail';
+import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
 export default function Approvals({ onChange }:{ onChange:()=>void }){
@@ -11,6 +11,7 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
   const [tab,setTab]=useParamState<'pending'|'all'>('tab','pending');
   const [picked,setPicked]=useState<Set<string>>(new Set());
   const { openListing }=useDetail();
+  useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
   // j/k moves the focused row, a approves, r rejects — queue clearing at typing speed.
   // Enter opens the listing 360, matching a tap on the breed.
   const [sel]=useRowKeys(rows.length,{

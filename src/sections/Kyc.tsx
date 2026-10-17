@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X, ZoomIn, ZoomOut, RotateCw, Copy, KeyRound, Upload } from 'lucide-react';
 import { Empty, Loading, timeAgo, useParamState, useRowKeys, UserLink, Copyable, Modal } from '../ui';
-import { useDetail } from '../detail';
+import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
 /* Verifications (KYC)
@@ -34,6 +34,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const [open,setOpen]=useState<any|null>(null);
   const [picked,setPicked]=useState<Set<string>>(new Set());
   const { openUser }=useDetail();
+  useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
 
   const [sel]=useRowKeys(rows.length,{
     Enter:(i)=>{ const r=rows[i]; if(r && !open) setOpen(r); },
