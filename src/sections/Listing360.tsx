@@ -19,6 +19,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
   // a slow reply for the previous listing used to overwrite the current one.
   const want=useRef(listingId); want.current=listingId;
   const instaTimer=useRef<number|undefined>(undefined);
+  const [queued,setQueued]=useState(false);
   useEffect(()=>()=>window.clearTimeout(instaTimer.current),[]); // no reload after the panel closes
   function load(){
     const asked=listingId;
@@ -74,8 +75,11 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     setBusy(false);
     if(error){ setPushMsg('❌ '+error.message); return; }
     setPushMsg('✅ Queued — posts in the background in ~10–60s'+(hasVideo?' (longer for branded reels)':'')+'. Status refreshes shortly.');
+    // Lock the button until the post has had time to land — a second tap used
+    // to queue a duplicate Instagram post.
+    setQueued(true);
     window.clearTimeout(instaTimer.current);
-    instaTimer.current=window.setTimeout(load, 45000);
+    instaTimer.current=window.setTimeout(()=>{ setQueued(false); load(); }, 45000);
   }
 
   const boosted=l && l.boost_level>0 && l.boost_expires_at && new Date(l.boost_expires_at)>new Date();
@@ -166,7 +170,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
             {l.status==='removed'
               ? <button className="btn ok sm" disabled={busy} onClick={restore}><Check size={13}/> Restore</button>
               : <button className="btn danger sm" disabled={busy} onClick={remove}><Trash2 size={13}/> Remove</button>}
-            <button className="btn ghost sm" disabled={busy||l.status!=='active'||l.approval_status!=='approved'}
+            <button className="btn ghost sm" disabled={busy||queued||l.status!=='active'||l.approval_status!=='approved'}
               title={l.status==='active'&&l.approval_status==='approved'?'Post this listing to Instagram now':'Listing must be active & approved to post to Instagram'}
               onClick={pushToInsta}><Instagram size={13}/> {l.ig_posted?'Re-post to Insta':'Push to Insta'}</button>
           </div>

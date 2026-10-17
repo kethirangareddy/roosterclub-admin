@@ -37,7 +37,7 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
 
   useEffect(() => {
     let alive = true;
-    setErr(null);
+    setErr(null); setM(null); setCost(null); // never show the old range's numbers under the new label
     const to = new Date().toISOString();
     const from = new Date(Date.now() - days * 864e5).toISOString();
     (async () => {
