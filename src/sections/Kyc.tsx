@@ -244,10 +244,13 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
 function norm(s:string){ return s.toLowerCase().replace(/[^a-zఀ-౿ऀ-ॿ]/g,''); }
 function qualityText(q:any){
   const bits:string[]=[];
+  if(q.checker===false) bits.push('phone has no auto-checker');
   if(q.id_sharp!=null) bits.push(q.id_sharp?'ID sharp':'ID maybe blurry');
   if(q.id_bright!=null) bits.push(q.id_bright?'ID well lit':'ID dark');
+  if(q.id_readable!=null) bits.push(q.id_readable?'text readable':'text hard to read');
+  if(q.aadhaar_unmasked) bits.push('ALL 12 AADHAAR DIGITS VISIBLE');
   if(q.face_found!=null) bits.push(q.face_found?'face found':'no face found');
-  if(q.liveness_steps) bits.push('live steps: '+q.liveness_steps);
+  if(q.liveness_steps) bits.push('selfie: '+(q.liveness_steps==='manual'?'taken by button (no live check)':q.liveness_steps));
   return bits.join(' · ')||'—';
 }
 
