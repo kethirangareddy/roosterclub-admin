@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
-import { Empty, Loading, timeAgo, UserLink, Copyable } from '../ui';
+import { Empty, Loading, LoadError, timeAgo, UserLink, Copyable } from '../ui';
 import { toast, ask } from '../feedback';
 
 export default function Syndicates({ onChange }: { onChange?: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState(false); // a failed load must not read as 'No syndicates'
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
 
   const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
@@ -19,7 +20,8 @@ export default function Syndicates({ onChange }: { onChange?: () => void }) {
     if (tab === 'pending') q = q.eq('status', 'pending');
     const { data, error } = await q;
     if(my!==loadReq.current) return;
-    if (error) { toast(error.message); }
+    if (error) { toast(error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     const list = data || [];
     const phones = await adminPhones(list.map((r: any) => r.owner_id));
     if(my!==loadReq.current) return;
@@ -49,13 +51,13 @@ export default function Syndicates({ onChange }: { onChange?: () => void }) {
       <p className="sub">Invite-only breeder circles. Review new syndicates, then Approve to make them live (and unlock their invite code) or Reject.</p>
       <div className="card">
         <div className="card-h">
-          <h2><ShieldCheck size={16} /> Syndicates{pending > 0 && <span className="badge b-warn" style={{ marginLeft: 8 }}>{pending} pending</span>}</h2>
+          <h2><ShieldCheck size={16} /> Syndicates {!loading && !loadErr && <span className="muted">({rows.length >= 200 ? 'newest 200' : rows.length})</span>}{pending > 0 && <span className="badge b-warn" style={{ marginLeft: 8 }}>{pending} pending</span>}</h2>
           <div className="row-acts">
             <button className={tab === 'pending' ? 'btn sm' : 'btn ghost sm'} onClick={() => setTab('pending')}>Pending</button>
             <button className={tab === 'all' ? 'btn sm' : 'btn ghost sm'} onClick={() => setTab('all')}>All</button>
           </div>
         </div>
-        {loading ? <Loading /> : rows.length === 0 ? <Empty text="No syndicates." /> : (
+        {loading ? <Loading /> : loadErr ? <LoadError what="syndicates" onRetry={load} /> : rows.length === 0 ? <Empty text="No syndicates." /> : (
           <table>
             <thead><tr><th>Name</th><th>Owner</th><th>Phone</th><th>Area</th><th>Status</th><th>When</th><th></th></tr></thead>
             <tbody>

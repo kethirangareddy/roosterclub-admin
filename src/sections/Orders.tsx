@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { PackageCheck } from 'lucide-react';
-import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable } from '../ui';
+import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable, LoadError } from '../ui';
 import { toast, ask } from '../feedback';
 
 // Mirrors the check constraint on shop_orders.status. 'cancelled' sits outside the
@@ -31,13 +31,18 @@ export default function Orders() {
   const [filter, setFilter] = useState<'all' | 'open' | Status>('open');
   const [open, setOpen] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
   // Where buyers pay for prepaid (UPI) orders. Empty UPI ID = online payment closed.
   const [pay, setPay] = useState<{ upi_id: string; payee_name: string; pay_hours: number } | null>(null);
 
   useEffect(() => { load(); }, [filter]);
   useEffect(() => {
     supabase.from('app_config').select('value').eq('key', 'shop_pay').maybeSingle()
-      .then(({ data }) => setPay({ upi_id: '', payee_name: 'Rooster Club', pay_hours: 24, ...((data as any)?.value ?? {}) }));
+      .then(({ data, error }) => {
+        // On a failed read keep the form hidden, so Save can't write a blank UPI over the real one.
+        if (error) { toast('Could not load UPI settings: ' + error.message); return; }
+        setPay({ upi_id: '', payee_name: 'Rooster Club', pay_hours: 24, ...((data as any)?.value ?? {}) });
+      });
   }, []);
 
   async function savePay() {
@@ -66,7 +71,9 @@ export default function Orders() {
     const { data, error } = await q;
     if(my!==loadReq.current) return;
     setLoading(false);
-    if (error) { toast('Could not load orders: ' + error.message); return; }
+    // Clear on failure so the old filter's orders don't show under the new filter.
+    if (error) { setRows([]); setLoadErr(true); toast('Could not load orders: ' + error.message); return; }
+    setLoadErr(false);
     setRows(data ?? []);
   }
 
@@ -116,7 +123,7 @@ export default function Orders() {
       )}
 
       <div className="card">
-        {loading ? <Loading /> : rows.length === 0 ? <Empty text="No orders here yet." /> : (
+        {loading ? <Loading /> : loadErr ? <LoadError what="orders" onRetry={load} /> : rows.length === 0 ? <Empty text="No orders here yet." /> : (
           <table className="tbl">
             <thead>
               <tr>

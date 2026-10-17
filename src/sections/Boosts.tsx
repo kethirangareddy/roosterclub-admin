@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Rocket, Plus, Zap } from 'lucide-react';
-import { Modal, Field, Empty, Loading, inr, timeAgo, UserLink, ListingLink, Copyable } from '../ui';
+import { Modal, Field, Empty, Loading, LoadError, inr, timeAgo, UserLink, ListingLink, Copyable } from '../ui';
 import { toast, askText } from '../feedback';
 
 const LEVELS=[
@@ -15,15 +15,18 @@ const LEVELS=[
 export default function Boosts(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'No boosts logged yet'
   const [adding,setAdding]=useState<any|null>(null);
   const [listings,setListings]=useState<any[]>([]);
   const [lvlPrices,setLvlPrices]=useState<Record<string,number>>({}); // live prices from app_config (item 19)
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('boosts')
+    const { data, error }=await supabase.from('boosts')
       .select('*,listings(breed,type),users:seller_id(full_name)')
       .order('created_at',{ascending:false});
+    if(error){ toast('Could not load boosts: '+error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.seller_id));
     setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.seller_id]||null}:r.users}))); setLoading(false);
@@ -66,10 +69,21 @@ export default function Boosts(){
     setAdding(null); load();
   }
 
+  // One activation at a time: a second tap while the prompt or the reload is
+  // still running used to boost the listing twice.
+  const activateBusy=useRef(false);
   async function activate(b:any){
+    if(activateBusy.current) return;
+    activateBusy.current=true;
+    try{ await activateRun(b); } finally { activateBusy.current=false; }
+  }
+  async function activateRun(b:any){
     const input = await askText('Boost duration in days?', '5');
     if(input===null) return; // Cancel pressed — don't activate
-    const days = Number(input)||5;
+    // Empty answer keeps the default; anything else must be a real positive number.
+    const txt=input.trim();
+    const days = txt===''?5:Number(txt);
+    if(!Number.isFinite(days) || days<=0){ toast('Enter a number of days greater than 0'); return; }
     const now=new Date(); const exp=new Date(now.getTime()+days*864e5);
     const { data:{ user } }=await supabase.auth.getUser();
     // Boost the listing FIRST; only mark the payment activated once that worked,
@@ -77,12 +91,12 @@ export default function Boosts(){
     const e2=await supabase.from('listings').update({
       boost_level:b.level, boost_expires_at:exp.toISOString()
     }).eq('id',b.listing_id);
-    if(e2.error){ toast('Could not boost the listing: '+e2.error.message); load(); return; }
+    if(e2.error){ toast('Could not boost the listing: '+e2.error.message); await load(); return; }
     const e1=await supabase.from('boosts').update({
       activated_at:now.toISOString(), expires_at:exp.toISOString(), activated_by:user?.id
     }).eq('id',b.id);
     if(e1.error){ toast('Listing boosted, but the payment row could not be marked: '+e1.error.message); }
-    load();
+    await load();
   }
 
   return (
@@ -94,7 +108,7 @@ export default function Boosts(){
           <h2><Rocket size={16}/> Boost payments ({rows.length})</h2>
           <button className="btn" onClick={openAdd}><Plus size={15}/> Log payment</button>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No boosts logged yet."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="boosts" onRetry={load}/>:rows.length===0?<Empty text="No boosts logged yet."/>:(
           <table>
             <thead><tr><th>Listing</th><th>Seller</th><th>Level</th><th>Paid</th><th>UPI ref</th><th>Status</th><th>Logged</th><th></th></tr></thead>
             <tbody>

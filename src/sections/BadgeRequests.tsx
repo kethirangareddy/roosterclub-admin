@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Award, Check, X, Send } from 'lucide-react';
-import { Empty, Loading, timeAgo, WaButton, WaIcon, FOUNDER_CAP, UserLink, Copyable } from '../ui';
+import { Empty, Loading, LoadError, timeAgo, WaButton, WaIcon, FOUNDER_CAP, UserLink, Copyable } from '../ui';
 import { toast, ask, askText } from '../feedback';
 
 // WhatsApp API template (MSG91). Sent ONLY when the admin presses a button — never automatically.
 const WA_TEMPLATE='badge_invite_earn';
 const WA_COST=1.02; // ≈ ₹ per marketing message incl. GST
+const WA_PAUSED="WhatsApp sends are paused until the sent list loads — otherwise people could be messaged (and charged) twice.";
 
 const BADGES:{v:string;label:string}[]=[
   {v:'bronze',label:'Bronze'},
@@ -19,6 +20,7 @@ const BADGES:{v:string;label:string}[]=[
 export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'No badge requests'
   const [tab,setTab]=useState<'pending'|'all'>('pending');
   const [pick,setPick]=useState<Record<string,string>>({});
   const [fState,setFState]=useState<string>('all'); // location filters
@@ -34,7 +36,8 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
     if(tab==='pending') q=q.eq('status','pending');
     const { data,error }=await q;
     if(my!==loadReq.current) return;
-    if(error){ toast(error.message); }
+    if(error){ toast(error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
     if(my!==loadReq.current) return;
@@ -54,8 +57,13 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   // ---- WhatsApp "Invite & Earn" (MSG91 API) — manual send only ----
   const [waSent,setWaSent]=useState<Record<string,{status:string;created_at:string;error?:string}>>({});
   const [waBusy,setWaBusy]=useState<string|null>(null); // user_id being sent, or 'bulk'/'test'
+  // If the sent-list can't load we can't tell who already got the (paid) invite,
+  // so every send button stays disabled until it loads.
+  const [waErr,setWaErr]=useState(false);
   async function loadWa(){
-    const { data }=await supabase.rpc('admin_wa_sends',{ p_template:WA_TEMPLATE });
+    const { data, error }=await supabase.rpc('admin_wa_sends',{ p_template:WA_TEMPLATE });
+    if(error){ toast('Could not load WhatsApp send history: '+error.message); setWaErr(true); return; }
+    setWaErr(false);
     const m:Record<string,any>={}; (data||[]).forEach((r:any)=>{ m[r.user_id]=r; });
     setWaSent(m);
   }
@@ -63,6 +71,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   // Paid sends: only one batch at a time, however fast the buttons are tapped.
   const waSending=useRef(false);
   async function waSend(ids:string[], busyKey:string, resend=false){
+    if(waErr){ toast(WA_PAUSED); return; }
     if(waSending.current){ toast('Another WhatsApp send is still running — wait for it to finish.'); return; }
     waSending.current=true;
     try{ await waSendRun(ids,busyKey,resend); } finally { waSending.current=false; }
@@ -141,7 +150,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
       <p className="sub">Users asking to be reviewed for a badge. Call them to confirm, pick a badge, then Approve — or Reject.</p>
       <div className="card">
         <div className="card-h">
-          <h2><Award size={16}/> Requests{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}
+          <h2><Award size={16}/> Requests {!loading && !loadErr && <span className="muted">({rows.length>=100?'newest 100':rows.length})</span>}{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}
             {founders && <span className={'badge '+(founders.remaining===0?'b-danger':founders.remaining<=10?'b-warn':'b-ok')}
               style={{marginLeft:8,fontWeight:500}}
               title={`Founder's Badge is capped at ${FOUNDER_CAP} in the database`}>
@@ -151,7 +160,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
             <button className="btn ghost sm" disabled={!!waBusy} onClick={waSendTest} title="Send the invite template to your own number first">
               {waBusy==='test'?'Sending…':'Test to me'}</button>
             <button className="btn sm" style={{background:'#25D366',borderColor:'#25D366',color:'#fff',display:'inline-flex',alignItems:'center',gap:5}}
-              disabled={!!waBusy} onClick={waSendAll} title="Send the Invite & Earn WhatsApp message to everyone shown who hasn't got it">
+              disabled={!!waBusy||waErr} onClick={waSendAll} title={waErr?WA_PAUSED:"Send the Invite & Earn WhatsApp message to everyone shown who hasn't got it"}>
               <Send size={13}/>{waBusy==='bulk'?'Sending…':`Send invite (${unsentIds.length})`}</button>
             <button className={tab==='pending'?'btn sm':'btn ghost sm'} onClick={()=>setTab('pending')}>Pending</button>
             <button className={tab==='all'?'btn sm':'btn ghost sm'} onClick={()=>setTab('all')}>All</button>
@@ -167,7 +176,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
             </select>
           </div>
         </div>
-        {loading?<Loading/>:shown.length===0?<Empty text="No badge requests."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="badge requests" onRetry={load}/>:shown.length===0?<Empty text="No badge requests."/>:(
           <table>
             <thead><tr><th>User</th><th>Phone</th><th></th><th>Invite</th><th>Current</th><th>Status</th><th>When</th><th>Assign</th><th></th></tr></thead>
             <tbody>
@@ -184,8 +193,8 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
                     if(w?.status==='sent') return <span className="badge b-ok" title={'Sent '+new Date(w.created_at).toLocaleString()}>✓ Sent {timeAgo(w.created_at)}</span>;
                     if(!r.user?.phone) return <span className="muted">—</span>;
                     return <button className="btn ghost sm" style={{color:'#25D366',display:'inline-flex',alignItems:'center',gap:5}}
-                      disabled={!!waBusy} onClick={()=>waSendOne(r)}
-                      title={w?.status==='failed'?('Last attempt failed: '+(w.error||'')):'Send the Invite & Earn WhatsApp message'}>
+                      disabled={!!waBusy||waErr} onClick={()=>waSendOne(r)}
+                      title={waErr?WA_PAUSED:w?.status==='failed'?('Last attempt failed: '+(w.error||'')):'Send the Invite & Earn WhatsApp message'}>
                       <WaIcon/>{waBusy===r.user_id?'Sending…':w?.status==='failed'?'Retry':w?.status==='skipped'?'Skipped · retry':'Send'}</button>;
                   })()}</td>
                   <td className="muted">{r.user?.badge||'—'}</td>

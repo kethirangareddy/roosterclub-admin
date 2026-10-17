@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { BookOpen, Plus } from 'lucide-react';
-import { Modal, Field, Empty, Loading, timeAgo } from '../ui';
+import { Modal, Field, Empty, Loading, LoadError, timeAgo } from '../ui';
 import { toast, ask } from '../feedback';
 
 const CATS=['Breed Guide','Ancient Omens','Training','Care & Health','Bloodlines','General'];
@@ -10,11 +10,13 @@ const BLANK={ title:'',body:'',category:'General',cover_url:'',published:false }
 export default function Kukuta(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // failed load must not look like an empty list
   const [edit,setEdit]=useState<any|null>(null);
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('kukuta_articles').select('*').order('created_at',{ascending:false});
+    const { data, error }=await supabase.from('kukuta_articles').select('*').order('created_at',{ascending:false});
+    setLoadErr(!!error);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -58,7 +60,7 @@ export default function Kukuta(){
           <h2><BookOpen size={16}/> Articles ({rows.length})</h2>
           <button className="btn" onClick={()=>setEdit({...BLANK})}><Plus size={15}/> Write article</button>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No articles yet. Write your first one."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="articles" onRetry={load}/>:rows.length===0?<Empty text="No articles yet. Write your first one."/>:(
           <table>
             <thead><tr><th>Title</th><th>Category</th><th>Status</th><th>Created</th><th></th></tr></thead>
             <tbody>

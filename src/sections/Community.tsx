@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { MessagesSquare, Pin, Trash2, Eye, VolumeX, Volume2 } from 'lucide-react';
-import { Modal, Empty, Loading, timeAgo, UserLink } from '../ui';
+import { Modal, Empty, Loading, timeAgo, UserLink, LoadError } from '../ui';
 import { toast, ask } from '../feedback';
 
 export default function Community({ onChange }: { onChange?: () => void }) {
@@ -10,12 +10,13 @@ export default function Community({ onChange }: { onChange?: () => void }) {
   const [viewThread, setViewThread] = useState<any | null>(null);
   const [replies, setReplies] = useState<any[]>([]);
 
+  const [loadErr, setLoadErr] = useState(false);
   async function load() {
     setLoading(true);
     const { data, error } = await supabase.from('forum_threads')
       .select('*, users!forum_threads_user_id_fkey(id, full_name, handle, forum_muted_until)')
       .eq('status', 'active').order('last_reply_at', { ascending: false }).limit(200);
-    if (error) toast('Could not load discussions: ' + error.message);
+    setLoadErr(!!error);
     setThreads(data || []);
     setLoading(false);
   }
@@ -93,7 +94,7 @@ export default function Community({ onChange }: { onChange?: () => void }) {
       <div className="card">
         <div className="card-h"><h2><MessagesSquare size={16} /> Threads ({threads.length})</h2></div>
         {loading ? <Loading /> : (
-          threads.length === 0 ? <Empty text="No discussions yet." /> : (
+          loadErr ? <LoadError what="discussions" onRetry={load} /> : threads.length === 0 ? <Empty text="No discussions yet." /> : (
             <table>
               <thead><tr><th>Title</th><th>State</th><th>Category</th><th>Author</th><th>Replies</th><th>Activity</th><th></th></tr></thead>
               <tbody>

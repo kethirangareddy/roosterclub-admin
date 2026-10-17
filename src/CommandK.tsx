@@ -91,7 +91,7 @@ export default function CommandK({ onOpenResult, onGo, onClose, screens=[] }:{
 
   async function act(h:Hit){
     if(!verb) return onOpenResult(h);
-    if(!await ask(`${verb.label} ${h.kind==='user'?'member':'listing'} “${h.title}”?`,{ okText:verb.label })) return;
+    if(!await ask(`${verb.label} ${h.kind==='user'?'member':'listing'} “${h.title}”?`,{ okText:verb.label })){ inputRef.current?.focus(); return; } // keys work again after Cancel
     const err=await verb.run(h);
     if(err){ toast('Could not '+verb.word+': '+err); return; }
     const done={ban:'Banned',unban:'Unbanned',approve:'Approved',reject:'Rejected'}[verb.word as 'ban'];
@@ -118,7 +118,7 @@ export default function CommandK({ onOpenResult, onGo, onClose, screens=[] }:{
   let flat=acts.length-1;
 
   return (
-    <div className="scrim" style={{alignItems:'flex-start',paddingTop:'12vh'}} onClick={onClose}>
+    <div className="scrim cmdk-scrim" style={{alignItems:'flex-start',paddingTop:'12vh'}} onClick={onClose}>
       <div className="cmdk" onClick={e=>e.stopPropagation()}>
         <div className="cmdk-in">
           <Search size={16} style={{color:'var(--muted)',flexShrink:0}}/>

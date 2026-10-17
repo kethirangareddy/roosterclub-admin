@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { History, Search } from 'lucide-react';
-import { Empty, Loading, timeAgo, UserLink, ListingLink, ReceiptLink, Copyable, shortId } from '../ui';
+import { Empty, Loading, timeAgo, UserLink, ListingLink, ReceiptLink, Copyable, shortId, LoadError } from '../ui';
 import { toast } from '../feedback';
 
 /** Item 15 — audit log. Every admin action (ban, approve, verify, delete, badge…)
@@ -34,12 +34,13 @@ export default function Activity() {
   const [q, setQ] = useState('');
 
   const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
+  const [loadErr, setLoadErr] = useState(false);
   async function load() {
     const my=++loadReq.current;
     setLoading(true);
     const { data, error } = await supabase.rpc('admin_audit_log', { p_q: q.trim() || null, p_limit: 200 });
     if(my!==loadReq.current) return;
-    if (error) toast('Could not load activity: ' + error.message);
+    setLoadErr(!!error);
     setRows(data || []); setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -57,7 +58,7 @@ export default function Activity() {
             <button className="btn ghost sm" onClick={load}><Search size={14}/> Search</button>
           </div>
         </div>
-        {loading ? <Loading/> : rows.length === 0 ? <Empty text="No admin actions logged yet — they start appearing as you approve, ban, verify…"/> : (
+        {loading ? <Loading/> : loadErr ? <LoadError what="the audit log" onRetry={load}/> : rows.length === 0 ? <Empty text="No admin actions logged yet — they start appearing as you approve, ban, verify…"/> : (
           <table>
             <thead><tr><th>When</th><th>Admin</th><th>Action</th><th>Target</th><th>What changed</th></tr></thead>
             <tbody>

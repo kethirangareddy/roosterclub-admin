@@ -29,7 +29,7 @@ export default function Listings() {
     let query = supabase.from('listings')
       .select('id,user_id,breed,type,price,status,approval_status,created_at,expires_at,state,district,mandal,village,users!listings_user_id_fkey(full_name,handle)')
       .order('created_at', { ascending: false }).limit(200);
-    if (fStatus === 'live') query = query.eq('status', 'active').gt('expires_at', nowIso);
+    if (fStatus === 'live') query = query.eq('status', 'active').eq('approval_status', 'approved').gt('expires_at', nowIso);
     else if (fStatus === 'pending') query = query.eq('approval_status', 'pending');
     else if (fStatus === 'sold') query = query.eq('status', 'sold');
     else if (fStatus === 'expired') query = query.eq('status', 'expired');
@@ -45,6 +45,8 @@ export default function Listings() {
   useEffect(() => { load(); }, [fStatus]);
 
   function liveLabel(r: any) {
+    // Not approved yet (or rejected) — show that, not a green "active".
+    if (r.status === 'active' && r.approval_status && r.approval_status !== 'approved') return r.approval_status;
     if (r.status === 'active' && r.expires_at && new Date(r.expires_at) <= new Date()) return 'expired';
     return r.status;
   }

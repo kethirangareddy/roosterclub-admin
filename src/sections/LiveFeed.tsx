@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Truck, Check, Plus } from 'lucide-react';
-import { Modal, Field, Empty, Loading, loc, inr, timeAgo, Copyable } from '../ui';
+import { Modal, Field, Empty, Loading, LoadError, loc, inr, timeAgo, Copyable } from '../ui';
 import { STATES, districtsFor } from '../locations';
 import { toast, ask } from '../feedback';
 
@@ -12,6 +12,7 @@ const BLANK = { name:'', feed_type:'BSF larvae', price_per_kg:0, availability:'d
 export default function LiveFeed({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'No pending requests'
   const [tab,setTab]=useState<'pending'|'approved'>('pending');
   const [edit,setEdit]=useState<any|null>(null);
   const [meId,setMeId]=useState<string|null>(null);
@@ -22,9 +23,11 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
   async function load(){
     const my=++loadReq.current;
     setLoading(true);
-    const { data }=await supabase.from('live_feed_sellers').select('*')
+    const { data, error }=await supabase.from('live_feed_sellers').select('*')
       .eq('approved',tab==='approved').order('created_at',{ascending:false});
     if(my!==loadReq.current) return;
+    if(error){ toast('Could not load live-feed sellers: '+error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
@@ -75,7 +78,7 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
           <h2><Truck size={16}/> {tab==='pending'?'Requests':'Approved sellers'} ({rows.length})</h2>
           <button className="btn" onClick={()=>setEdit({...BLANK})}><Plus size={15}/> Add seller</button>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text={tab==='pending'?'No pending requests.':'No approved sellers yet.'}/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="live-feed sellers" onRetry={load}/>:rows.length===0?<Empty text={tab==='pending'?'No pending requests.':'No approved sellers yet.'}/>:(
           <table>
             <thead><tr><th>Name</th><th>Feed type</th><th>Price/kg</th><th>Availability</th><th>Phone</th><th>Location</th><th>Added</th><th></th></tr></thead>
             <tbody>

@@ -708,3 +708,8 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 
 /* popups opened from inside the side panel sit above it */
 .drawer .scrim{z-index:60}
+
+/* ⌘K sits above the side panel (55) and its popups (60); confirm dialogs (210) stay on top. */
+.scrim.cmdk-scrim{z-index:65}
+/* Phone: the open menu covers the bottom tab bar, so Sign out is reachable. */
+@media (max-width:860px){ .nav-scrim{z-index:47} .side{z-index:48} }

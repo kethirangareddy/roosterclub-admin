@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { ToggleLeft, Wrench, Smartphone, Save, IndianRupee, Image as ImageIcon, Link2 } from 'lucide-react';
-import { Field, Loading } from '../ui';
+import { Field, Loading, LoadError } from '../ui';
 import { toast } from '../feedback';
 
 const LANGS: [string,string][] = [['en','English'],['te','తెలుగు'],['hi','हिंदी'],['kn','ಕನ್ನಡ'],['ta','தமிழ்'],['ml','മലയാളം']];
@@ -40,9 +40,11 @@ export default function AppConfig(){
   }
   useEffect(()=>{ loadPartnerStats(); },[]);
 
+  const [loadErr,setLoadErr]=useState<string|null>(null);
   async function load(){
     const { data, error }=await supabase.from('app_config').select('key,value');
-    if(error){ toast('Could not load config: '+error.message); return; }
+    if(error){ setLoadErr(error.message); return; }
+    setLoadErr(null);
     const map:Record<string,any>={};
     (data||[]).forEach(r=>{ map[r.key]=r.value; });
     setCfg(map); setDirty(new Set());
@@ -77,7 +79,7 @@ export default function AppConfig(){
     toast('Saved. Users pick this up next time the app launches.');
   }
 
-  if(!cfg) return <><h1 className="h1">App Config</h1><Loading/></>;
+  if(!cfg) return <><h1 className="h1">App Config</h1>{loadErr ? <LoadError what={'the app settings ('+loadErr+')'} onRetry={load}/> : <Loading/>}</>;
   const banner=cfg.banner??{active:true,title:{},sub:{},cta:{},link:'',image_url:''};
   const partner=cfg.partner??{active:false,id:'',package:'',scheme:'',image_url:'',title:{},sub:{},cta:{}};
   const feats=cfg.features??{}; const maint=cfg.maintenance??{active:false,message:{}}; const ver=cfg.version??{};

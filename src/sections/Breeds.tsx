@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Bird, Plus } from 'lucide-react';
-import { Modal, Field, Empty, Loading } from '../ui';
+import { Modal, Field, Empty, Loading, LoadError } from '../ui';
 import { toast, ask } from '../feedback';
 
 const BLANK={ name:'',bloodline:'',origin:'',traits:'',description:'',photo_url:'' };
@@ -9,11 +9,13 @@ const BLANK={ name:'',bloodline:'',origin:'',traits:'',description:'',photo_url:
 export default function Breeds(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // failed load must not look like an empty list
   const [edit,setEdit]=useState<any|null>(null);
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('breed_encyclopedia').select('*').order('name',{ascending:true});
+    const { data, error }=await supabase.from('breed_encyclopedia').select('*').order('name',{ascending:true});
+    setLoadErr(!!error);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -54,7 +56,7 @@ export default function Breeds(){
           <h2><Bird size={16}/> Breeds ({rows.length})</h2>
           <button className="btn" onClick={()=>setEdit({...BLANK})}><Plus size={15}/> Add breed</button>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No breeds yet. Add your first entry."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="breeds" onRetry={load}/>:rows.length===0?<Empty text="No breeds yet. Add your first entry."/>:(
           <table>
             <thead><tr><th></th><th>Name</th><th>Bloodline</th><th>Origin</th><th></th></tr></thead>
             <tbody>

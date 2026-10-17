@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Stethoscope, Plus, Star, Check } from 'lucide-react';
-import { Modal, Field, Empty, Loading, loc, inr } from '../ui';
+import { Modal, Field, Empty, Loading, LoadError, loc, inr } from '../ui';
 import { STATES, districtsFor } from '../locations';
 import { toast, ask } from '../feedback';
 
@@ -12,14 +12,16 @@ const BLANK={ name:'',speciality:'',years_experience:0,consultation_charge:0,pho
 export default function Vets({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // failed load must not look like an empty list
   const [edit,setEdit]=useState<any|null>(null);
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('vets').select('*')
+    const { data, error }=await supabase.from('vets').select('*')
       .order('approved',{ascending:true})            // pending requests first
       .order('is_featured',{ascending:false}).order('featured_position',{ascending:true,nullsFirst:false})
       .order('created_at',{ascending:false});
+    setLoadErr(!!error);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -71,7 +73,7 @@ export default function Vets({ onChange }:{ onChange?:()=>void }){
           <h2><Stethoscope size={16}/> Doctors ({rows.length}){pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>
           <button className="btn" onClick={()=>setEdit({...BLANK})}><Plus size={15}/> Add doctor</button>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No doctors yet. Add your first one."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="doctors" onRetry={load}/>:rows.length===0?<Empty text="No doctors yet. Add your first one."/>:(
           <table>
             <thead><tr><th>Name</th><th>Speciality</th><th>Exp.</th><th>Charge</th><th>Phone</th><th>Location</th><th>Listing</th><th></th></tr></thead>
             <tbody>

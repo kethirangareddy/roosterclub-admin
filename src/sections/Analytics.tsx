@@ -9,7 +9,6 @@ import { useDetail } from '../detail';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
-import { toast } from '../feedback';
 
 type Metrics = {
   gmv: number; sales: number; avg_price: number; new_users: number; new_listings: number;
@@ -578,16 +577,21 @@ function FunnelHealth() {
 function Sources() {
   const [rows, setRows] = useState<{ source: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
+  function load() {
+    setLoading(true); setErr(null);
     supabase.rpc('admin_acquisition_counts').then(({ data, error }) => {
-      if (error) toast('Could not load acquisition data: ' + error.message);
+      // A failed load must not read as "No sign-ups yet."
+      if (error) setErr(error.message);
       setRows(((data as any[]) || []).map(r => ({ source: r.source, count: Number(r.n) })));
       setLoading(false);
     });
-  }, []);
+  }
+  useEffect(load, []);
 
   const total = rows.reduce((s, r) => s + r.count, 0);
+  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load acquisition data: {err} <button className="btn sm" style={{ marginLeft: 8 }} onClick={load}>Retry</button></div>;
 
   return (
     <>
@@ -642,7 +646,7 @@ export default function Analytics() {
     const u = new URL(location.href);
     u.searchParams.set('view', 'analytics');
     if (k === 'overview') u.searchParams.delete('tab'); else u.searchParams.set('tab', k);
-    history.replaceState(null, '', u);
+    history.replaceState(history.state, '', u); // keep the side-panel history markers
   }
   const Active = (TABS.find(t => t.key === tab) || TABS[0]).C;
   return (

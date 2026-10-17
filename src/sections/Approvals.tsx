@@ -1,13 +1,14 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Check, X, Inbox } from 'lucide-react';
-import { Empty, Loading, loc, inr, timeAgo, useParamState, useRowKeys, UserLink, ListingLink, Copyable } from '../ui';
+import { Empty, Loading, LoadError, loc, inr, timeAgo, useParamState, useRowKeys, UserLink, ListingLink, Copyable } from '../ui';
 import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
 export default function Approvals({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'Inbox zero'
   const [tab,setTab]=useParamState<'pending'|'all'>('tab','pending');
   const [picked,setPicked]=useState<Set<string>>(new Set());
   const { openListing }=useDetail();
@@ -57,7 +58,8 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
     if(tab==='pending') q=q.eq('approval_status','pending');
     const { data, error }=await q;
     if(my!==loadReq.current) return;
-    if(error) toast('Could not load listings: '+error.message);
+    if(error){ toast('Could not load listings: '+error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
     if(my!==loadReq.current) return;
@@ -98,7 +100,7 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
             <button className="btn ghost sm" onClick={()=>setPicked(new Set())}>Clear</button>
           </div>
         )}
-        {loading?<Loading/>:rows.length===0?<Empty text="Nothing here. Inbox zero ✦"/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="listings" onRetry={load}/>:rows.length===0?<Empty text="Nothing here. Inbox zero ✦"/>:(
           <table>
             <thead><tr>
               <th className="ck"><input type="checkbox" checked={picked.size>0&&picked.size===rows.length}

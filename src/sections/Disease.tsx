@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Siren, Plus, Send } from 'lucide-react';
-import { Modal, Field, Empty, Loading, loc, timeAgo, UserLink, waNumber } from '../ui';
+import { Modal, Field, Empty, Loading, LoadError, loc, timeAgo, UserLink, waNumber } from '../ui';
 import { toast, ask } from '../feedback';
 
 const SEV=['low','medium','high'];
@@ -10,6 +10,7 @@ const BLANK={ title:'',description:'',severity:'medium',state:'',district:'',man
 export default function Disease({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'No reports yet'
   const [edit,setEdit]=useState<any|null>(null);
 
   async function load(){
@@ -22,7 +23,8 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
     const { data, error }=await supabase.from('disease_alerts')
       .select('*, reporter:users!disease_alerts_reported_by_fkey(id,full_name,farm_name,handle,district,state)')
       .order('created_at',{ascending:false});
-    if(error){ toast('Could not load alerts: '+error.message); setLoading(false); return; }
+    if(error){ toast('Could not load alerts: '+error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.reported_by));
     setRows(list.map((r:any)=>({
@@ -87,7 +89,7 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
           <h2><Siren size={16}/> Alerts ({rows.length})</h2>
           <button className="btn" onClick={()=>setEdit({...BLANK})}><Plus size={15}/> New alert</button>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No reports yet."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="disease alerts" onRetry={load}/>:rows.length===0?<Empty text="No reports yet."/>:(
           <table>
             <thead><tr><th>Title</th><th>Reported by</th><th>Severity</th><th>Region</th><th>Status</th><th>Created</th><th></th></tr></thead>
             <tbody>

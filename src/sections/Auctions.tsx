@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Gavel, Check, X, Trash2 } from 'lucide-react';
-import { Empty, Loading, inr, timeAgo, UserLink } from '../ui';
+import { Empty, Loading, LoadError, inr, timeAgo, UserLink } from '../ui';
 import { toast, ask } from '../feedback';
 
 const STATUS_BADGE: Record<string,string> = {
@@ -11,14 +11,17 @@ const STATUS_BADGE: Record<string,string> = {
 export default function Auctions({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'No auctions yet'
 
   async function load(){
     setLoading(true);
     // pull the host alongside — reviewing an auction without knowing who created it
     // meant leaving the section to look them up.
-    const { data }=await supabase.from('auctions')
+    const { data, error }=await supabase.from('auctions')
       .select('*, host:users!auctions_host_id_fkey(full_name,handle)')
       .order('created_at',{ascending:false});
+    if(error){ toast('Could not load auctions: '+error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -43,7 +46,7 @@ export default function Auctions({ onChange }:{ onChange?:()=>void }){
         <div className="card-h">
           <h2><Gavel size={16}/> Auctions ({rows.length}){pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>
         </div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No auctions yet."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="auctions" onRetry={load}/>:rows.length===0?<Empty text="No auctions yet."/>:(
           <table>
             <thead><tr><th>Title</th><th>Host</th><th>Breed</th><th>Start ₹</th><th>Reserve ₹</th><th>Status</th><th>Created</th><th></th></tr></thead>
             <tbody>

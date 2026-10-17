@@ -50,12 +50,19 @@ export function apparelPayload(a: ApparelState) {
   };
 }
 
-/** Write the size grid: upsert every chosen colour × size, hide the rest (never delete — orders point at them). */
-export async function saveVariants(productId: string, grid: StockGrid) {
-  const { data: existing } = await supabase.from('shop_product_variants').select('id, colour, size').eq('product_id', productId);
+/** Write the size grid: upsert every chosen colour × size, hide the rest (never delete — orders point at them).
+ *  `original` is the grid as loaded when the form opened: cells whose stock wasn't changed are
+ *  left alone, so orders placed while the form was open don't get their stock put back. */
+export async function saveVariants(productId: string, grid: StockGrid, original: StockGrid = {}) {
+  const { data: existing, error: readErr } = await supabase.from('shop_product_variants').select('id, colour, size').eq('product_id', productId);
+  if (readErr) return readErr;
   const rows: any[] = [];
+  const keep = new Set<string>();
   Object.entries(grid).forEach(([colour, sizes]) => {
     Object.entries(sizes).forEach(([size, stock]) => {
+      keep.add(colour + '|' + size);
+      const was = original[colour]?.[size];
+      if (was !== undefined && Number(was) === Number(stock)) return; // unchanged: leave the DB value
       rows.push({ product_id: productId, colour, size, stock_count: Math.max(0, Number(stock) || 0), active: true, sort: SIZES.indexOf(size) + 1 });
     });
   });
@@ -63,7 +70,6 @@ export async function saveVariants(productId: string, grid: StockGrid) {
     const { error } = await supabase.from('shop_product_variants').upsert(rows, { onConflict: 'product_id,colour,size' });
     if (error) return error;
   }
-  const keep = new Set(rows.map((r) => r.colour + '|' + r.size));
   const hide = (existing ?? []).filter((v: any) => !keep.has(v.colour + '|' + v.size)).map((v: any) => v.id);
   if (hide.length) {
     const { error } = await supabase.from('shop_product_variants').update({ active: false }).in('id', hide);

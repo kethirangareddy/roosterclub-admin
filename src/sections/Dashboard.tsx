@@ -4,7 +4,7 @@ import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope,
   ShieldCheck, Flag, Award, Gavel, Star, CheckCircle2, ArrowRight, Sparkles,
   Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText,
   MessagesSquare, Store, Shield, ShieldAlert, Repeat, Clock, ChevronDown, ChevronRight } from 'lucide-react';
-import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
+import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink, LoadError } from '../ui';
 import { useDetail, useOnChanged } from '../detail';
 import Online from './Online';
 import TopActive from './TopActive';
@@ -198,6 +198,10 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
         supabase.rpc('admin_funnel_health',{ p_days:30 }),
         supabase.rpc('admin_cohorts',{ p_days:3 }),
       ]);
+      // Supabase returns errors instead of throwing — without this a failed RPC
+      // showed as real-looking zeros.
+      const bad=[rg,rc,fn,co].find(r=>r.error);
+      if(bad){ setErr(bad.error!.message); return; }
       setRegions((rg.data as any[])||[]);
       setReach(rc.data); setFh(fn.data); setCoh((co.data as any[])||[]);
     } catch(e:any){
@@ -235,11 +239,12 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
     .sort((a,b)=>b.sev-a.sev || b.n-a.n);
   const totalPending=queue.reduce((s,q)=>s+q.n,0);
 
-  // Yesterday's signup cohort — did they come back? This is the number that says
-  // whether an SMS/ads push bought users or bought installs.
+  // The signup cohort from 2 days ago — did they come back? This is the number that
+  // says whether an SMS/ads push bought users or bought installs. Yesterday's
+  // cohort can't be used: its day-1 window isn't over yet, so it always read low.
   const y=coh.find(c=>{
-    // Yesterday in India time (UTC date was wrong between midnight and 5:30 AM).
-    const d=new Date(Date.now()-864e5);
+    // India time (UTC date was wrong between midnight and 5:30 AM).
+    const d=new Date(Date.now()-2*864e5);
     return c.cohort===d.toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
   });
   const d1=y && Number(y.signups)>0 ? pct(Number(y.d1_back),Number(y.signups)) : null;
@@ -262,7 +267,7 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
   const brief=[
     `${cv('signups_today')} ${counts.signups_today===1?'signup':'signups'} today`,
     `${cv('new_users_7d')} this week`,
-    d1!==null ? `${d1}% of yesterday's signups came back` : null,
+    d1!==null ? `${d1}% of signups from 2 days ago came back` : null,
     `${cv('listings_today')} ${counts.listings_today===1?'listing':'listings'} today`,
     totalPending>0 ? `${totalPending} ${totalPending===1?'item':'items'} need review` : 'queue clear',
   ].filter(Boolean).join('  ·  ');
@@ -270,7 +275,7 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
   // `drill` opens the rows behind the number; `go` jumps to a section instead.
   const cards:{lab:string;val:any;delta?:string;Icon:any;go?:string;drill?:DrillKind}[]=[
     { lab:'Total users', val:cv('users'), delta:`+${cv('new_users_7d')} this week`, Icon:Users, drill:'new_users_7d' },
-    { lab:'Came back D1', val:d1===null?'—':d1+'%', delta:y?`of ${y.signups} yesterday`:'no cohort yet', Icon:Repeat, go:'analytics' },
+    { lab:'Came back D1', val:d1===null?'—':d1+'%', delta:y?`of ${y.signups}, 2 days ago`:'no cohort yet', Icon:Repeat, go:'analytics' },
     { lab:'Active listings', val:cv('active_listings'), delta:`${cv('listings_today')} posted today`, Icon:ListChecks, drill:'active_listings' },
     { lab:'Reachable by push', val:reach?`${reachPct}%`:'—', delta:reach?`${reach.active30_no_token??'—'} active users have no token`:undefined, Icon:HeartPulse, drill:'push_unreachable' },
     { lab:'Chats with no reply', val:fh?fh.chats_no_seller_reply:'—', delta:fh?`of ${fh.chats??'—'} in 30d`:undefined, Icon:MessagesSquare, drill:'unreplied_chats' },
@@ -281,6 +286,7 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
     <>
       <h1 className="h1">Command Center</h1>
       <p className="sub">Rooster Club · {new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</p>
+      {err && <LoadError what={'some dashboard panels ('+err+')'} onRetry={loadSlow}/>}
 
       {/* 1 — SYSTEMS. One line. It only opens when something is actually wrong. */}
       <button className={'sysbar'+(sysBad?' bad':'')} onClick={()=>setSysOpen(v=>!v)}>

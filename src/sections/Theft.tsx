@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Siren, Trash2, Eye, CheckCircle2, IndianRupee } from 'lucide-react';
-import { Modal, Empty, Loading, timeAgo, UserLink } from '../ui';
+import { Modal, Empty, Loading, LoadError, timeAgo, UserLink } from '../ui';
 import { toast, ask } from '../feedback';
 
 // New-style media array (photos + videos), falling back to the legacy single photo_url.
@@ -14,6 +14,7 @@ function mediaOf(r: any): { url: string; type?: string }[] {
 export default function Theft({ onChange }: { onChange?: () => void }) {
   const [theft, setTheft] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState(false); // a failed load must not read as 'No active theft alerts'
   const [viewTheft, setViewTheft] = useState<any | null>(null);
 
   async function load() {
@@ -21,7 +22,8 @@ export default function Theft({ onChange }: { onChange?: () => void }) {
     const { data, error } = await supabase.from('theft_alerts')
       .select('*, users!theft_alerts_user_id_fkey(full_name, handle)')
       .eq('status', 'active').order('created_at', { ascending: false }).limit(200);
-    if (error) toast('Could not load theft alerts: ' + error.message);
+    if (error) { toast('Could not load theft alerts: ' + error.message); setLoadErr(true); setTheft([]); setLoading(false); return; }
+    setLoadErr(false);
     setTheft(data || []);
     setLoading(false);
   }
@@ -47,9 +49,9 @@ export default function Theft({ onChange }: { onChange?: () => void }) {
       <p className="sub">Stolen-bird reports from members. Resolve when recovered or handled; Remove hides it from the app instantly.</p>
 
       <div className="card">
-        <div className="card-h"><h2><Siren size={16} /> Active theft alerts ({theft.length})</h2></div>
+        <div className="card-h"><h2><Siren size={16} /> Active theft alerts ({theft.length >= 200 ? 'newest 200' : theft.length})</h2></div>
         {loading ? <Loading /> : (
-          theft.length === 0 ? <Empty text="No active theft alerts." /> : (
+          loadErr ? <LoadError what="theft alerts" onRetry={load} /> : theft.length === 0 ? <Empty text="No active theft alerts." /> : (
             <table>
               <thead><tr><th></th><th>Report</th><th>Reward</th><th>Area</th><th>By</th><th>Posted</th><th></th></tr></thead>
               <tbody>

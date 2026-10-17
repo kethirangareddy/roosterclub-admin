@@ -8,7 +8,9 @@ export function getParam(key:string){ return new URLSearchParams(location.search
 export function setParam(key:string, val:string|null, push=false){
   const u=new URL(location.href);
   if(val==null) u.searchParams.delete(key); else u.searchParams.set(key,val);
-  if(push) history.pushState(null,'',u); else history.replaceState(null,'',u);
+  // Keep history.state: it carries the side panel's Back markers. Wiping it
+  // (null) left a dead Back press after closing a panel.
+  if(push) history.pushState(history.state,'',u); else history.replaceState(history.state,'',u);
 }
 /** Tab/filter state mirrored to ?key= — bookmarkable, back/forward safe. */
 export function useParamState<T extends string>(key:string, initial:T){

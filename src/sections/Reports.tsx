@@ -1,13 +1,14 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Flag, Trash2, Ban, X } from 'lucide-react';
-import { Empty, Loading, timeAgo, inr, useParamState, useRowKeys, UserLink, ListingLink } from '../ui';
+import { Empty, Loading, LoadError, timeAgo, inr, useParamState, useRowKeys, UserLink, ListingLink } from '../ui';
 import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
 export default function Reports({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'No reports'
   const [tab,setTab]=useParamState<'open'|'all'>('tab','open');
   const [picked,setPicked]=useState<Set<string>>(new Set());
   // j/k + d dismiss. Remove/ban stay click-only — too destructive for a single keystroke.
@@ -55,7 +56,8 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
     if(tab==='open') q=q.eq('status','open');
     const { data,error }=await q;
     if(my!==loadReq.current) return;
-    if(error){ toast(error.message); }
+    if(error){ toast(error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
@@ -88,7 +90,7 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
       <p className="sub">Fraud and behaviour reports from users. Remove the listing or ban the user, then dismiss.</p>
       <div className="card">
         <div className="card-h">
-          <h2><Flag size={16}/> Reports{open>0 && <span className="badge b-warn" style={{marginLeft:8}}>{open} open</span>}</h2>
+          <h2><Flag size={16}/> Reports {!loading && !loadErr && <span className="muted">({rows.length>=100?'newest 100':rows.length})</span>}{open>0 && <span className="badge b-warn" style={{marginLeft:8}}>{open} open</span>}</h2>
           <div className="row-acts">
             <button className={tab==='open'?'btn sm':'btn ghost sm'} onClick={()=>setTab('open')}>Open</button>
             <button className={tab==='all'?'btn sm':'btn ghost sm'} onClick={()=>setTab('all')}>All</button>
@@ -101,7 +103,7 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
             <button className="btn ghost sm" onClick={()=>setPicked(new Set())}>Clear</button>
           </div>
         )}
-        {loading?<Loading/>:rows.length===0?<Empty text="No reports."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="reports" onRetry={load}/>:rows.length===0?<Empty text="No reports."/>:(
           <table>
             <thead><tr>
               <th className="ck"><input type="checkbox"

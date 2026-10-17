@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Wheat } from 'lucide-react';
-import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable } from '../ui';
+import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable, LoadError } from '../ui';
 import { toast, ask } from '../feedback';
 
 // Make My Feed: farmers design a feed in the app; Protein Factory mills it in 10 kg sacks.
@@ -45,6 +45,7 @@ function OrdersTab() {
   const [open, setOpen] = useState<any | null>(null);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
 
   useEffect(() => { load(); }, [filter]);
   const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
@@ -57,7 +58,9 @@ function OrdersTab() {
     const { data, error } = await q;
     if(my!==loadReq.current) return;
     setLoading(false);
-    if (error) { toast('Could not load: ' + error.message); return; }
+    // On failure clear the rows: the old filter's orders must not show under the new filter.
+    if (error) { setRows([]); setLoadErr(true); toast('Could not load: ' + error.message); return; }
+    setLoadErr(false);
     setRows(data ?? []);
   }
   // The note belongs to the order whose popup it was typed in — row buttons
@@ -89,7 +92,7 @@ function OrdersTab() {
         </select>
       </div>
       <div className="card">
-        {loading ? <Loading /> : rows.length === 0 ? <Empty text="No feed orders here." /> : (
+        {loading ? <Loading /> : loadErr ? <LoadError what="feed orders" onRetry={load} /> : rows.length === 0 ? <Empty text="No feed orders here." /> : (
           <table className="tbl">
             <thead><tr><th>Order</th><th>Farmer</th><th>Feed</th><th>Sacks</th><th>Total</th><th>UPI ref</th><th>Status</th><th>Placed</th><th></th></tr></thead>
             <tbody>
@@ -194,16 +197,20 @@ function MillTab() {
   const [addons, setAddons] = useState<any[]>([]);
   const [cfg, setCfg] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
 
   useEffect(() => { load(); }, []);
   async function load() {
+    setLoadErr(false);
     const [a, b, c, d] = await Promise.all([
       supabase.from('feed_ingredients').select('key,name,grp,home,sort').eq('active', true).order('sort'),
       supabase.from('mill_ingredients').select('*'),
       supabase.from('mill_addons').select('*').order('sort'),
       supabase.from('app_config').select('value').eq('key', 'custom_feed').maybeSingle(),
     ]);
-    if (a.error || b.error || c.error) { toast('Could not load mill data'); return; }
+    // Any failed read (the custom_feed config too) means nothing is set from partial data:
+    // Save would otherwise write an empty config over the real one.
+    if (a.error || b.error || c.error || d.error || !d.data) { setLoadErr(true); toast('Could not load mill data'); return; }
     setIngs((a.data ?? []).filter((i: any) => !i.home));
     const m: any = {};
     for (const r of b.data ?? []) m[r.key] = { price: String(r.price_per_kg), in_stock: r.in_stock };
@@ -212,6 +219,7 @@ function MillTab() {
     setCfg((d.data as any)?.value ?? {});
   }
   async function save() {
+    if (loadErr || !cfg || !ings) { toast('Settings did not load. Reload before saving.'); return; }
     setSaving(true);
     const rows = Object.entries(mill).filter(([, v]) => Number(v.price) > 0)
       .map(([key, v]) => ({ key, price_per_kg: Number(v.price), in_stock: v.in_stock, updated_at: new Date().toISOString() }));
@@ -220,13 +228,18 @@ function MillTab() {
     const blanks = Object.entries(mill).filter(([, v]) => !(Number(v.price) > 0)).map(([key]) => key);
     const r0 = blanks.length ? await supabase.from('mill_ingredients').update({ in_stock: false, updated_at: new Date().toISOString() }).in('key', blanks) : { error: null };
     const r1 = await supabase.from('mill_ingredients').upsert(rows);
-    const r2 = await supabase.from('mill_addons').upsert(addons.map((a) => ({ ...a, price_per_sack: Number(a.price_per_sack) })));
+    // A blank extra price is saved as switched off, never offered at ₹0.
+    const r2 = await supabase.from('mill_addons').upsert(addons.map((a) => {
+      const blank = String(a.price_per_sack ?? '').trim() === '';
+      return { ...a, price_per_sack: blank ? 0 : Number(a.price_per_sack), active: blank ? false : a.active };
+    }));
     const r3 = await supabase.from('app_config').update({ value: cfg, updated_at: new Date().toISOString() }).eq('key', 'custom_feed');
     const err = r0.error || r1.error || r2.error || r3.error;
     if (err) { setSaving(false); toast('Could not save: ' + err.message); return; }
     await load(); // unlock only after the fresh values are on screen
     setSaving(false); toast('Saved');
   }
+  if (loadErr) return <LoadError what="mill prices & settings" onRetry={load} />;
   if (!ings || !cfg) return <Loading />;
   const num = (path: string[], v: string) => {
     const c = JSON.parse(JSON.stringify(cfg)); let o = c;

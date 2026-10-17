@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
-import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink } from '../ui';
+import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink, LoadError } from '../ui';
 import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
@@ -47,6 +47,7 @@ export default function UsersSection(){
   const [total,setTotal]=useState<number|null>(null);
 
   const reqRef=useRef(0);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as "nobody"
   async function load(){
     // Newest request wins: a slow 'All users' load must never fill the
     // 'High risk' tab you switched to (with Ban buttons on the wrong people).
@@ -55,24 +56,24 @@ export default function UsersSection(){
     if(tab==='refs'){
       const { data, error }=await supabase.rpc('admin_referral_pairs');
       if(stale()) return;
-      if(error) toast('Could not load referrals: '+error.message);
+      setLoadErr(!!error);
       setRefs(data||[]); setLoading(false); return;
     }
     if(tab==='dups'){
       const { data, error }=await supabase.rpc('admin_duplicates');
       if(stale()) return;
-      if(error) toast('Could not load duplicates: '+error.message);
+      setLoadErr(!!error);
       setDups(data||[]); setLoading(false); return;
     }
     if(tab==='risk'){
       const { data, error }=await supabase.rpc('admin_flagged_users');
       if(stale()) return;
-      if(error) toast('Could not load flagged users: '+error.message);
+      setLoadErr(!!error);
       setRows(data||[]); setLoading(false); return;
     }
     const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new', p_limit: lim, p_offset: 0 });
     if(stale()) return;
-    if(error) toast('Could not load users: '+error.message);
+    setLoadErr(!!error);
     let list = data||[];
     // total_n is a window count computed before LIMIT — the real match count.
     setTotal(list.length ? (Number(list[0].total_n) || list.length) : 0);
@@ -170,7 +171,7 @@ export default function UsersSection(){
           <div className="card-h">
             <h2><Award size={16}/> Referrals ({refs.length} joined via {new Set(refs.map((r:any)=>r.referrer_id)).size} referrers)</h2>
           </div>
-          {loading?<Loading/>:refs.length===0?<Empty text="Nobody has joined via a referral code yet."/>:(
+          {loading?<Loading/>:loadErr?<LoadError what="this list" onRetry={load}/>:refs.length===0?<Empty text="Nobody has joined via a referral code yet."/>:(
             <table>
               <thead><tr><th>Referrer</th><th>Referred</th><th>District</th><th>Joined</th></tr></thead>
               <tbody>
@@ -201,7 +202,7 @@ export default function UsersSection(){
       ) : tab==='dups' ? (
         <div className="card">
           <div className="card-h"><h2><CopyX size={16}/> Duplicate &amp; ban-evasion clusters ({dups.length})</h2></div>
-          {loading?<Loading/>:dups.length===0?<Empty text="No suspicious clusters — no shared UPI ids, no same-day referral bursts."/>:(
+          {loading?<Loading/>:loadErr?<LoadError what="this list" onRetry={load}/>:dups.length===0?<Empty text="No suspicious clusters — no shared UPI ids, no same-day referral bursts."/>:(
             <table>
               <thead><tr><th>Pattern</th><th>Key</th><th>Accounts</th></tr></thead>
               <tbody>
@@ -228,7 +229,7 @@ export default function UsersSection(){
       ) : tab==='risk' ? (
         <div className="card">
           <div className="card-h"><h2><ShieldAlert size={16}/> Flagged users ({rows.length})</h2></div>
-          {loading?<Loading/>:rows.length===0?<Empty text="No flagged users — nobody crosses risk ≥ 60 or 3+ reports."/>:(
+          {loading?<Loading/>:loadErr?<LoadError what="this list" onRetry={load}/>:rows.length===0?<Empty text="No flagged users — nobody crosses risk ≥ 60 or 3+ reports."/>:(
             <table>
               <thead><tr><th>Risk</th><th>Name</th><th>Handle</th><th>Open reports</th><th>Reports 24h</th><th>Shared UPI</th><th></th></tr></thead>
               <tbody>
@@ -288,7 +289,7 @@ export default function UsersSection(){
             </select>
           </div>
         </div>
-        {loading?<Loading/>:shown.length===0?<Empty text="No users found."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="this list" onRetry={load}/>:shown.length===0?<Empty text="No users found."/>:(
           <table>
             <thead><tr><th>User</th><th>Phone</th><th>Risk</th><th>Badge</th><th></th><th></th><th></th></tr></thead>
             <tbody>

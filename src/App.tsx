@@ -21,7 +21,7 @@ import { DrawerCtx } from './ui';
 import { ChevronLeft, X } from 'lucide-react';
 const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
 import CommandK, { Hit } from './CommandK';
-import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
+import { DetailCtx, decodeDetail, encodeDetail, useOnChanged, type Detail } from './detail';
 const Money = lazyScreen(() => import('./sections/Money'));
 const Activity = lazyScreen(() => import('./sections/Activity'));
 import UserDetail from './sections/UserDetail';
@@ -332,7 +332,8 @@ export default function App(){
     const keep=k==='dash'?null:k;
     u.search=''; if(keep) u.searchParams.set('view',keep);
     if(qp) Object.entries(qp).forEach(([key,val])=>u.searchParams.set(key,val));
-    history.pushState(null,'',u);
+    // Re-tapping the screen you're on refreshes it without adding a Back step.
+    if(k===view && !qp) history.replaceState(null,'',u); else history.pushState(null,'',u);
   }
   useEffect(()=>{
     const onPop=()=>{
@@ -441,6 +442,8 @@ export default function App(){
   // totals the "More" group uses to dim sections that have no rows, and the
   // headline numbers the dashboard used to re-count for itself.
   const countsReq=useRef(0);
+  // Any action anywhere (⌘K, a side panel) refreshes the waiting badges right away.
+  useOnChanged(()=>{ if(isAdmin) refreshCounts(); });
   const [countsStatus,setCountsStatus]=useState<'loading'|'ok'|'error'>('loading');
   async function refreshCounts(){
     const my=++countsReq.current; // an older, slower reply must not overwrite newer counts
@@ -452,7 +455,8 @@ export default function App(){
     if(my!==countsReq.current) return;
     if(error){ console.error('refreshCounts failed:', error.message); setCountsStatus(s=>s==='ok'?'ok':'error'); return; }
     setCountsStatus('ok');
-    setCounts({ ...((data as any)||{}), support: sup.error ? 0 : Number(sup.data)||0 });
+    // If only the support count failed, keep the last known number — a failure is not "0 unread".
+    setCounts(prev=>({ ...((data as any)||{}), support: sup.error ? (prev.support??0) : Number(sup.data)||0 }));
   }
   // Deliberately NOT keyed on `view`: this used to refire 11 queries on every
   // section change (~110 queries per 10 clicks). Sections call refreshCounts()
@@ -580,7 +584,7 @@ export default function App(){
         {HUBS.filter(h=>['today','people','market','convos'].includes(h.key)).map(h=>{
           const n=hubPending(h);
           return (
-            <button key={h.key} className={hub.key===h.key?'on':''} onClick={()=>openHub(h)}>
+            <button key={h.key} className={hub.key===h.key?'on':''} onClick={()=>{ openHub(h); setMenuOpen(false); }}>
               <h.Icon size={20}/>{n>0&&<i className="bdot">{n>99?'99+':n}</i>}
               <span>{h.key==='people'?'People':h.key==='convos'?'Chats':h.label}</span>
             </button>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X, ZoomIn, ZoomOut, RotateCw, Copy, KeyRound, Upload } from 'lucide-react';
-import { Empty, Loading, timeAgo, useParamState, useRowKeys, UserLink, Copyable, Modal } from '../ui';
+import { Empty, Loading, LoadError, timeAgo, useParamState, useRowKeys, UserLink, Copyable, Modal } from '../ui';
 import { useDetail, useOnChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
@@ -30,6 +30,7 @@ const reasonLabel = (c?: string | null) => REJECT_REASONS.find(r => r.code === c
 export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'No verification requests'
   const [tab,setTab]=useParamState<'pending'|'all'>('tab','pending');
   const [open,setOpen]=useState<any|null>(null);
   const [picked,setPicked]=useState<Set<string>>(new Set());
@@ -56,7 +57,8 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
     setLoading(true);
     const { data,error }=await supabase.rpc('admin_kyc_list',{ p_status: tab==='pending'?'pending':'all', p_limit: 200 });
     if(my!==loadReq.current) return;
-    if(error){ toast(error.message); }
+    if(error){ toast(error.message); setLoadErr(true); setRows([]); setLoading(false); return; }
+    setLoadErr(false);
     const list:any[]=data||[];
     const phones=await adminPhones(list.map(r=>r.user_id));
     if(my!==loadReq.current) return;
@@ -92,7 +94,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
 
       <div className="card">
         <div className="card-h">
-          <h2><ShieldCheck size={16}/> Requests{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>
+          <h2><ShieldCheck size={16}/> Requests {!loading && !loadErr && <span className="muted">({rows.length>=200?'newest 200':rows.length})</span>}{pending>0 && <span className="badge b-warn" style={{marginLeft:8}}>{pending} pending</span>}</h2>
           <div className="row-acts">
             <button className={tab==='pending'?'btn sm':'btn ghost sm'} onClick={()=>setTab('pending')}>Pending</button>
             <button className={tab==='all'?'btn sm':'btn ghost sm'} onClick={()=>setTab('all')}>All</button>
@@ -105,7 +107,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
             <button className="btn ghost sm" onClick={()=>setPicked(new Set())}>Clear</button>
           </div>
         )}
-        {loading?<Loading/>:rows.length===0?<Empty text="No verification requests."/>:(
+        {loading?<Loading/>:loadErr?<LoadError what="verification requests" onRetry={load}/>:rows.length===0?<Empty text="No verification requests."/>:(
           <table>
             <thead><tr>
               <th className="ck"><input type="checkbox"
@@ -316,7 +318,12 @@ function Zoomable({ url, label }:{ url:string; label:string }){
 function UidaiCerts(){
   const [list,setList]=useState<any[]|null>(null);
   const [busy,setBusy]=useState(false);
-  async function load(){ const { data }=await supabase.rpc('admin_uidai_cert_list'); setList(data||[]); }
+  const [loadErr,setLoadErr]=useState(false); // a failed load must not read as 'Off — no certificate'
+  async function load(){
+    const { data, error }=await supabase.rpc('admin_uidai_cert_list');
+    if(error){ setLoadErr(true); setList([]); return; }
+    setLoadErr(false); setList(data||[]);
+  }
   useEffect(()=>{ load(); },[]);
   async function onFile(f:File){
     setBusy(true);
@@ -341,7 +348,7 @@ function UidaiCerts(){
         </label>
       </div>
       <div style={{padding:'12px 18px',fontSize:13}}>
-        {list===null ? <Loading/> : list.length===0
+        {list===null ? <Loading/> : loadErr ? <LoadError what="certificates" onRetry={load}/> : list.length===0
           ? <div className="muted">Off — no UIDAI certificate uploaded yet, so the app only offers the photo route. Download the Secure QR / Paperless Offline e-KYC signing certificate from uidai.gov.in → Developer section → UIDAI certificate details, then upload it here.</div>
           : <div>
               <div style={{marginBottom:6}}><span className="badge b-ok">On</span> Users can scan the QR on their Aadhaar for instant verification. Auto-approved only when the signature is valid, the Aadhaar mobile matches the account phone, the selfie passed the live check and the ID isn't on another account.</div>

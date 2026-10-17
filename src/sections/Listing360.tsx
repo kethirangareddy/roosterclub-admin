@@ -33,7 +33,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     const { error }=await supabase.from('listings').update({ approval_status }).eq('id',listingId);
     setBusy(false);
     if(error){ toast(error.message); return; }
-    load(); onChanged?.(); emitChanged(); onChanged?.(); emitChanged();
+    load(); onChanged?.(); emitChanged();
   }
   async function feature(days:number|null){
     setBusy(true);
@@ -41,7 +41,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     const { error }=await supabase.from('listings').update({ featured_until }).eq('id',listingId);
     setBusy(false);
     if(error){ toast(error.message); return; }
-    load();
+    load(); onChanged?.(); emitChanged();
   }
   // Item 16 — soft delete with a 30-day undo window (purge cron hard-deletes after 30d).
   async function remove(){

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Store, Plus, Pencil, ImagePlus } from 'lucide-react';
-import { Empty, Loading, loc, inr, timeAgo, Modal, Field } from '../ui';
+import { Empty, Loading, loc, inr, timeAgo, Modal, Field, LoadError } from '../ui';
 import { AccessoryEditor, DetailsForm, fromForm, toForm } from './AccessoryEditor';
 import { ApparelEditor, ApparelState, StockGrid, apparelPayload, defaultGrid, emptyApparel, loadVariants, saveVariants } from './ApparelEditor';
 import { toast, ask } from '../feedback';
@@ -24,6 +24,7 @@ export default function Shop() {
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
   const [uploading, setUploading] = useState(false);
   const inflight = useRef(0);
   const [dragOver, setDragOver] = useState(false);
@@ -38,8 +39,13 @@ export default function Shop() {
   // Only the product you opened last may fill the size/colour grid.
   const editId = useRef<string | null>(null);
   const editSeq = useRef(0); // bumps every time a form opens (new or existing)
+  // Stock as it was when the form opened. Save only sends stock the admin changed,
+  // so orders placed meanwhile aren't overwritten with the old numbers.
+  const origStock = useRef<string>('');
+  const origGrid = useRef<StockGrid>({});
   async function openEdit(row: any | null) {
     editId.current = row?.id ?? null; editSeq.current++;
+    origStock.current = String(row?.stock_count ?? ''); origGrid.current = {};
     if (!row) { setEdit({ ...empty }); setApparel(null); setGrid({}); setDetails(null); return; }
     setDetails(row.category === 'accessories' ? toForm(row.details) : null);
     setEdit({ ...empty, ...row, price: row.price ?? '', brand: row.brand ?? '', unit: row.unit ?? '', stock_count: row.stock_count ?? '', description: row.description ?? '', name_te: row.name_te ?? '' });
@@ -54,6 +60,7 @@ export default function Shop() {
         setEdit(null); setApparel(null); return;
       }
       if (editId.current !== row.id) return;
+      origGrid.current = g;
       setGrid(Object.keys(g).length ? g : defaultGrid(a));
     } else { setApparel(null); setGrid({}); }
   }
@@ -67,6 +74,8 @@ export default function Shop() {
   // Colour-photo uploads count as uploads too (Save waits for them), and are
   // dropped if the form was closed or another product opened meanwhile.
   async function uploadUrls(files: File[]): Promise<string[]> {
+    // Save reloads the form when done, so photos added meanwhile would be lost.
+    if (saving) { toast('Wait for Save to finish'); return []; }
     const token = editSeq.current;
     inflight.current++; setUploading(true);
     try {
@@ -92,7 +101,8 @@ export default function Shop() {
     // then look seller names up separately.
     const { data, error } = await supabase.from('shop_products')
       .select('*').order('created_at', { ascending: false }).limit(300);
-    if (error) { toast('Could not load products: ' + error.message); setLoading(false); return; }
+    if (error) { setLoadErr(true); setLoading(false); return; } // shows Couldn't load, not "No products yet"
+    setLoadErr(false);
     const products = data || [];
     const ids = Array.from(new Set(products.map((p: any) => p.user_id).filter(Boolean)));
     let names: Record<string, string> = {};
@@ -135,6 +145,7 @@ export default function Shop() {
   async function uploadFiles(files: File[]) {
     const pics = files.filter(f => f.type.startsWith('image/'));
     if (!pics.length || !edit) return;
+    if (saving) { toast('Wait for Save to finish'); return; } // the form closes after Save; these would be lost
     // Remember which form the photos are for: if it was closed or another
     // product opened while uploading, drop them instead of crashing or
     // attaching them to the wrong product.
@@ -202,6 +213,10 @@ export default function Shop() {
       status: edit.status || 'active',
       name_te: edit.name_te?.trim() || null,
     };
+    // Saving a removed product as anything else brings it back, so clear its removal date.
+    if (payload.status !== 'removed') payload.removed_at = null;
+    // Unchanged stock is left out so live stock (orders since the form opened) isn't put back.
+    if (edit.id && String(edit.stock_count ?? '') === origStock.current) delete payload.stock_count;
     if (isApparel && apparel) {
       if (!apparel.colours.length) { setSaving(false); toast('Add at least one colour.'); return; }
       if (!Object.values(grid).some((r) => Object.keys(r).length)) { setSaving(false); toast('Tick at least one size.'); return; }
@@ -226,7 +241,7 @@ export default function Shop() {
       // and you press Save again it updates this product instead of adding a duplicate.
       if (id) setEdit((cur: any) => cur ? { ...cur, id } : cur);
     }
-    if (!error && isApparel && id) error = await saveVariants(id, grid);
+    if (!error && isApparel && id) error = await saveVariants(id, grid, edit.id ? origGrid.current : {});
     setSaving(false);
     if (error) { toast('Could not save: ' + error.message); return; }
     setEdit(null); setApparel(null); load();
@@ -244,7 +259,7 @@ export default function Shop() {
 
       <div className="card">
         <div className="card-h"><h2><Store size={16} /> Products ({rows.length})</h2></div>
-        {loading ? <Loading /> : rows.length === 0 ? <Empty text="No shop products yet. Click “Add product”." /> : (
+        {loading ? <Loading /> : loadErr ? <LoadError what="products" onRetry={load} /> : rows.length === 0 ? <Empty text="No shop products yet. Click “Add product”." /> : (
           <table>
             <thead><tr><th></th><th>Product</th><th>Seller</th><th>Category</th><th>Price</th><th>Stock</th><th>Location</th><th>Status</th><th>Added</th><th></th></tr></thead>
             <tbody>
@@ -300,7 +315,7 @@ export default function Shop() {
                 Up to 8 photos. The first is the cover.
               </div>
             </div>
-            <input type="file" accept="image/*" multiple hidden onChange={pickImage} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
+            <input type="file" accept="image/*" multiple hidden disabled={saving} onChange={pickImage} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
           </label>
 
           {(edit.images ?? []).length > 0 && (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
-import { Modal } from '../ui';
+import { Modal, LoadError } from '../ui';
 import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users, BellRing, Send, Gift } from 'lucide-react';
 import { useDetail } from '../detail';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -49,10 +49,11 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
     setZoom(null); setCompose(false);
     (async () => {
       setKyc(null);
-      const { data } = await supabase.from('kyc_submissions')
+      const { data, error } = await supabase.from('kyc_submissions')
         .select('id,status,id_type,uidai_verified,photos_purged_at,created_at')
         .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      if (alive) setKyc(data ? { ...data } : { none: true });
+      // A failed read is not "No KYC submitted".
+      if (alive) setKyc(error ? { failed: true } : data ? { ...data } : { none: true });
     })();
     return () => { alive = false; };
   }, [userId]);
@@ -153,6 +154,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
               <ShieldCheck size={13} style={{ verticalAlign: -2 }} /> KYC photos{kyc?.status ? <span className="muted"> · {kyc.status}</span> : ''}
             </div>
             {!kyc ? <div className="muted" style={{ fontSize: 12.5 }}>Loading…</div>
+              : kyc.failed ? <LoadError what="KYC details"/>
               : kyc.none ? <div className="muted" style={{ fontSize: 12.5 }}>No KYC submitted.</div>
               : kyc.photos_purged_at ? <div className="muted" style={{ fontSize: 12.5 }}>Photos deleted 30 days after rejection.</div>
               : !kyc.a_url && !kyc.s_url ? (
