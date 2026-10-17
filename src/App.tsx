@@ -253,6 +253,12 @@ export default function App(){
   const [counts,setCounts]=useState<Record<string,any>>({});
   const [menuOpen,setMenuOpen]=useState(false);
   const [cmdk,setCmdk]=useState(false);
+  // Phone: the hub tab row scrolls sideways — keep the selected tab in view.
+  const hubTabsRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{
+    const row=hubTabsRef.current; const on=row?.querySelector('.hubtab.on') as HTMLElement|null;
+    if(row && on){ const r=row.getBoundingClientRect(), o=on.getBoundingClientRect(); row.scrollLeft+=(o.left-r.left)-(r.width-o.width)/2; }
+  },[view]);
   // Search is a Back step: phone Back closes only the search. Opening a result
   // replaces that step, so there is no dead Back press afterwards.
   const cmdkRef=useRef(false); cmdkRef.current=cmdk;
@@ -633,7 +639,7 @@ export default function App(){
         {hub.items.length>1 && (
           <div className="hubbar">
             <div className="hubbar-t"><hub.Icon size={16}/> {hub.label}</div>
-            <div className="hubtabs" role="tablist">
+            <div className="hubtabs" role="tablist" ref={hubTabsRef}>
               {hub.items.map(k=>{
                 const it=ITEMS[k]; const n=pend(k);
                 const empty=it.totalKey ? !(counts.total?.[it.totalKey]) : false;
