@@ -251,7 +251,7 @@ export default function Shop() {
         <Modal title={edit.id ? 'Edit product' : 'Add product'} onClose={() => setEdit(null)}
           footer={<>
             <button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button>
-            <button className="btn" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save product'}</button>
+            <button className="btn" onClick={save} disabled={saving || uploading} title={uploading ? 'Wait for the photo upload to finish' : undefined}>{saving ? 'Saving…' : uploading ? 'Uploading photo…' : 'Save product'}</button>
           </>}>
           {/* Drop photos straight from a folder — the whole box is also a file
               picker, so clicking it works exactly like the old button did. */}

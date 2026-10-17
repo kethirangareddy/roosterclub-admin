@@ -165,10 +165,15 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
   }
   useEffect(()=>{ fetchUrls(); },[r.id]);
 
+  const deciding=useRef(false);
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
       if((e.target as HTMLElement)?.tagName==='INPUT' || (e.target as HTMLElement)?.tagName==='TEXTAREA' || (e.target as HTMLElement)?.tagName==='SELECT') return;
-      if(r.status!=='pending' || busy) return;
+      // Only when this review is the thing on top: never through a side panel
+      // or a confirm dialog, and never twice while a decision is in flight.
+      if(e.metaKey||e.ctrlKey||e.altKey) return;
+      if(document.querySelector('.drawer-scrim, .ask-scrim, .cmdk')) return;
+      if(r.status!=='pending' || busy || deciding.current) return;
       if(e.key==='a') approve();
       if(e.key==='r') setRejecting(true);
     }
@@ -176,12 +181,16 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
   });
 
   async function approve(){
-    if(r.dup_users>0 && !await ask(`This ID appears on ${r.dup_users} other account(s). Approve anyway?`)) return;
-    setBusy(true);
-    const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:true });
-    setBusy(false);
-    if(error){ toast(error.message); return; }
-    onDone();
+    if(deciding.current) return;
+    deciding.current=true;
+    try{
+      if(r.dup_users>0 && !await ask(`This ID appears on ${r.dup_users} other account(s). Approve anyway?`)) return;
+      setBusy(true);
+      const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:true });
+      setBusy(false);
+      if(error){ toast(error.message); return; }
+      onDone();
+    } finally { deciding.current=false; }
   }
   async function reject(){
     if(!reason){ toast('Pick a reason.'); return; }
