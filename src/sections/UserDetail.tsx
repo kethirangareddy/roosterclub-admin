@@ -58,10 +58,21 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
     return () => { alive = false; };
   }, [userId]);
 
+  // The zoom is a history step: phone Back closes the photo, not the panel.
+  function openZoom(z: { url: string; label: string }) {
+    history.pushState({ ...(history.state || {}), rcZoom: 1 }, '', location.href);
+    setZoom(z);
+  }
+  function closeZoom() { if (history.state?.rcZoom) history.back(); else setZoom(null); }
+  useEffect(() => {
+    const onPop = () => { if (!history.state?.rcZoom) setZoom(null); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   // Esc closes the zoomed photo first, not the whole panel behind it.
   useEffect(() => {
     if (!zoom) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.cmdk, .ask-scrim')) { e.preventDefault(); e.stopImmediatePropagation(); setZoom(null); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.cmdk, .ask-scrim')) { e.preventDefault(); e.stopImmediatePropagation(); closeZoom(); } };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [zoom]);
@@ -175,12 +186,12 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
                 <div style={{ display: 'flex', gap: 10 }}>
                   {kyc.a_url
                     ? <div><div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>ID</div>
-                        <img src={kyc.a_url} onClick={() => setZoom({ url: kyc.a_url, label: 'ID' })}
+                        <img src={kyc.a_url} onClick={() => openZoom({ url: kyc.a_url, label: 'ID' })}
                           style={{ height: 70, borderRadius: 6, cursor: 'zoom-in', border: '1px solid var(--line)' }} /></div>
                     : null}
                   {kyc.s_url
                     ? <div><div className="muted" style={{ fontSize: 11, marginBottom: 3 }}>Selfie</div>
-                        <img src={kyc.s_url} onClick={() => setZoom({ url: kyc.s_url, label: 'Selfie' })}
+                        <img src={kyc.s_url} onClick={() => openZoom({ url: kyc.s_url, label: 'Selfie' })}
                           style={{ height: 70, borderRadius: 6, cursor: 'zoom-in', border: '1px solid var(--line)' }} /></div>
                     : null}
                 </div>
@@ -243,7 +254,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
           )}
 
           {zoom && (
-            <div className="zoom-scrim" onClick={() => setZoom(null)}
+            <div className="zoom-scrim" onClick={closeZoom}
               style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 2000, cursor: 'zoom-out' }}>
               <div style={{ color: '#fff', fontWeight: 600, fontSize: 15 }}>{zoom.label} — click anywhere to close</div>
               <img src={zoom.url} onClick={(e) => e.stopPropagation()}

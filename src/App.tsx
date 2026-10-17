@@ -258,7 +258,8 @@ export default function App(){
       // shared ?d= link). We never go Back past that — it would leave the app.
       const st=history.state;
       const base=st?.rcDetail!=null ? (st.rcBase??0) : detail.length;
-      history.pushState({...(st||{}),rcDetail:next.length,rcBase:base},'',u);
+      const { rcZoom:_z, ...keep }=(st||{});
+      history.pushState({...keep,rcDetail:next.length,rcBase:base},'',u);
     } else history.replaceState(history.state,'',u);
   }
 
@@ -347,6 +348,7 @@ export default function App(){
   }
   useEffect(()=>{
     const onPop=()=>{
+      setCmdk(false); // Back with search open closes the search too
       const p=new URLSearchParams(location.search);
       const v=p.get('view') as Key|null;
       setViewRaw(v && KEYS.includes(v) ? v : 'dash');
