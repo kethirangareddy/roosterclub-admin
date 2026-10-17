@@ -121,6 +121,13 @@ const ICON = { ok: CheckCircle2, danger: AlertTriangle, info: Info };
 export function FeedbackHost() {
   const [, force] = useState(0);
   useEffect(() => { const f = () => force(n => n + 1); subs.add(f); return () => { subs.delete(f); }; }, []);
+  // Phone Back while a question is open cancels it — Confirm must never act
+  // on a screen or panel that Back has already left.
+  useEffect(() => {
+    const onPop = () => { [...asks].forEach(a => settle(a, a.input ? null : (a.dismissNull ? null : false))); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const top = asks[0];
   return (
     <>

@@ -251,7 +251,11 @@ export default function App(){
     if(!history.state?.rcCmdk) history.pushState({...(history.state||{}),rcCmdk:1},'',location.href);
     setCmdk(true);
   }
-  function closeCmdk(){ if(history.state?.rcCmdk) history.back(); else setCmdk(false); }
+  const closingCmdk=useRef(false); // a double-tap must not go Back twice
+  function closeCmdk(){
+    if(closingCmdk.current) return;
+    if(history.state?.rcCmdk){ closingCmdk.current=true; history.back(); } else setCmdk(false);
+  }
   const [navTick,setNavTick]=useState(0);
   // stack: Receipt-360 → seller 360 etc. Mirrored to ?d= so a 360 survives a
   // refresh, can be shared as a link, and closes on browser Back.
@@ -275,6 +279,8 @@ export default function App(){
   }
 
   function openHit(h:Hit){
+    const top=detail[detail.length-1];
+    if(top && top.kind===h.kind && top.id===h.id){ closeCmdk(); return; } // already open: just close the search step
     setCmdk(false);
     if(h.kind==='user'||h.kind==='listing'||h.kind==='receipt') pushDetail({ kind:h.kind, id:h.id });
     else if(h.kind==='auction') setView('auctions');
@@ -360,6 +366,7 @@ export default function App(){
   }
   useEffect(()=>{
     const onPop=()=>{
+      closingCmdk.current=false;
       if(!history.state?.rcCmdk) setCmdk(false); // Back closes the search step
       else if(!cmdkRef.current){ history.back(); return; } // a leftover search step — skip it
       const p=new URLSearchParams(location.search);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { Modal, LoadError } from '../ui';
 import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users, BellRing, Send, Gift } from 'lucide-react';
@@ -59,13 +59,18 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
   }, [userId]);
 
   // The zoom is a history step: phone Back closes the photo, not the panel.
+  const zoomRef = useRef(zoom); zoomRef.current = zoom;
   function openZoom(z: { url: string; label: string }) {
     history.pushState({ ...(history.state || {}), rcZoom: 1 }, '', location.href);
     setZoom(z);
   }
   function closeZoom() { if (history.state?.rcZoom) history.back(); else setZoom(null); }
   useEffect(() => {
-    const onPop = () => { if (!history.state?.rcZoom) setZoom(null); };
+    const onPop = () => {
+      if (!history.state?.rcZoom) setZoom(null);
+      // Forward onto a closed photo — skip that step (once, even if two panels are mounted)
+      else if (!zoomRef.current && !document.querySelector('.zoom-scrim') && (window as any).__rcZoomSkip !== history.length + location.href) { (window as any).__rcZoomSkip = history.length + location.href; setTimeout(() => { (window as any).__rcZoomSkip = null; }, 0); history.back(); }
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
