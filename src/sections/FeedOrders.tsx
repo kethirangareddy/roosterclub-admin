@@ -213,11 +213,15 @@ function MillTab() {
     setSaving(true);
     const rows = Object.entries(mill).filter(([, v]) => Number(v.price) > 0)
       .map(([key, v]) => ({ key, price_per_kg: Number(v.price), in_stock: v.in_stock, updated_at: new Date().toISOString() }));
+    // A cleared price means "not offered": mark it out of stock instead of
+    // silently skipping it (it used to stay in stock at the old price).
+    const blanks = Object.entries(mill).filter(([, v]) => !(Number(v.price) > 0)).map(([key]) => key);
+    const r0 = blanks.length ? await supabase.from('mill_ingredients').update({ in_stock: false, updated_at: new Date().toISOString() }).in('key', blanks) : { error: null };
     const r1 = await supabase.from('mill_ingredients').upsert(rows);
     const r2 = await supabase.from('mill_addons').upsert(addons.map((a) => ({ ...a, price_per_sack: Number(a.price_per_sack) })));
     const r3 = await supabase.from('app_config').update({ value: cfg, updated_at: new Date().toISOString() }).eq('key', 'custom_feed');
     setSaving(false);
-    const err = r1.error || r2.error || r3.error;
+    const err = r0.error || r1.error || r2.error || r3.error;
     if (err) toast('Could not save: ' + err.message); else { toast('Saved'); load(); }
   }
   if (!ings || !cfg) return <Loading />;

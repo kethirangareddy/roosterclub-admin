@@ -129,7 +129,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
       const cur = latest.current;
       // Match by key; if the colour was renamed meanwhile (its key changes), use its position.
       const at = cur.colours.findIndex(c => c.key === key);
-      const idx = at >= 0 ? at : (i < cur.colours.length ? i : -1);
+      const idx = at >= 0 ? at : (cur.colours.length === a.colours.length && i < cur.colours.length ? i : -1);
       if (idx < 0) return;
       onChange({ ...cur, colours: cur.colours.map((c, j) => j === idx ? { ...c, images: [...(c.images ?? []), ...urls].slice(0, 8) } : c) });
     } finally { setBusy(null); }
@@ -194,7 +194,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
               {busy === c.key ? 'Uploading…' : '+ Photos'}
               <input type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(i, Array.from(e.target.files ?? []))} onClick={(e) => { (e.target as HTMLInputElement).value = ''; }} />
             </label>
-            <button className="btn danger sm" onClick={() => removeColour(i)}>Remove colour</button>
+            <button className="btn danger sm" disabled={busy === c.key} title={busy === c.key ? 'Wait for the photos to finish uploading' : undefined} onClick={() => removeColour(i)}>Remove colour</button>
           </div>
           {(c.images ?? []).length > 0 && (
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>

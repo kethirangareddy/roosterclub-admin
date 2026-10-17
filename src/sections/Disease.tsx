@@ -71,7 +71,7 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
     const { data, error }=await supabase.functions.invoke('notify-disease-verified',{ body:{ alert_id:r.id } });
     if(error){ toast('Could not verify & push: '+error.message); return; }
     if(data?.error){ toast('Could not verify & push: '+data.error); return; }
-    load(); onChange();
+    await load(); onChange(); // keep the button locked until the list shows it as pushed
   }
   async function remove(id:string){
     if(!await ask('Delete this alert?')) return;

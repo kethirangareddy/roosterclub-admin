@@ -66,7 +66,8 @@ export default function Ads() {
       const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: false });
       if (up.error) { toast('Upload failed: ' + up.error.message); return; }
       const url = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
-      setEdit((cur: any) => which === 'media' ? { ...cur, media_url: url, media_type: isVideo ? 'video' : 'photo' } : { ...cur, poster_url: url });
+      // Form closed meanwhile → drop the file (it used to reopen a broken form).
+      setEdit((cur: any) => !cur ? cur : which === 'media' ? { ...cur, media_url: url, media_type: isVideo ? 'video' : 'photo' } : { ...cur, poster_url: url });
     } finally { setUploading(''); }
   }
 
@@ -166,9 +167,9 @@ export default function Ads() {
       </div>
 
       {edit && (
-        <Modal title={edit.id ? 'Edit ad' : 'New ad'} onClose={() => setEdit(null)}
+        <Modal title={edit.id ? 'Edit ad' : 'New ad'} onClose={() => { if (!uploading) setEdit(null); }}
           footer={<>
-            <button className="btn ghost" onClick={() => setEdit(null)}>Cancel</button>
+            <button className="btn ghost" disabled={!!uploading} onClick={() => setEdit(null)}>Cancel</button>
             <button className="btn" onClick={save} disabled={saving || !!uploading}>{saving ? 'Saving…' : 'Save ad'}</button>
           </>}>
           <label style={{ display: 'flex', gap: 14, alignItems: 'center', cursor: 'pointer', border: '2px dashed var(--line, #E3D9C9)', borderRadius: 12, padding: 14 }}>

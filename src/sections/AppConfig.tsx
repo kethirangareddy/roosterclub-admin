@@ -62,12 +62,15 @@ export default function AppConfig(){
       if(err && p.active){ toast('Partner app: '+err); return; }
     }
     setSaving(true);
-    for(const key of dirty){
+    // Save what was changed when you pressed Save; anything edited while it
+    // saves stays marked unsaved (it used to be marked saved but never written).
+    const batch=[...dirty];
+    for(const key of batch){
       const { error }=await supabase.from('app_config')
         .upsert({ key, value:cfg[key], updated_at:new Date().toISOString() });
       if(error){ setSaving(false); toast(`Could not save "${key}": `+error.message); return; }
     }
-    setSaving(false); setDirty(new Set());
+    setSaving(false); setDirty(d=>{ const s=new Set(d); batch.forEach(k=>s.delete(k)); return s; });
     toast('Saved. Users pick this up next time the app launches.');
   }
 

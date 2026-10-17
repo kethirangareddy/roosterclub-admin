@@ -28,9 +28,10 @@ export default function Community({ onChange }: { onChange?: () => void }) {
     setThreads(t => t.filter(x => x.id !== id)); onChange?.();
   }
   async function togglePin(r: any) {
-    const { error } = await supabase.from('forum_threads').update({ pinned: !r.pinned }).eq('id', r.id);
+    const next = !r.pinned;
+    const { error } = await supabase.from('forum_threads').update({ pinned: next }).eq('id', r.id);
     if (error) { toast(error.message); return; }
-    setThreads(t => t.map(x => x.id === r.id ? { ...x, pinned: !x.pinned } : x));
+    setThreads(t => t.map(x => x.id === r.id ? { ...x, pinned: next } : x));
   }
   // Clear the previous thread's replies, and only accept replies for the
   // thread that is still open.
