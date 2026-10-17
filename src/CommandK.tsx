@@ -1,5 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabase';
+import { ask, toast } from './feedback';
+import { emitChanged } from './detail';
+import { Ban, CheckCircle2, XCircle, CornerDownRight } from 'lucide-react';
+
+/* Verbs: type "ban 98480…" or "approve aseel" and Enter acts on the match
+   (after a confirm). Each verb only matches the record type it applies to. */
+type Verb = { word:string; kind:HitKind; label:string; Icon:any; run:(h:Hit)=>Promise<string|null> };
+const VERBS: Verb[] = [
+  { word:'ban', kind:'user', label:'Ban', Icon:Ban, run: async h=>{
+      const { error }=await supabase.from('users').update({ banned:true }).eq('id',h.id);
+      return error?error.message:null; } },
+  { word:'unban', kind:'user', label:'Unban', Icon:CheckCircle2, run: async h=>{
+      const { error }=await supabase.from('users').update({ banned:false }).eq('id',h.id);
+      return error?error.message:null; } },
+  { word:'approve', kind:'listing', label:'Approve', Icon:CheckCircle2, run: async h=>{
+      const { error }=await supabase.from('listings').update({ approval_status:'approved' }).eq('id',h.id);
+      return error?error.message:null; } },
+  { word:'reject', kind:'listing', label:'Reject', Icon:XCircle, run: async h=>{
+      const { error }=await supabase.from('listings').update({ approval_status:'rejected' }).eq('id',h.id);
+      return error?error.message:null; } },
+];
 import { Search, User, ListChecks, ReceiptText, Gavel, Flag, Megaphone, ShieldCheck,
   Award, Repeat, MapPin, Activity as ActivityIcon, Wallet, SlidersHorizontal, Inbox, MessageSquare } from 'lucide-react';
 
@@ -26,8 +47,9 @@ const ACTIONS: Action[] = [
 ];
 
 /** ⌘K / Ctrl+K palette — commands plus any user, listing, receipt, auction or report. */
-export default function CommandK({ onOpenResult, onGo, onClose }:{
-  onOpenResult:(h:Hit)=>void; onGo:(view:string,qp?:Record<string,string>)=>void; onClose:()=>void;
+export type Screen = { view:string; label:string; hub:string; Icon:any };
+export default function CommandK({ onOpenResult, onGo, onClose, screens=[] }:{
+  onOpenResult:(h:Hit)=>void; onGo:(view:string,qp?:Record<string,string>)=>void; onClose:()=>void; screens?:Screen[];
 }){
   const [q,setQ]=useState('');
   const [hits,setHits]=useState<Hit[]>([]);
@@ -38,9 +60,13 @@ export default function CommandK({ onOpenResult, onGo, onClose }:{
 
   useEffect(()=>{ inputRef.current?.focus(); },[]);
 
+  const vm=/^(ban|unban|approve|reject)\s+(.+)$/i.exec(q.trim());
+  const verb=vm?VERBS.find(v=>v.word===vm[1].toLowerCase())||null:null;
+  const searchTerm=verb?vm![2]:q;
+
   // Debounced search — one RPC hits all five tables.
   useEffect(()=>{
-    const term=q.trim();
+    const term=searchTerm.trim();
     if(term.length<2){ setHits([]); setSel(0); return; }
     setBusy(true);
     const mine=++seq.current;
@@ -52,18 +78,30 @@ export default function CommandK({ onOpenResult, onGo, onClose }:{
       setHits((data||[]) as Hit[]); setSel(0);
     },220);
     return ()=>clearTimeout(t);
-  },[q]);
+  },[searchTerm]);
 
   const term=q.trim().toLowerCase();
-  const acts=term
-    ? ACTIONS.filter(a=>(a.label+' '+a.hint).toLowerCase().includes(term))
+  // Every screen is reachable by name ("orders", "kyc", "forum"…).
+  const screenActs:Action[]=screens.map(sc=>({ id:'go-'+sc.view, label:sc.label, hint:'Go to · '+sc.hub, view:sc.view, Icon:sc.Icon||CornerDownRight }));
+  const acts=verb ? [] : term
+    ? [...ACTIONS,...screenActs].filter(a=>(a.label+' '+a.hint).toLowerCase().includes(term)).slice(0,8)
     : ACTIONS;
-  const total=acts.length+hits.length;
+  const shownHits=verb?hits.filter(h=>h.kind===verb.kind):hits;
+  const total=acts.length+shownHits.length;
 
+  async function act(h:Hit){
+    if(!verb) return onOpenResult(h);
+    if(!await ask(`${verb.label} ${h.kind==='user'?'member':'listing'} “${h.title}”?`,{ okText:verb.label })) return;
+    const err=await verb.run(h);
+    if(err){ toast('Could not '+verb.word+': '+err); return; }
+    const done={ban:'Banned',unban:'Unbanned',approve:'Approved',reject:'Rejected'}[verb.word as 'ban'];
+    toast(`${done}: ${h.title}`,'ok');
+    emitChanged(); onClose();
+  }
   function run(i:number){
     if(i<acts.length){ const a=acts[i]; onGo(a.view,a.qp); return; }
-    const h=hits[i-acts.length];
-    if(h) onOpenResult(h);
+    const h=shownHits[i-acts.length];
+    if(h) act(h);
   }
 
   function onKey(e:React.KeyboardEvent){
@@ -75,7 +113,7 @@ export default function CommandK({ onOpenResult, onGo, onClose }:{
 
   // Group in fixed order, preserving flat index for arrow-key selection.
   const order:HitKind[]=['user','listing','receipt','auction','report'];
-  const grouped=order.map(k=>({ kind:k, items:hits.filter(h=>h.kind===k) })).filter(g=>g.items.length>0);
+  const grouped=order.map(k=>({ kind:k, items:shownHits.filter(h=>h.kind===k) })).filter(g=>g.items.length>0);
   let flat=acts.length-1;
 
   return (
@@ -103,10 +141,11 @@ export default function CommandK({ onOpenResult, onGo, onClose }:{
               ))}
             </div>
           )}
-          {q.trim().length<2
-            ? <div className="cmdk-hint">…or type at least 2 characters to find a name, @handle, phone, breed, receipt no, verify code.</div>
-            : hits.length===0 && !busy
-            ? <div className="cmdk-hint">No records match “{q.trim()}”.</div>
+          {verb && <div className="cmdk-group">{verb.label} which {verb.kind==='user'?'member':'listing'}? Enter to confirm</div>}
+          {searchTerm.trim().length<2
+            ? <div className="cmdk-hint">Type a name, @handle, phone, breed, receipt no or screen name. Quick actions: <b>ban</b> / <b>unban</b> &lt;member&gt;, <b>approve</b> / <b>reject</b> &lt;listing&gt;.</div>
+            : shownHits.length===0 && !busy
+            ? <div className="cmdk-hint">No {verb?(verb.kind==='user'?'members':'listings'):'records'} match “{searchTerm.trim()}”.</div>
             : grouped.map(g=>(
                 <div key={g.kind}>
                   <div className="cmdk-group">{LABEL[g.kind]}</div>
@@ -115,8 +154,9 @@ export default function CommandK({ onOpenResult, onGo, onClose }:{
                     const i=flat, Icon=ICON[h.kind];
                     return (
                       <div key={h.kind+h.id} className={'cmdk-row'+(i===sel?' on':'')}
-                        onMouseEnter={()=>setSel(i)} onClick={()=>onOpenResult(h)}>
-                        <Icon size={15} style={{color:'var(--cta)',flexShrink:0}}/>
+                        onMouseEnter={()=>setSel(i)} onClick={()=>act(h)}>
+                        {verb ? <verb.Icon size={15} style={{color:verb.word==='ban'||verb.word==='reject'?'var(--danger)':'var(--ok)',flexShrink:0}}/>
+                              : <Icon size={15} style={{color:'var(--cta)',flexShrink:0}}/>}
                         <div style={{minWidth:0}}>
                           <div className="cmdk-t">{h.title}</div>
                           <div className="cmdk-s">{h.subtitle}</div>
@@ -127,7 +167,7 @@ export default function CommandK({ onOpenResult, onGo, onClose }:{
                 </div>
               ))}
         </div>
-        <div className="cmdk-foot">↑↓ navigate · Enter open · Esc close</div>
+        <div className="cmdk-foot">↑↓ navigate · Enter {verb?verb.word:'open'} · Esc close</div>
       </div>
     </div>
   );

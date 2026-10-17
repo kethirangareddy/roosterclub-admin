@@ -66,7 +66,7 @@ export default function UsersSection(){
     if(error) toast('Could not load users: '+error.message);
     let list = data||[];
     // total_n is a window count computed before LIMIT — the real match count.
-    setTotal(list.length ? Number(list[0].total_n) : 0);
+    setTotal(list.length ? (Number(list[0].total_n) || list.length) : 0);
     // Merge referral info (who invited them + how many they invited) so the
     // list can filter by referral. Additive RPC — keeps admin_users unchanged.
     const { data:refs }=await supabase.rpc('admin_user_referrals');

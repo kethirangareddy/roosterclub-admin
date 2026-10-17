@@ -161,7 +161,26 @@ function MobileTriage({counts,go}:{counts:Record<string,any>;go:(k:Key)=>void}){
   );
 }
 
+/* Light / Dark / Auto. Auto follows the device and switches live. */
+type ThemePref='auto'|'light'|'dark';
+function useTheme(){
+  const [pref,setPref]=useState<ThemePref>(()=>{ try{ return (localStorage.getItem('rc_theme') as ThemePref)||'auto'; }catch{ return 'auto'; } });
+  useEffect(()=>{
+    const m=window.matchMedia('(prefers-color-scheme: dark)');
+    const apply=()=>{
+      const dark=pref==='dark'||(pref==='auto'&&m.matches);
+      document.documentElement.dataset.theme=dark?'dark':'light';
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#17110C':'#BA7517');
+    };
+    apply(); m.addEventListener('change',apply);
+    try{ localStorage.setItem('rc_theme',pref); }catch{}
+    return ()=>m.removeEventListener('change',apply);
+  },[pref]);
+  return [pref,setPref] as const;
+}
+
 export default function App(){
+  const [themePref,setThemePref]=useTheme();
   const [session,setSession]=useState<Session|null>(null);
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
   const [recovery,setRecovery]=useState(false);
@@ -309,7 +328,10 @@ export default function App(){
     const mo=new MutationObserver(schedule);
     mo.observe(main,{childList:true,subtree:true});
     return ()=>{ mo.disconnect(); cancelAnimationFrame(raf); };
-  },[view]);
+    // isAdmin too: on first load <main> doesn't exist until the admin check
+    // finishes, so phone tables never got their "Label: value" rows until you
+    // changed screens.
+  },[view,isAdmin]);
 
   useEffect(()=>{
     supabase.auth.getSession().then(({data})=>setSession(data.session));
@@ -435,6 +457,13 @@ export default function App(){
           ); })()}
         </nav>
         <div className="who">
+          <div className="theme-tg" role="radiogroup" aria-label="Theme">
+            {(['light','auto','dark'] as const).map(t=>(
+              <button key={t} role="radio" aria-checked={themePref===t} className={themePref===t?'on':''} onClick={()=>setThemePref(t)}>
+                {t==='light'?'Light':t==='dark'?'Dark':'Auto'}
+              </button>
+            ))}
+          </div>
           <div className="kbd-hint" title="g then d/a/r/k… jumps sections · j/k moves the focused row · a approve, r reject">⌨ g+key jump · j/k rows · a/r act</div>
           {session.user.email}
           <div><button onClick={()=>supabase.auth.signOut()}>Sign out</button></div>
@@ -478,6 +507,7 @@ export default function App(){
       </nav>
 
       {cmdk && <CommandK onOpenResult={openHit}
+        screens={NAV.map(it=>({ view:it.key, label:it.label, hub:hubOf(it.key).label, Icon:it.Icon }))}
         onGo={(v,qp)=>{ setCmdk(false); setView(v as Key,qp); }}
         onClose={()=>setCmdk(false)}/>}
       {/* One side panel for every user / listing / receipt. Opening something
