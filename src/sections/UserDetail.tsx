@@ -155,12 +155,13 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
             {!kyc ? <div className="muted" style={{ fontSize: 12.5 }}>Loading…</div>
               : kyc.none ? <div className="muted" style={{ fontSize: 12.5 }}>No KYC submitted.</div>
               : kyc.photos_purged_at ? <div className="muted" style={{ fontSize: 12.5 }}>Photos deleted 30 days after rejection.</div>
+              : kyc.shown && !kyc.a_url && !kyc.s_url ? <div className="muted" style={{ fontSize: 12.5 }}>No photos stored.</div>
               : !kyc.a_url && !kyc.s_url ? (
                 <button className="btn ghost sm" disabled={kyc.loading} onClick={async () => {
                   setKyc((k: any) => ({ ...k, loading: true }));
                   const { data, error } = await supabase.functions.invoke('kyc-admin', { body: { action: 'view', id: kyc.id } });
                   if (error || (data as any)?.error) { alert('Could not open photos'); setKyc((k: any) => ({ ...k, loading: false })); return; }
-                  setKyc((k: any) => ({ ...k, loading: false, a_url: (data as any).idUrl, s_url: (data as any).selfieUrl }));
+                  setKyc((k: any) => ({ ...k, loading: false, shown: true, a_url: (data as any).idUrl, s_url: (data as any).selfieUrl }));
                 }}>{kyc.loading ? 'Opening…' : 'Show photos (logged, 5 min)'}</button>
               ) : (
                 <div style={{ display: 'flex', gap: 10 }}>

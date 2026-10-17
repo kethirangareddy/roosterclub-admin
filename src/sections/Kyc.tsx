@@ -54,15 +54,21 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   }
   useEffect(()=>{ load(); },[tab]);
 
+  const bulkBusy=useRef(false);
   async function bulkApprove(){
+    if(bulkBusy.current) return;
     const list=rows.filter(r=>picked.has(r.id)&&r.status==='pending');
     if(!list.length) return;
     const risky=list.filter(r=>r.dup_users>0).length;
     if(!await ask(`Approve ${list.length} verification${list.length>1?'s':''} without opening each one?`+(risky?`\n\n${risky} of them use an ID seen on another account.`:''))) return;
+    bulkBusy.current=true;
+    const failed:string[]=[];
     for(const r of list){
       const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:true });
-      if(error){ toast(`@${r.handle||'user'}: ${error.message}`); break; }
+      if(error && !/already decided/.test(error.message)) failed.push(`@${r.handle||'user'}: ${error.message}`);
     }
+    bulkBusy.current=false;
+    if(failed.length) toast('Not approved:\n'+failed.join('\n'));
     setPicked(new Set()); load(); onChange?.();
   }
 
@@ -84,7 +90,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
         {picked.size>0 && (
           <div className="bulkbar">
             <b>{picked.size}</b> selected
-            <button className="btn ok sm" onClick={bulkApprove}><Check size={13}/> Approve all</button>
+            <button className="btn ok sm" onClick={bulkApprove} disabled={bulkBusy.current}><Check size={13}/> Approve all</button>
             <button className="btn ghost sm" onClick={()=>setPicked(new Set())}>Clear</button>
           </div>
         )}
@@ -127,8 +133,9 @@ function Checks({ r }:{ r:any }){
   return (
     <div className="row-acts">
       {r.uidai_verified && <span className="badge b-ok" title="UIDAI digital signature valid">UIDAI ✓</span>}
-      {r.uidai_detail?.mobile_match===true && <span className="badge b-ok" title="Aadhaar mobile = account phone">Mobile ✓</span>}
-      {r.uidai_verified && r.uidai_detail?.mobile_match===false && <span className="badge b-warn">Mobile ✗</span>}
+      {r.uidai_detail?.mobile_match===true && <span className="badge b-ok" title="Aadhaar mobile = account phone (full check)">Mobile ✓</span>}
+      {r.uidai_verified && r.uidai_detail?.mobile_match!==true && r.uidai_detail?.mobile_check==='last4' && <span className="badge b-info" title="Newer Aadhaar QRs only carry the last 4 mobile digits — these match the account phone">Mobile last 4 ✓</span>}
+      {r.uidai_verified && r.uidai_detail?.mobile_match!==true && r.uidai_detail?.mobile_check!=='last4' && <span className="badge b-warn">Mobile ✗</span>}
       <span className={'badge '+(r.liveness_passed?'b-ok':'b-mut')} title="Blink / head-turn check in the app">{r.liveness_passed?'Live ✓':'No live check'}</span>
       {r.dup_users>0 && <span className="badge b-danger" title="Same ID details on other accounts">Duplicate ×{r.dup_users}</span>}
       {r.attempts>1 && <span className="badge b-mut">{r.attempts} tries</span>}
@@ -144,6 +151,7 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
   const [busy,setBusy]=useState(false);
   const { openUser }=useDetail();
   const expiry=useRef<number>(0);
+  const busyRef=useRef(false);
 
   async function fetchUrls(){
     setUrls(null);
@@ -157,8 +165,10 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
 
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
-      if((e.target as HTMLElement)?.tagName==='INPUT' || (e.target as HTMLElement)?.tagName==='TEXTAREA' || (e.target as HTMLElement)?.tagName==='SELECT') return;
-      if(r.status!=='pending' || busy) return;
+      if(e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const tag=(e.target as HTMLElement)?.tagName;
+      if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT' || tag==='BUTTON') return;
+      if(r.status!=='pending' || busyRef.current || rejecting) return;
       if(e.key==='a') approve();
       if(e.key==='r') setRejecting(true);
     }
@@ -167,19 +177,21 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
 
   async function approve(){
     if(r.dup_users>0 && !await ask(`This ID appears on ${r.dup_users} other account(s). Approve anyway?`)) return;
-    setBusy(true);
+    if(busyRef.current) return;
+    busyRef.current=true; setBusy(true);
     const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:true });
-    setBusy(false);
-    if(error){ toast(error.message); return; }
+    busyRef.current=false; setBusy(false);
+    if(error){ toast(/already decided/.test(error.message)?'Another admin already decided this request.':error.message); if(/already decided/.test(error.message)) onDone(); return; }
     onDone();
   }
   async function reject(){
     if(!reason){ toast('Pick a reason.'); return; }
     if(reason==='other' && !note.trim()){ toast('Write a short note for "Other".'); return; }
-    setBusy(true);
+    if(busyRef.current) return;
+    busyRef.current=true; setBusy(true);
     const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:false, p_reason:reason, p_note:note.trim()||null });
-    setBusy(false);
-    if(error){ toast(error.message); return; }
+    busyRef.current=false; setBusy(false);
+    if(error){ toast(/already decided/.test(error.message)?'Another admin already decided this request.':error.message); if(/already decided/.test(error.message)) onDone(); return; }
     onDone();
   }
 
@@ -221,7 +233,7 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
         <div><span className="muted">Name on ID</span><div><b style={{color:nameDiffers?'var(--danger)':undefined}}>{r.id_name||'—'}</b>{nameDiffers && <span className="muted"> (differs)</span>}</div></div>
         {r.uidai_detail && <>
           <div><span className="muted">UIDAI</span><div>{r.uidai_detail.yob?`Born ${r.uidai_detail.yob} · `:''}{r.uidai_detail.gender||''} · {[r.uidai_detail.district,r.uidai_detail.state].filter(Boolean).join(', ')}</div></div>
-          <div><span className="muted">QR route</span><div>{r.uidai_detail.auto?'Auto-approved':'Needs your check'}{r.uidai_detail.mobile_match===false?' · mobile did not match':''}</div></div>
+          <div><span className="muted">QR route</span><div>{r.uidai_detail.auto?'Auto-approved':'Needs your check'}{r.uidai_detail.mobile_check==='last4'?' · only last 4 mobile digits match':r.uidai_detail.mobile_match===true?'':' · mobile did not match'}</div></div>
         </>}
         {r.quality && <div style={{gridColumn:'1 / -1'}}><span className="muted">Phone checks: </span>{qualityText(r.quality)}</div>}
         {r.status==='rejected' && <div style={{gridColumn:'1 / -1'}}><span className="muted">Rejected: </span>{reasonLabel(r.reject_reason)}{r.reject_note?` — ${r.reject_note}`:''}</div>}
