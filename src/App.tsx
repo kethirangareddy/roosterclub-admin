@@ -3,11 +3,21 @@ import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode 
 /* Load a screen on first visit. If a deploy happened while this tab was open,
    the old screen file no longer exists — reload once to pick up the new app
    instead of showing a blank screen. */
+const ss={
+  get:(k:string)=>{ try{ return sessionStorage.getItem(k); }catch{ return null; } },
+  set:(k:string,v:string)=>{ try{ sessionStorage.setItem(k,v); }catch{} },
+  del:(k:string)=>{ try{ sessionStorage.removeItem(k); }catch{} },
+};
 function lazyScreen(load:()=>Promise<any>){
-  return lazy(()=>load().catch(err=>{
-    if(navigator.onLine && !sessionStorage.getItem('rc_chunk_reload')){ sessionStorage.setItem('rc_chunk_reload','1'); location.reload(); }
+  // A failed load is not remembered forever: the next visit to the screen
+  // (e.g. after you reconnect) tries again with a fresh lazy component.
+  const make=()=>lazy(()=>load().catch(err=>{
+    C=make();
+    if(navigator.onLine && !ss.get('rc_chunk_reload')){ ss.set('rc_chunk_reload','1'); location.reload(); }
     throw err;
-  }).then(m=>{ sessionStorage.removeItem('rc_chunk_reload'); return m; }));
+  }).then(m=>{ ss.del('rc_chunk_reload'); return m; }));
+  let C=make();
+  return function Screen(props:any){ return <C {...props}/>; };
 }
 import { supabase, signOut } from './supabase';
 import type { Session } from '@supabase/supabase-js';
@@ -212,7 +222,7 @@ class ScreenBoundary extends Component<{children:ReactNode},{err:Error|null}>{
       <div className="card" style={{padding:24,textAlign:'center'}}>
         <div style={{fontWeight:700,marginBottom:6}}>This screen didn't load.</div>
         <div className="muted" style={{fontSize:13,marginBottom:14}}>{navigator.onLine?'Something went wrong while opening it.':'You seem to be offline.'}</div>
-        <button className="btn" onClick={()=>{ sessionStorage.removeItem('rc_chunk_reload'); location.reload(); }}>Retry</button>
+        <button className="btn" onClick={()=>{ ss.del('rc_chunk_reload'); location.reload(); }}>Retry</button>
       </div>
     );
   }

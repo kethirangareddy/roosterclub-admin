@@ -80,10 +80,13 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     if(!await ask(already
       ? 'This listing was already posted to Instagram. Post it to @the.roosters.club again?'
       : 'Post this listing to @the.roosters.club Instagram now?')) return;
+    // Lock BEFORE the call, so a panel reopened while it runs is locked too.
+    if((INSTA_LOCK.get(listingId)||0)>Date.now()) return;
+    INSTA_LOCK.set(listingId,Date.now()+45000); setQueued(true);
     setBusy(true); setPushMsg('');
     const { error }=await supabase.rpc('admin_push_to_insta',{ p_listing:listingId });
     setBusy(false);
-    if(error){ setPushMsg('❌ '+error.message); return; }
+    if(error){ INSTA_LOCK.delete(listingId); setQueued(false); setPushMsg('❌ '+error.message); return; }
     setPushMsg('✅ Queued — posts in the background in ~10–60s'+(hasVideo?' (longer for branded reels)':'')+'. Status refreshes shortly.');
     // Lock the button until the post has had time to land — a second tap used
     // to queue a duplicate Instagram post.
