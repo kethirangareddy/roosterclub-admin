@@ -1,3 +1,4 @@
+import { displayUrl } from '../jp2';
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Modal } from '../ui';
@@ -161,7 +162,8 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
                   setKyc((k: any) => ({ ...k, loading: true }));
                   const { data, error } = await supabase.functions.invoke('kyc-admin', { body: { action: 'view', id: kyc.id } });
                   if (error || (data as any)?.error) { alert('Could not open photos'); setKyc((k: any) => ({ ...k, loading: false })); return; }
-                  setKyc((k: any) => ({ ...k, loading: false, shown: true, a_url: (data as any).idUrl, s_url: (data as any).selfieUrl }));
+                  const [a_url, s_url] = await Promise.all([displayUrl((data as any).idUrl), displayUrl((data as any).selfieUrl)]);
+                  setKyc((k: any) => ({ ...k, loading: false, shown: true, a_url, s_url }));
                 }}>{kyc.loading ? 'Opening…' : 'Show photos (logged, 5 min)'}</button>
               ) : (
                 <div style={{ display: 'flex', gap: 10 }}>

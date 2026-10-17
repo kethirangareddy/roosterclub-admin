@@ -3,6 +3,7 @@ import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X, ZoomIn, ZoomOut, RotateCw, Copy, KeyRound, Upload } from 'lucide-react';
 import { Empty, Loading, timeAgo, useParamState, useRowKeys, UserLink, Copyable, Modal } from '../ui';
 import { useDetail } from '../detail';
+import { displayUrl } from '../jp2';
 import { toast, ask } from '../feedback';
 
 /* Verifications (KYC)
@@ -159,7 +160,9 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
     const { data,error }=await supabase.functions.invoke('kyc-admin',{ body:{ action:'view', id:r.id } });
     if(error || (data as any)?.error){ setUrls({ err:'Could not open photos.' }); return; }
     expiry.current=Date.now()+((data as any).expiresIn||300)*1000;
-    setUrls(data as any);
+    // The Aadhaar QR photo is JPEG 2000 — decode it so the browser can show it next to the selfie.
+    const [idUrl, selfieUrl]=await Promise.all([displayUrl((data as any).idUrl), displayUrl((data as any).selfieUrl)]);
+    setUrls({ idUrl, selfieUrl });
   }
   useEffect(()=>{ fetchUrls(); },[r.id]);
 
@@ -243,7 +246,7 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
         <>
           {expired && <div className="bulkbar" style={{marginBottom:8}}>Links expired. <button className="btn sm" onClick={fetchUrls}>Reload photos</button></div>}
           <div style={{display:'grid',gridTemplateColumns:urls.idUrl&&urls.selfieUrl?'1fr 1fr':'1fr',gap:10}}>
-            {urls.idUrl && <Zoomable url={urls.idUrl} label={ID_LABEL[r.id_type]||'ID'}/>}
+            {urls.idUrl && <Zoomable url={urls.idUrl} label={r.id_type==='aadhaar_qr'?'Aadhaar photo (from the QR)':(ID_LABEL[r.id_type]||'ID')}/>}
             {urls.selfieUrl && <Zoomable url={urls.selfieUrl} label="Selfie"/>}
             {!urls.idUrl && r.id_type==='aadhaar_qr' && <div className="empty" style={{padding:20}}>No ID photo — verified from the UIDAI-signed QR.</div>}
           </div>
