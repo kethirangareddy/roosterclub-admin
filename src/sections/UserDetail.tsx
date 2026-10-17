@@ -61,7 +61,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
   // Esc closes the zoomed photo first, not the whole panel behind it.
   useEffect(() => {
     if (!zoom) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); setZoom(null); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.cmdk, .ask-scrim')) { e.preventDefault(); e.stopImmediatePropagation(); setZoom(null); } };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [zoom]);

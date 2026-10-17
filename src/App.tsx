@@ -337,7 +337,7 @@ export default function App(){
     u.search=''; if(keep) u.searchParams.set('view',keep);
     if(qp) Object.entries(qp).forEach(([key,val])=>u.searchParams.set(key,val));
     // Re-tapping the screen you're on refreshes it without adding a Back step.
-    if(k===view && !qp) history.replaceState(null,'',u); else history.pushState(null,'',u);
+    if(k===view && !qp && !detail.length) history.replaceState(null,'',u); else history.pushState(null,'',u);
   }
   useEffect(()=>{
     const onPop=()=>{
