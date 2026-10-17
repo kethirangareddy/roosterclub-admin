@@ -606,3 +606,48 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 .main:has(> .hubbar){padding-top:0!important}
 .hubbar{margin:0 -30px 22px!important}
 @media (max-width:860px){ .hubbar{margin:0 -14px 14px!important} }
+
+/* ================= Day 3: one side panel for every 360 ================= */
+.drawer-scrim{position:fixed;inset:0;z-index:45;background:rgba(44,24,16,.22);animation:fade .15s ease}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(620px,100%);background:var(--surface);border-left:1px solid var(--line-2);
+  box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:slideIn .22s cubic-bezier(.2,.8,.2,1)}
+@keyframes slideIn{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+.drawer-h{display:flex;align-items:center;gap:8px;padding:12px 14px 12px 18px;border-bottom:1px solid var(--line);
+  padding-top:calc(12px + env(safe-area-inset-top));background:var(--surface)}
+.drawer-back{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;width:32px;height:32px;display:grid;place-items:center;color:var(--ink);flex-shrink:0}
+.drawer-crumbs{flex:1;min-width:0;display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;white-space:nowrap}
+.drawer-crumbs::-webkit-scrollbar{display:none}
+.crumb{background:none;border:0;padding:4px 2px;font-size:13px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.crumb:not(.now):hover{color:var(--cta);text-decoration:underline}
+.crumb:not(.now)::after{content:"›";margin-left:6px;color:var(--faint)}
+.crumb.now{font-size:16px;font-weight:700;color:var(--ink);max-width:none}
+.drawer-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.drawer-b{padding:18px 20px 28px;display:grid;gap:14px}
+.drawer .modal-f{position:sticky;bottom:0;background:var(--surface)}
+@media (max-width:860px){ .drawer{width:100%;border-left:0} .drawer-b{padding:14px 14px 28px} }
+
+/* ---- Conversations: list + thread side by side ---- */
+.chat-split{display:grid;grid-template-columns:minmax(340px,420px) 1fr;gap:16px;align-items:start}
+.card.pane{margin-bottom:0;position:sticky;top:96px;height:calc(100vh - 120px);display:flex;flex-direction:column;overflow:hidden}
+.chat-list-h{padding:12px;border-bottom:1px solid var(--line);display:grid;gap:10px;background:var(--surface)}
+.chat-search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:0 10px;color:var(--muted)}
+.chat-search input{border:0;background:none;flex:1;padding:9px 0;outline:none;font-size:13.5px;color:var(--ink);box-shadow:none}
+.seg{display:flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px}
+.seg button{flex:1;background:none;border:0;border-radius:8px;padding:6px 8px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(58,36,16,.12)}
+.chat-empty-tg{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;cursor:pointer}
+.chat-list-b{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.chat-list:not(.pane) .chat-list-b{overflow:visible}
+.chat-list-f{padding:8px 12px;font-size:11.5px;color:var(--muted);border-top:1px solid var(--line)}
+.chat-row.on{border-color:var(--cta);background:var(--cta-soft)}
+.chat-people{font-size:13px;font-weight:600;margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.chat-last{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chat-meta{text-align:right;flex-shrink:0;font-size:11px;color:var(--muted);display:grid;gap:3px;align-self:flex-start}
+.chat-thread-h{padding:14px 16px;border-bottom:1px solid var(--line);display:grid;gap:8px;background:var(--surface)}
+.chat-thread-h .btn{justify-self:start}
+.chat-thread-who{font-size:15px;font-weight:700}
+.chat-pin{background:var(--surface-2);border-radius:10px;padding:10px 12px}
+.chat-sibs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px}
+.chat-thread-b{flex:1;overflow-y:auto;padding:14px 16px;background:linear-gradient(180deg,var(--parchment),var(--surface))}
+.chat-none{align-items:center;justify-content:center;gap:10px;color:var(--muted);font-size:14px}
+@media (max-width:1099px){ .card.pane{position:static;height:auto} .chat-thread-b{max-height:none} }

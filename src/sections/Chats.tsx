@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { MessagesSquare, Search, ChevronLeft, ArrowRight } from 'lucide-react';
 import { Empty, Loading, timeAgo, inr, UserLink, ListingLink, getParam, setParam } from '../ui';
+import { toast } from '../feedback';
 import ChatMessages from './ChatMessages';
 
 type Thread = {
@@ -64,36 +65,59 @@ function Subject({ t }: { t: Thread }) {
 
 const pairKey = (a: string, b: string) => (a < b ? a + '|' + b : b + '|' + a);
 
+function useWide(min = 1100) {
+  const q = `(min-width:${min}px)`;
+  const [wide, setWide] = useState(() => window.matchMedia(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia(q); const f = () => setWide(m.matches);
+    m.addEventListener('change', f); return () => m.removeEventListener('change', f);
+  }, []);
+  return wide;
+}
+
 export default function Chats() {
   const [rows, setRows] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const [filter, setFilter] = useState<'all' | 'listing' | 'shop' | 'direct'>('all');
   const [showEmpty, setShowEmpty] = useState(false);
-  // The open thread lives in the URL (?chat=<id>): the phone's Back button
-  // returns to the list instead of jumping to some other screen, and a
-  // refresh reopens the same conversation.
+  // The open thread lives in the URL (?chat=<id>): Back returns to the list
+  // and a refresh reopens the same conversation.
   const [activeId, setActiveId] = useState<string | null>(() => getParam('chat'));
   const reqRef = useRef(0);
+  const qRef = useRef(q); qRef.current = q;
+  const wide = useWide();
 
-  async function load() {
+  async function load(quiet = false) {
     const my = ++reqRef.current;
-    setLoading(true);
-    const { data, error } = await supabase.rpc('admin_all_chats', { p_q: q.trim() || null, p_limit: 300 });
+    if (!quiet) setLoading(true);
+    const { data, error } = await supabase.rpc('admin_all_chats', { p_q: qRef.current.trim() || null, p_limit: 300 });
     if (my !== reqRef.current) return; // an older search finished late — ignore it
-    if (error) console.error('Could not load chats: ' + error.message);
+    if (error) { if (!quiet) toast('Could not load chats: ' + error.message); setLoading(false); return; }
     setRows(data || []); setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // New messages show up on their own — the list refreshes every 30s.
+    const t = setInterval(() => { if (!document.hidden) load(true); }, 30000);
+    return () => clearInterval(t);
+  }, []);
   useEffect(() => {
     const onPop = () => setActiveId(getParam('chat'));
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-  function close() { if (history.state?.rcChat) history.back(); else { setParam('chat', null); setActiveId(null); } }
-  function openFromList(id: string) {
+  function openChat(id: string) {
+    if (id === activeId) return;
     const u = new URL(location.href); u.searchParams.set('chat', id);
-    history.pushState({ rcChat: true }, '', u); setActiveId(id); window.scrollTo(0, 0);
+    // Side-by-side: switching threads replaces the address (no Back trail per
+    // click). Phone: opening pushes, so Back returns to the list.
+    if (wide && activeId) history.replaceState(history.state, '', u);
+    else history.pushState({ rcChat: true }, '', u);
+    setActiveId(id);
+    if (!wide) window.scrollTo(0, 0);
   }
+  function close() { if (history.state?.rcChat) history.back(); else { setParam('chat', null); setActiveId(null); } }
 
   // Same two people can have several chats — one per bird. Count them so each
   // row says "chat 2 of 3 between them" instead of looking like a duplicate.
@@ -102,110 +126,124 @@ export default function Chats() {
     rows.forEach(t => { const k = pairKey(t.buyer_id, t.seller_id); m.set(k, [...(m.get(k) || []), t]); });
     return m;
   }, [rows]);
+  const kindOf = (t: Thread) => t.listing_id ? 'listing' : t.product_id ? 'shop' : 'direct';
   const emptyCount = rows.filter(t => !t.msg_count).length;
-  const shown = showEmpty ? rows : rows.filter(t => t.msg_count > 0);
+  const shown = rows.filter(t => (showEmpty || t.msg_count > 0) && (filter === 'all' || kindOf(t) === filter));
   const active = activeId ? rows.find(t => t.chat_id === activeId) || null : null;
 
-  if (activeId) {
-    if (!active) {
-      return (
-        <>
-          <button className="btn ghost sm" onClick={close} style={{ marginBottom: 12 }}><ChevronLeft size={14} /> All chats</button>
-          {loading ? <Loading /> : <Empty text="This conversation isn't in the latest 300 chats. Search for one of the names to find it." />}
-        </>
-      );
-    }
-    const siblings = (pairs.get(pairKey(active.buyer_id, active.seller_id)) || []).filter(t => t.chat_id !== active.chat_id);
-    return (
-      <>
-        <button className="btn ghost sm" onClick={close} style={{ marginBottom: 12 }}>
-          <ChevronLeft size={14} /> All chats
-        </button>
-        <h1 className="h1" style={{ marginTop: 0 }}>
-          <UserLink id={active.buyer_id}>{who(active.buyer_name, active.buyer_handle)}</UserLink>
-          <span className="muted" style={{ fontWeight: 400, fontSize: 14 }}> buyer </span>
-          ↔ <UserLink id={active.seller_id}>{who(active.seller_name, active.seller_handle)}</UserLink>
-          <span className="muted" style={{ fontWeight: 400, fontSize: 14 }}> seller</span>
-        </h1>
-        <p className="sub">{active.msg_count} messages · last {active.last_message_at ? timeAgo(active.last_message_at) : '—'}</p>
-        {/* The listing stays in view while you read the thread — otherwise you
-            lose track of which bird the haggling is about. */}
-        <div className="card" style={{ padding: '12px 14px', marginBottom: 12 }}>
-          <Subject t={active} />
+  const list = (
+    <div className={'card chat-list' + (wide ? ' pane' : '')}>
+      <div className="chat-list-h">
+        <div className="chat-search">
+          <Search size={15} />
+          <input placeholder="Search name, breed, district, text…" value={q}
+            onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && load()} />
         </div>
-        {siblings.length > 0 && (
-          <div className="card" style={{ padding: '10px 14px', marginBottom: 12 }}>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-              These two also have {siblings.length} other chat{siblings.length > 1 ? 's' : ''} — each about a different listing:
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {siblings.map(t => (
-                <button key={t.chat_id} className="btn ghost sm" onClick={() => openFromList(t.chat_id)}>
-                  {t.listing_breed || t.product_name || 'Direct chat'} · {t.msg_count} msgs
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="seg">
+          {(['all', 'listing', 'shop', 'direct'] as const).map(f => (
+            <button key={f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>
+              {f === 'all' ? 'All' : f === 'listing' ? 'Birds' : f === 'shop' ? 'Shop' : 'Direct'}
+            </button>
+          ))}
+        </div>
+        {emptyCount > 0 && (
+          <label className="chat-empty-tg">
+            <input type="checkbox" checked={showEmpty} onChange={e => setShowEmpty(e.target.checked)} />
+            include {emptyCount} chats with no messages
+          </label>
         )}
-        <div className="card"><ChatMessages key={active.chat_id} chatId={active.chat_id} sellerId={active.seller_id} /></div>
-      </>
-    );
-  }
+      </div>
+      <div className="chat-list-b">
+        {loading ? <Loading /> : shown.length === 0 ? <Empty text="No conversations match." /> : shown.map(t => {
+          const group = pairs.get(pairKey(t.buyer_id, t.seller_id)) || [];
+          const nth = group.length > 1 ? group.findIndex(x => x.chat_id === t.chat_id) + 1 : 0;
+          return (
+            // ONE tap target: the whole row opens this thread. Names are plain
+            // text here (they're links inside the thread).
+            <div key={t.chat_id} role="button" tabIndex={0}
+              className={'chat-row' + (t.chat_id === activeId ? ' on' : '')} onClick={() => openChat(t.chat_id)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat(t.chat_id); } }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <SubjectStatic t={t} />
+                <div className="chat-people">
+                  {who(t.buyer_name, t.buyer_handle)}<span className="muted"> ↔ </span>{who(t.seller_name, t.seller_handle)}
+                  {nth > 0 && <span className="badge b-mut">{nth} of {group.length} between them</span>}
+                </div>
+                <div className="chat-last">
+                  {t.msg_count ? (t.last_message || '—') : 'No messages yet'}
+                </div>
+              </div>
+              <div className="chat-meta">
+                <div>{t.last_message_at ? timeAgo(t.last_message_at) : ''}</div>
+                <div>{t.msg_count} msgs</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {!loading && rows.length >= 300 && (
+        <div className="chat-list-f">Showing the newest 300 conversations. Search to find older ones.</div>
+      )}
+    </div>
+  );
+
+  const thread = active ? (
+    <ThreadView key={active.chat_id} t={active} siblings={(pairs.get(pairKey(active.buyer_id, active.seller_id)) || []).filter(x => x.chat_id !== active.chat_id)}
+      onOpen={openChat} onClose={wide ? undefined : close} />
+  ) : activeId ? (
+    <div className="card pane chat-thread">
+      {!wide && <button className="btn ghost sm" onClick={close} style={{ margin: 12 }}><ChevronLeft size={14} /> All chats</button>}
+      {loading ? <Loading /> : <Empty text="This conversation isn't in the newest 300. Search one of the names to find it." />}
+    </div>
+  ) : (
+    <div className="card pane chat-thread chat-none">
+      <MessagesSquare size={28} />
+      <div>Pick a conversation on the left to read it.</div>
+    </div>
+  );
 
   return (
     <>
-      <h1 className="h1">Chats</h1>
-      <p className="sub">Every buyer↔seller conversation, newest first. Tap a row to read it.</p>
-      <div className="card">
-        <div className="card-h">
-          <h2><MessagesSquare size={16} /> Conversations ({shown.length})</h2>
-          <div className="toolbar">
-            <input placeholder="Search name / handle / breed / text…" value={q}
-              onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && load()} style={{ width: 260 }} />
-            <button className="btn ghost sm" onClick={load}><Search size={14} /> Search</button>
-            {emptyCount > 0 && (
-              <label className="muted" style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-                <input type="checkbox" checked={showEmpty} onChange={e => setShowEmpty(e.target.checked)} />
-                show {emptyCount} with no messages
-              </label>
-            )}
-          </div>
+      <h1 className="h1">Member chats</h1>
+      <p className="sub">Every buyer↔seller conversation, newest first. Updates by itself every 30 seconds.</p>
+      {wide
+        ? <div className="chat-split">{list}{thread}</div>
+        : (activeId ? thread : list)}
+    </>
+  );
+}
+
+function ThreadView({ t, siblings, onOpen, onClose }: {
+  t: Thread; siblings: Thread[]; onOpen: (id: string) => void; onClose?: () => void;
+}) {
+  return (
+    <div className="card pane chat-thread">
+      <div className="chat-thread-h">
+        {onClose && <button className="btn ghost sm" onClick={onClose}><ChevronLeft size={14} /> All chats</button>}
+        <div className="chat-thread-who">
+          <UserLink id={t.buyer_id}>{who(t.buyer_name, t.buyer_handle)}</UserLink>
+          <span className="muted"> buyer · </span>
+          <UserLink id={t.seller_id}>{who(t.seller_name, t.seller_handle)}</UserLink>
+          <span className="muted"> seller</span>
         </div>
-        {loading ? <Loading /> : shown.length === 0 ? <Empty text="No conversations match this search." /> : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {shown.map(t => {
-              const group = pairs.get(pairKey(t.buyer_id, t.seller_id)) || [];
-              const nth = group.length > 1 ? group.findIndex(x => x.chat_id === t.chat_id) + 1 : 0;
-              return (
-                // ONE tap target: the whole row opens this thread. Names are
-                // plain text here (they're links inside the thread), so a tap
-                // can never land on "the wrong thing".
-                <div key={t.chat_id} role="button" tabIndex={0} className="chat-row" onClick={() => openFromList(t.chat_id)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openFromList(t.chat_id); } }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <SubjectStatic t={t} />
-                    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>
-                      {who(t.buyer_name, t.buyer_handle)}
-                      <span className="muted" style={{ fontWeight: 400 }}> ↔ </span>
-                      {who(t.seller_name, t.seller_handle)}
-                      {nth > 0 && <span className="badge b-mut" style={{ marginLeft: 6 }}>chat {nth} of {group.length} between them</span>}
-                    </div>
-                    <div className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {t.msg_count ? (t.last_message || '—') : 'No messages yet — chat opened but nobody wrote'}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div className="muted" style={{ fontSize: 11 }}>{t.msg_count} msgs</div>
-                    <div className="muted" style={{ fontSize: 11 }}>{t.last_message_at ? timeAgo(t.last_message_at) : ''}</div>
-                    <ArrowRight size={13} style={{ color: 'var(--muted)' }} />
-                  </div>
-                </div>
-              );
-            })}
+        <div className="muted" style={{ fontSize: 12 }}>{t.msg_count} messages · last {t.last_message_at ? timeAgo(t.last_message_at) : '—'}</div>
+        {/* What they're haggling over stays pinned above the messages. */}
+        <div className="chat-pin"><Subject t={t} /></div>
+        {siblings.length > 0 && (
+          <div className="chat-sibs">
+            <span className="muted">Their other chats:</span>
+            {siblings.map(x => (
+              <button key={x.chat_id} className="btn ghost sm" onClick={() => onOpen(x.chat_id)}>
+                {x.listing_breed || x.product_name || 'Direct'} · {x.msg_count}
+              </button>
+            ))}
           </div>
         )}
       </div>
-    </>
+      <div className="chat-thread-b">
+        <ChatMessages chatId={t.chat_id} sellerId={t.seller_id} live />
+      </div>
+    </div>
   );
 }
 

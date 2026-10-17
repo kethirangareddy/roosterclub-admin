@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, createContext, useContext, useEffect, useRef, useState } from 'react';
 import { X, Check, Copy } from 'lucide-react';
 import { useDetail } from './detail';
 
@@ -28,7 +28,7 @@ export function keysBlocked(e:KeyboardEvent){
   const t=e.target as HTMLElement|null;
   return e.metaKey||e.ctrlKey||e.altKey
     || !!(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable))
-    || !!document.querySelector('.scrim'); // a modal is open
+    || !!document.querySelector('.scrim, .drawer-scrim, .ask-scrim'); // a panel or dialog is open
 }
 export function useRowKeys(count:number, actions:Record<string,(i:number)=>void>){
   const [sel,setSel]=useState(-1);
@@ -54,11 +54,39 @@ export function useRowKeys(count:number, actions:Record<string,(i:number)=>void>
   return [sel,setSel] as const;
 }
 
+/* When a Modal is the top-level content of the side panel, it renders inline
+   (header + body) and the panel supplies the frame. Anything a 360 opens on
+   top of itself (chat list, photo zoom) is still a normal centred modal. */
+export const DrawerCtx = createContext<null | { setTitle: (t: string) => void }>(null);
+
 export function Modal({ title, onClose, children, footer }:{
   title:string; onClose:()=>void; children:ReactNode; footer?:ReactNode;
 }){
+  const drawer=useContext(DrawerCtx);
+  useEffect(()=>{ drawer?.setTitle(title); },[title]);
+  // Esc closes this modal first (not the panel underneath it).
+  const closeRef=useRef(onClose); closeRef.current=onClose;
+  useEffect(()=>{
+    if(drawer) return;
+    const onKey=(e:KeyboardEvent)=>{
+      if(e.key!=='Escape' || document.querySelector('.ask-scrim')) return;
+      const all=document.querySelectorAll('.scrim'); if(all[all.length-1]!==me.current) return;
+      e.preventDefault(); e.stopPropagation(); closeRef.current();
+    };
+    window.addEventListener('keydown',onKey,true);
+    return ()=>window.removeEventListener('keydown',onKey,true);
+  },[]);
+  const me=useRef<HTMLDivElement>(null);
+  if(drawer){
+    return (
+      <DrawerCtx.Provider value={null}>
+        <div className="drawer-b">{children}</div>
+        {footer && <div className="modal-f">{footer}</div>}
+      </DrawerCtx.Provider>
+    );
+  }
   return (
-    <div className="scrim" onClick={onClose}>
+    <div className="scrim" ref={me} onClick={onClose}>
       <div className="modal" onClick={e=>e.stopPropagation()}>
         <div className="modal-h">{title}<button className="x" onClick={onClose}><X size={20}/></button></div>
         <div className="modal-b">{children}</div>

@@ -7,6 +7,9 @@ import {
   Wheat, Settings as SettingsIcon, ShoppingBag, Sun,
 } from 'lucide-react';
 import { FeedbackHost } from './feedback';
+import { DrawerCtx } from './ui';
+import { ChevronLeft, X } from 'lucide-react';
+const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
 import CommandK, { Hit } from './CommandK';
 import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
 import Money from './sections/Money';
@@ -197,10 +200,18 @@ export default function App(){
   // Closing a panel we opened = one step Back, so the phone's Back button and
   // the ✕ agree. (Closing used to leave a dead history entry: the next Back
   // press did nothing, the one after jumped to a different screen.)
-  const popDetail=()=>{
-    if(history.state?.rcDetail===detail.length) history.back();
-    else commitDetail(detail.slice(0,-1),false);
-  };
+  const popDetail=()=>popTo(detail.length-2);
+  /** Go back to breadcrumb level i (-1 = close the panel). */
+  function popTo(i:number){
+    const steps=detail.length-1-i;
+    if(steps<=0) return;
+    if(history.state?.rcDetail===detail.length && steps<=detail.length) history.go(-steps);
+    else commitDetail(detail.slice(0,i+1),false);
+  }
+  const closeAllDetail=()=>popTo(-1);
+  // Breadcrumb names: each panel reports its own title once loaded.
+  const [titles,setTitles]=useState<Record<number,string>>({});
+  useEffect(()=>{ if(!detail.length) setTitles({}); },[detail.length]);
 
   // What every section calls. Ignores empty ids so a missing seller_id can't
   // open a blank modal.
@@ -214,7 +225,7 @@ export default function App(){
   // Esc closes the top 360 (matches the scrim click).
   useEffect(()=>{
     if(!detail.length) return;
-    function onKey(e:KeyboardEvent){ if(e.key==='Escape'){ e.preventDefault(); popDetail(); } }
+    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !document.querySelector('.scrim, .ask-scrim')){ e.preventDefault(); popDetail(); } }
     window.addEventListener('keydown',onKey);
     return ()=>window.removeEventListener('keydown',onKey);
   },[detail]);
@@ -259,7 +270,7 @@ export default function App(){
       const t=e.target as HTMLElement|null;
       if(e.metaKey||e.ctrlKey||e.altKey) return;
       if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
-      if(document.querySelector('.scrim')) return;
+      if(document.querySelector('.scrim, .drawer-scrim, .ask-scrim')) return;
       if(pending){
         pending=false; clearTimeout(timer); (window as any).__gnav=false;
         const target=GNAV[e.key.toLowerCase()];
@@ -469,14 +480,35 @@ export default function App(){
       {cmdk && <CommandK onOpenResult={openHit}
         onGo={(v,qp)=>{ setCmdk(false); setView(v as Key,qp); }}
         onClose={()=>setCmdk(false)}/>}
-      {/* key = kind+id+depth: opening user B from inside user A must mount a
-          fresh panel. Without it React reused A's panel and kept A's photos,
-          KYC and stats on screen under B's name. */}
-      {top?.kind==='user' && <UserDetail key={'u'+top.id+detail.length} userId={top.id} onClose={popDetail}/>}
-      {top?.kind==='listing' && <Listing360 key={'l'+top.id+detail.length} listingId={top.id} onClose={popDetail}
-        onOpenUser={(id)=>pushDetail({kind:'user',id})} onChanged={refreshCounts}/>}
-      {top?.kind==='receipt' && <Receipt360 key={'r'+top.id+detail.length} receiptId={top.id} onClose={popDetail}
-        onOpenUser={(id)=>pushDetail({kind:'user',id})} onOpenListing={(id)=>pushDetail({kind:'listing',id})}/>}
+      {/* One side panel for every user / listing / receipt. Opening something
+          from inside it adds a breadcrumb step instead of a new popup. */}
+      {top && (
+        <div className="drawer-scrim" onClick={closeAllDetail}>
+          <aside className="drawer" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>
+            <div className="drawer-h">
+              {detail.length>1 && <button className="drawer-back" onClick={popDetail} aria-label="Back"><ChevronLeft size={18}/></button>}
+              <div className="drawer-crumbs">
+                {detail.slice(0,-1).map((d,i)=>(
+                  <button key={i} className="crumb" onClick={()=>popTo(i)}>{titles[i]||KIND_LABEL[d.kind]}</button>
+                ))}
+                <span className="crumb now">{titles[detail.length-1]||KIND_LABEL[top.kind]}</span>
+              </div>
+              <button className="x" onClick={closeAllDetail} aria-label="Close"><X size={20}/></button>
+            </div>
+            {/* key = kind+id+depth: opening user B from inside user A must mount
+                a fresh panel, never A's with B's name on it. */}
+            <DrawerCtx.Provider key={top.kind+top.id+detail.length} value={{ setTitle:(t)=>setTitles(m=>({...m,[detail.length-1]:t})) }}>
+              <div className="drawer-scroll">
+                {top.kind==='user' && <UserDetail userId={top.id} onClose={popDetail}/>}
+                {top.kind==='listing' && <Listing360 listingId={top.id} onClose={popDetail}
+                  onOpenUser={(id)=>pushDetail({kind:'user',id})} onChanged={refreshCounts}/>}
+                {top.kind==='receipt' && <Receipt360 receiptId={top.id} onClose={popDetail}
+                  onOpenUser={(id)=>pushDetail({kind:'user',id})} onOpenListing={(id)=>pushDetail({kind:'listing',id})}/>}
+              </div>
+            </DrawerCtx.Provider>
+          </aside>
+        </div>
+      )}
       <FeedbackHost/>
     </div>
     </DetailCtx.Provider>
