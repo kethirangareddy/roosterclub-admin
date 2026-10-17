@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
+import { emitChanged } from '../detail';
 import { Modal, timeAgo, inr } from '../ui';
 import { Check, X, Star, Trash2, User, Eye, MessagesSquare, ReceiptText, Rocket, Instagram } from 'lucide-react';
 import ListingChats from './ListingChats';
+import { toast, ask } from '../feedback';
 
 /** Listing-360 — everything about one listing + approve/reject/feature/delete, from anywhere. */
 export default function Listing360({ listingId, onClose, onOpenUser, onChanged }:{
@@ -13,48 +15,52 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
   const [pushMsg,setPushMsg]=useState('');
   const [showChats,setShowChats]=useState(false);
 
+  // Only the answer for the listing that is open right now may land on screen —
+  // a slow reply for the previous listing used to overwrite the current one.
+  const want=useRef(listingId); want.current=listingId;
   function load(){
-    supabase.rpc('admin_listing_overview',{ p_listing:listingId })
-      .then(({data,error})=>setD(error?{__error:error.message}:(data??{})));
+    const asked=listingId;
+    supabase.rpc('admin_listing_overview',{ p_listing:asked })
+      .then(({data,error})=>{ if(want.current===asked) setD(error?{__error:error.message}:(data??{})); });
   }
-  useEffect(load,[listingId]);
+  useEffect(()=>{ setD(null); setShowChats(false); setPushMsg(''); load(); },[listingId]);
 
   const l=d?.listing;
   async function setApproval(approval_status:string){
     setBusy(true);
     const { error }=await supabase.from('listings').update({ approval_status }).eq('id',listingId);
     setBusy(false);
-    if(error){ alert(error.message); return; }
-    load(); onChanged?.();
+    if(error){ toast(error.message); return; }
+    load(); onChanged?.(); emitChanged();
   }
   async function feature(days:number|null){
     setBusy(true);
     const featured_until=days?new Date(Date.now()+days*864e5).toISOString():null;
     const { error }=await supabase.from('listings').update({ featured_until }).eq('id',listingId);
     setBusy(false);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     load();
   }
   // Item 16 — soft delete with a 30-day undo window (purge cron hard-deletes after 30d).
   async function remove(){
-    if(!confirm('Remove this listing from the app? You can restore it for 30 days.')) return;
+    if(!await ask('Remove this listing from the app? You can restore it for 30 days.')) return;
     const { error }=await supabase.from('listings')
       .update({ status:'removed', removed_at:new Date().toISOString() }).eq('id',listingId);
-    if(error){ alert(error.message); return; }
-    load(); onChanged?.();
+    if(error){ toast(error.message); return; }
+    load(); onChanged?.(); emitChanged();
   }
   async function restore(){
     const { error }=await supabase.from('listings')
       .update({ status:'active', removed_at:null }).eq('id',listingId);
-    if(error){ alert(error.message); return; }
-    load(); onChanged?.();
+    if(error){ toast(error.message); return; }
+    load(); onChanged?.(); emitChanged();
   }
   // Manual Instagram push — fires the ig-autopost pipeline server-side via a SECURITY DEFINER
   // RPC (is_admin-guarded), so the shared secret never ships in this public bundle.
   async function pushToInsta(){
     const already=!!l.ig_posted;
     const hasVideo=(d?.media||[]).some((m:any)=>m.type==='video');
-    if(!confirm(already
+    if(!await ask(already
       ? 'This listing was already posted to Instagram. Post it to @the.roosters.club again?'
       : 'Post this listing to @the.roosters.club Instagram now?')) return;
     setBusy(true); setPushMsg('');

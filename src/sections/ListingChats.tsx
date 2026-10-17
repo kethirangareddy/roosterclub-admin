@@ -20,8 +20,10 @@ export default function ListingChats({ listingId, onClose }:{
   const [active, setActive] = useState<Thread | null>(null);
 
   useEffect(() => {
+    let alive = true; setThreads(null); setActive(null);
     supabase.rpc('admin_listing_chats', { p_listing: listingId })
-      .then(({ data, error }) => setThreads(error ? [] : (data || [])));
+      .then(({ data, error }) => { if (alive) setThreads(error ? [] : (data || [])); });
+    return () => { alive = false; };
   }, [listingId]);
 
   const title = active

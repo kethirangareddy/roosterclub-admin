@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { TrendingUp } from 'lucide-react';
 import { Empty, Loading } from '../ui';
+import { toast } from '../feedback';
 
 export default function Acquisition(){
   const [rows,setRows]=useState<{source:string;count:number}[]>([]);
@@ -13,7 +14,7 @@ export default function Acquisition(){
     // Server-side group-by (admin_acquisition_counts RPC) — the old per-row select
     // was silently capped at 1000 users, skewing the percentages at scale.
     const { data, error }=await supabase.rpc('admin_acquisition_counts');
-    if(error) alert('Could not load acquisition data: '+error.message);
+    if(error) toast('Could not load acquisition data: '+error.message);
     const arr=(data||[]).map((r:any)=>({ source:r.source, count:Number(r.n) }));
     setRows(arr); setTotal(arr.reduce((s:number,r:any)=>s+r.count,0)); setLoading(false);
   }

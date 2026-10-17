@@ -1,98 +1,122 @@
-import { useEffect, useState } from 'react';
+import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react';
+
+/* Load a screen on first visit. If a deploy happened while this tab was open,
+   the old screen file no longer exists — reload once to pick up the new app
+   instead of showing a blank screen. */
+function lazyScreen(load:()=>Promise<any>){
+  return lazy(()=>load().catch(err=>{
+    if(!sessionStorage.getItem('rc_chunk_reload')){ sessionStorage.setItem('rc_chunk_reload','1'); location.reload(); }
+    throw err;
+  }).then(m=>{ sessionStorage.removeItem('rc_chunk_reload'); return m; }));
+}
 import { supabase } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, ListChecks, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
   Rocket, Users as UsersIcon, Truck, Store, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield, ChevronDown, ChevronRight,
-  Wheat,
+  Wheat, Settings as SettingsIcon, ShoppingBag, Sun,
 } from 'lucide-react';
+import { FeedbackHost } from './feedback';
+import { DrawerCtx } from './ui';
+import { ChevronLeft, X } from 'lucide-react';
+const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
 import CommandK, { Hit } from './CommandK';
 import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
-import Money from './sections/Money';
-import Activity from './sections/Activity';
+const Money = lazyScreen(() => import('./sections/Money'));
+const Activity = lazyScreen(() => import('./sections/Activity'));
 import UserDetail from './sections/UserDetail';
 import Listing360 from './sections/Listing360';
 import Receipt360 from './sections/Receipt360';
-import AppConfig from './sections/AppConfig';
+const AppConfig = lazyScreen(() => import('./sections/AppConfig'));
 import Login from './Login';
 import ResetPassword from './ResetPassword';
-import Featured from './sections/Featured';
+const Featured = lazyScreen(() => import('./sections/Featured'));
 import Dashboard from './sections/Dashboard';
-import Analytics from './sections/Analytics';
-import Community from './sections/Community';
-import Chats from './sections/Chats';
-import Theft from './sections/Theft';
-import Approvals from './sections/Approvals';
-import Listings from './sections/Listings';
-import Vets from './sections/Vets';
-import Kukuta from './sections/Kukuta';
-import Breeds from './sections/Breeds';
-import Disease from './sections/Disease';
-import Boosts from './sections/Boosts';
-import UsersSection from './sections/UsersSection';
-import LiveFeed from './sections/LiveFeed';
-import Shop from './sections/Shop';
-import Orders from './sections/Orders';
-import FeedOrders from './sections/FeedOrders';
-import Announcements from './sections/Announcements';
-import Auctions from './sections/Auctions';
-import Reports from './sections/Reports';
-import Kyc from './sections/Kyc';
-import BadgeRequests from './sections/BadgeRequests';
-import WaInbox from './sections/WaInbox';
-import Competitions from './sections/Competitions';
-import Syndicates from './sections/Syndicates';
-import Ads from './sections/Ads';
-import Support from './sections/Support';
+const Analytics = lazyScreen(() => import('./sections/Analytics'));
+const Community = lazyScreen(() => import('./sections/Community'));
+const Chats = lazyScreen(() => import('./sections/Chats'));
+const Theft = lazyScreen(() => import('./sections/Theft'));
+const Approvals = lazyScreen(() => import('./sections/Approvals'));
+const Listings = lazyScreen(() => import('./sections/Listings'));
+const Vets = lazyScreen(() => import('./sections/Vets'));
+const Kukuta = lazyScreen(() => import('./sections/Kukuta'));
+const Breeds = lazyScreen(() => import('./sections/Breeds'));
+const Disease = lazyScreen(() => import('./sections/Disease'));
+const Boosts = lazyScreen(() => import('./sections/Boosts'));
+const UsersSection = lazyScreen(() => import('./sections/UsersSection'));
+const LiveFeed = lazyScreen(() => import('./sections/LiveFeed'));
+const Shop = lazyScreen(() => import('./sections/Shop'));
+const Orders = lazyScreen(() => import('./sections/Orders'));
+const FeedOrders = lazyScreen(() => import('./sections/FeedOrders'));
+const Announcements = lazyScreen(() => import('./sections/Announcements'));
+const Auctions = lazyScreen(() => import('./sections/Auctions'));
+const Reports = lazyScreen(() => import('./sections/Reports'));
+const Kyc = lazyScreen(() => import('./sections/Kyc'));
+const BadgeRequests = lazyScreen(() => import('./sections/BadgeRequests'));
+const WaInbox = lazyScreen(() => import('./sections/WaInbox'));
+const Competitions = lazyScreen(() => import('./sections/Competitions'));
+const Syndicates = lazyScreen(() => import('./sections/Syndicates'));
+const Ads = lazyScreen(() => import('./sections/Ads'));
+const Support = lazyScreen(() => import('./sections/Support'));
 
 type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads'|'support';
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
-// Nav is for places you GO. The attention queue is for things that NEED you —
-// so a queue that is empty earns no permanent slot up here; it gets promoted
-// into the dashboard queue the moment it has an item. CORE is what's open every
-// day; everything else lives behind "More", dimmed when its table is empty.
-const CORE: NavItem[] = [
-  { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
-  { key:'analytics', label:'Analytics', Icon:BarChart3 },
-  { key:'approvals', label:'Approvals', Icon:Inbox },
-  { key:'listings', label:'Listings', Icon:ListChecks },
-  { key:'users', label:'Users & Badges', Icon:UsersIcon },
-  { key:'kyc', label:'Verifications', Icon:ShieldCheck },
-  { key:'badges', label:'Badge Requests', Icon:Award },
-  { key:'reports', label:'Reports', Icon:Flag },
-  { key:'support', label:'Support', Icon:MessagesSquare },
-  { key:'chats', label:'Chats', Icon:MessagesSquare },
-  { key:'whatsapp', label:'WhatsApp', Icon:MessagesSquare },
-  { key:'announce', label:'Announcements', Icon:Megaphone },
-  { key:'ads', label:'Ads', Icon:Megaphone },
-  { key:'activity', label:'Activity', Icon:HistoryIcon },
-  { key:'appconfig', label:'App Config', Icon:SlidersHorizontal },
-];
+/* Every screen, with the label used in tabs and search. totalKey → counts.total
+   tells us a section has never had a row, so its tab renders dimmed. */
+const ITEMS: Record<Key, NavItem> = {
+  dash:{ key:'dash', label:'Overview', Icon:LayoutDashboard },
+  users:{ key:'users', label:'Members', Icon:UsersIcon },
+  kyc:{ key:'kyc', label:'Verifications', Icon:ShieldCheck },
+  badges:{ key:'badges', label:'Badge requests', Icon:Award },
+  reports:{ key:'reports', label:'Reports', Icon:Flag },
+  theft:{ key:'theft', label:'Theft alerts', Icon:ShieldAlert, totalKey:'theft' },
+  disease:{ key:'disease', label:'Disease alerts', Icon:Siren, totalKey:'disease' },
+  syndicates:{ key:'syndicates', label:'Syndicates', Icon:Shield, totalKey:'syndicates' },
+  approvals:{ key:'approvals', label:'Approvals', Icon:Inbox },
+  listings:{ key:'listings', label:'Listings', Icon:ListChecks },
+  featured:{ key:'featured', label:'Featured', Icon:Star, totalKey:'featured' },
+  boosts:{ key:'boosts', label:'Boosts', Icon:Rocket, totalKey:'boosts' },
+  ads:{ key:'ads', label:'Ads', Icon:Megaphone },
+  auctions:{ key:'auctions', label:'Auctions', Icon:Gavel, totalKey:'auctions' },
+  livefeed:{ key:'livefeed', label:'Live feed', Icon:Truck, totalKey:'livefeed' },
+  competitions:{ key:'competitions', label:'Competitions', Icon:Trophy, totalKey:'competitions' },
+  chats:{ key:'chats', label:'Member chats', Icon:MessagesSquare },
+  support:{ key:'support', label:'Support', Icon:MessagesSquare },
+  whatsapp:{ key:'whatsapp', label:'WhatsApp', Icon:MessagesSquare },
+  community:{ key:'community', label:'Forum', Icon:MessagesSquare, totalKey:'community' },
+  announce:{ key:'announce', label:'Broadcasts', Icon:Megaphone },
+  shop:{ key:'shop', label:'Products', Icon:Store, totalKey:'shop' },
+  orders:{ key:'orders', label:'Orders', Icon:Store, totalKey:'orders' },
+  feedorders:{ key:'feedorders', label:'Feed orders', Icon:Wheat },
+  analytics:{ key:'analytics', label:'Analytics', Icon:BarChart3 },
+  money:{ key:'money', label:'Money', Icon:Wallet },
+  activity:{ key:'activity', label:'Audit log', Icon:HistoryIcon },
+  appconfig:{ key:'appconfig', label:'App config', Icon:SlidersHorizontal },
+  vets:{ key:'vets', label:'Doctors', Icon:Stethoscope, totalKey:'vets' },
+  breeds:{ key:'breeds', label:'Breeds', Icon:Bird, totalKey:'breeds' },
+  kukuta:{ key:'kukuta', label:'Kukuta', Icon:BookOpen, totalKey:'kukuta' },
+};
 
-// totalKey → counts.total.<key>; 0 rows renders the item dimmed ("nothing here yet")
-// instead of pretending to be a live section.
-const MORE: NavItem[] = [
-  { key:'money', label:'Money Desk', Icon:Wallet },
-  { key:'theft', label:'Theft Alerts', Icon:ShieldAlert, totalKey:'theft' },
-  { key:'disease', label:'Disease Alerts', Icon:Siren, totalKey:'disease' },
-  { key:'syndicates', label:'Syndicates', Icon:Shield, totalKey:'syndicates' },
-  { key:'competitions', label:'Competitions', Icon:Trophy, totalKey:'competitions' },
-  { key:'featured', label:'Featured', Icon:Star, totalKey:'featured' },
-  { key:'boosts', label:'Boosts', Icon:Rocket, totalKey:'boosts' },
-  { key:'auctions', label:'Auctions', Icon:Gavel, totalKey:'auctions' },
-  { key:'livefeed', label:'Live Feed', Icon:Truck, totalKey:'livefeed' },
-  { key:'shop', label:'Shop', Icon:Store, totalKey:'shop' },
-  { key:'orders', label:'Orders', Icon:Store, totalKey:'orders' },
-  { key:'feedorders', label:'Feed orders', Icon:Wheat },
-  { key:'vets', label:'Doctors', Icon:Stethoscope, totalKey:'vets' },
-  { key:'community', label:'Community', Icon:MessagesSquare, totalKey:'community' },
-  { key:'kukuta', label:'Kukuta', Icon:BookOpen, totalKey:'kukuta' },
-  { key:'breeds', label:'Breeds', Icon:Bird, totalKey:'breeds' },
+type HubKey='today'|'people'|'market'|'convos'|'shop'|'insights'|'settings';
+type Hub={ key:HubKey; label:string; Icon:any; items:Key[] };
+/* Six places to go, plus Settings. Every screen belongs to exactly one hub,
+   and inside a hub the screens are tabs across the top. */
+export const HUBS: Hub[] = [
+  { key:'today', label:'Today', Icon:Sun, items:['dash'] },
+  { key:'people', label:'People & Safety', Icon:UsersIcon, items:['users','kyc','badges','reports','theft','disease','syndicates'] },
+  { key:'market', label:'Market', Icon:ListChecks, items:['approvals','listings','featured','boosts','ads','auctions','livefeed','competitions'] },
+  { key:'convos', label:'Conversations', Icon:MessagesSquare, items:['chats','support','whatsapp','community','announce'] },
+  { key:'shop', label:'Shop', Icon:ShoppingBag, items:['orders','feedorders','shop'] },
+  { key:'insights', label:'Insights', Icon:BarChart3, items:['analytics','money','activity'] },
+  { key:'settings', label:'Settings', Icon:SettingsIcon, items:['appconfig','vets','breeds','kukuta'] },
 ];
-
-const NAV: NavItem[] = [...CORE, ...MORE];
+// Only these counts mean "something is waiting for you". admin_counts also
+// returns totals like users=1866 — those must never show as a red badge.
+const PENDING=new Set<string>(['approvals','kyc','badges','reports','support','theft','disease','syndicates','featured','boosts','auctions','livefeed','orders','feedorders','vets','community']);
+const hubOf=(k:Key)=>HUBS.find(h=>h.items.includes(k))||HUBS[0];
+const NAV: NavItem[] = Object.values(ITEMS);
 const KEYS = NAV.map(n=>n.key);
 // g + letter → jump to a section from anywhere (Gmail-style).
 const GNAV: Record<string,Key> = {
@@ -147,7 +171,53 @@ function MobileTriage({counts,go}:{counts:Record<string,any>;go:(k:Key)=>void}){
   );
 }
 
+/* Light / Dark / Auto. Auto follows the device and switches live. */
+type ThemePref='auto'|'light'|'dark';
+function useTheme(){
+  const [pref,setPref]=useState<ThemePref>(()=>{ try{ return (localStorage.getItem('rc_theme') as ThemePref)||'auto'; }catch{ return 'auto'; } });
+  useEffect(()=>{
+    const m=window.matchMedia('(prefers-color-scheme: dark)');
+    const apply=()=>{
+      const dark=pref==='dark'||(pref==='auto'&&m.matches);
+      document.documentElement.dataset.theme=dark?'dark':'light';
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#17110C':'#BA7517');
+    };
+    apply(); m.addEventListener('change',apply);
+    try{ localStorage.setItem('rc_theme',pref); }catch{}
+    return ()=>m.removeEventListener('change',apply);
+  },[pref]);
+  return [pref,setPref] as const;
+}
+
+/* If a screen fails to load or crashes, show a Retry card for that screen
+   only — the menu and everything else keep working. */
+class ScreenBoundary extends Component<{children:ReactNode},{err:Error|null}>{
+  state={err:null as Error|null};
+  static getDerivedStateFromError(err:Error){ return {err}; }
+  componentDidCatch(err:Error){ console.error('Screen crashed:',err); }
+  render(){
+    if(!this.state.err) return this.props.children;
+    return (
+      <div className="card" style={{padding:24,textAlign:'center'}}>
+        <div style={{fontWeight:700,marginBottom:6}}>This screen didn't load.</div>
+        <div className="muted" style={{fontSize:13,marginBottom:14}}>{navigator.onLine?'Something went wrong while opening it.':'You seem to be offline.'}</div>
+        <button className="btn" onClick={()=>{ sessionStorage.removeItem('rc_chunk_reload'); location.reload(); }}>Retry</button>
+      </div>
+    );
+  }
+}
+
+function useOnline(){
+  const [on,setOn]=useState(()=>navigator.onLine);
+  useEffect(()=>{ const u=()=>setOn(true), d=()=>setOn(false);
+    window.addEventListener('online',u); window.addEventListener('offline',d);
+    return ()=>{ window.removeEventListener('online',u); window.removeEventListener('offline',d); }; },[]);
+  return on;
+}
+
 export default function App(){
+  const online=useOnline();
+  const [themePref,setThemePref]=useTheme();
   const [session,setSession]=useState<Session|null>(null);
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
   const [recovery,setRecovery]=useState(false);
@@ -156,9 +226,9 @@ export default function App(){
     return v && KEYS.includes(v) ? v : 'dash';
   });
   const [counts,setCounts]=useState<Record<string,any>>({});
-  const [moreOpen,setMoreOpen]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false);
   const [cmdk,setCmdk]=useState(false);
+  const [navTick,setNavTick]=useState(0);
   // stack: Receipt-360 → seller 360 etc. Mirrored to ?d= so a 360 survives a
   // refresh, can be shared as a link, and closes on browser Back.
   const [detail,setDetail]=useState<Detail[]>(()=>decodeDetail(new URLSearchParams(location.search).get('d')));
@@ -168,17 +238,54 @@ export default function App(){
     setDetail(next);
     const u=new URL(location.href);
     if(next.length) u.searchParams.set('d',encodeDetail(next)); else u.searchParams.delete('d');
-    if(push) history.pushState(null,'',u); else history.replaceState(null,'',u);
+    if(push){
+      // rcBase = how many panels were open before we started pushing (e.g. a
+      // shared ?d= link). We never go Back past that — it would leave the app.
+      const st=history.state;
+      const base=st?.rcDetail!=null ? (st.rcBase??0) : detail.length;
+      history.pushState({rcDetail:next.length,rcBase:base},'',u);
+    } else history.replaceState(history.state,'',u);
   }
 
   function openHit(h:Hit){
     setCmdk(false);
-    if(h.kind==='user'||h.kind==='listing'||h.kind==='receipt') commitDetail([{ kind:h.kind, id:h.id }],true);
+    if(h.kind==='user'||h.kind==='listing'||h.kind==='receipt') pushDetail({ kind:h.kind, id:h.id });
     else if(h.kind==='auction') setView('auctions');
     else if(h.kind==='report') setView('reports');
   }
-  const pushDetail=(d:Detail)=>commitDetail([...detail,d],true);
-  const popDetail=()=>commitDetail(detail.slice(0,-1),false);
+  // Tapping the thing that's already open does nothing (it used to stack a
+  // second copy, so Close appeared not to work).
+  const pushDetail=(d:Detail)=>{
+    const t=detail[detail.length-1];
+    if(t && t.kind===d.kind && t.id===d.id) return;
+    commitDetail([...detail,d],true);
+  };
+  // Closing a panel we opened = one step Back, so the phone's Back button and
+  // the ✕ agree. (Closing used to leave a dead history entry: the next Back
+  // press did nothing, the one after jumped to a different screen.)
+  const popDetail=()=>popTo(detail.length-2);
+  /** Go back to breadcrumb level i (-1 = close the panel). */
+  // While a Back is in flight, extra taps on ✕ / Esc / Back are ignored —
+  // otherwise a double-tap went back twice and left the screen (or the app).
+  const navigating=useRef(false);
+  const popTarget=useRef<number|null>(null);
+  function popTo(i:number){
+    if(navigating.current) return;
+    const steps=detail.length-1-i;
+    if(steps<=0) return;
+    const st=history.state;
+    const ours=st?.rcDetail===detail.length ? detail.length-(st.rcBase??0) : 0;
+    const k=Math.min(steps,ours);
+    if(k<=0){ commitDetail(detail.slice(0,i+1),false); return; }
+    navigating.current=true;
+    setTimeout(()=>{ navigating.current=false; },1000); // safety net
+    popTarget.current=i; // finish the rest after the Back lands (see onPop)
+    history.go(-k);
+  }
+  const closeAllDetail=()=>popTo(-1);
+  // Breadcrumb names: each panel reports its own title once loaded.
+  const [titles,setTitles]=useState<Record<number,string>>({});
+  useEffect(()=>{ if(!detail.length) setTitles({}); },[detail.length]);
 
   // What every section calls. Ignores empty ids so a missing seller_id can't
   // open a blank modal.
@@ -192,7 +299,7 @@ export default function App(){
   // Esc closes the top 360 (matches the scrim click).
   useEffect(()=>{
     if(!detail.length) return;
-    function onKey(e:KeyboardEvent){ if(e.key==='Escape'){ e.preventDefault(); popDetail(); } }
+    function onKey(e:KeyboardEvent){ if(e.key==='Escape' && !document.querySelector('.drawer .scrim, .ask-scrim, .cmdk')){ e.preventDefault(); popDetail(); } }
     window.addEventListener('keydown',onKey);
     return ()=>window.removeEventListener('keydown',onKey);
   },[detail]);
@@ -209,7 +316,9 @@ export default function App(){
   // Saved views: section lives at ?view= so any screen is bookmarkable and
   // back/forward works. Switching sections drops stale filter params.
   function setView(k:Key, qp?:Record<string,string>){
-    setViewRaw(k);
+    setViewRaw(k); setNavTick(n=>n+1);
+    try{ localStorage.setItem('rc_hub_'+hubOf(k).key,k); }catch{}
+    window.scrollTo(0,0);
     setDetail([]); // the URL is about to lose ?d= — drop the stack with it
     const u=new URL(location.href);
     const keep=k==='dash'?null:k;
@@ -222,7 +331,17 @@ export default function App(){
       const p=new URLSearchParams(location.search);
       const v=p.get('view') as Key|null;
       setViewRaw(v && KEYS.includes(v) ? v : 'dash');
-      setDetail(decodeDetail(p.get('d'))); // Back closes / reopens the 360 stack
+      let d=decodeDetail(p.get('d')); // Back closes / reopens the 360 stack
+      navigating.current=false;
+      const t=popTarget.current; popTarget.current=null;
+      if(t!==null && d.length>t+1){
+        // Went back as far as our own entries go; trim the rest in place.
+        d=d.slice(0,t+1);
+        const u=new URL(location.href);
+        if(d.length) u.searchParams.set('d',encodeDetail(d)); else u.searchParams.delete('d');
+        history.replaceState(history.state,'',u);
+      }
+      setDetail(d);
     };
     window.addEventListener('popstate',onPop);
     return ()=>window.removeEventListener('popstate',onPop);
@@ -235,7 +354,7 @@ export default function App(){
       const t=e.target as HTMLElement|null;
       if(e.metaKey||e.ctrlKey||e.altKey) return;
       if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
-      if(document.querySelector('.scrim')) return;
+      if(document.querySelector('.scrim, .drawer-scrim, .ask-scrim')) return;
       if(pending){
         pending=false; clearTimeout(timer); (window as any).__gnav=false;
         const target=GNAV[e.key.toLowerCase()];
@@ -274,7 +393,10 @@ export default function App(){
     const mo=new MutationObserver(schedule);
     mo.observe(main,{childList:true,subtree:true});
     return ()=>{ mo.disconnect(); cancelAnimationFrame(raf); };
-  },[view]);
+    // isAdmin too: on first load <main> doesn't exist until the admin check
+    // finishes, so phone tables never got their "Label: value" rows until you
+    // changed screens.
+  },[view,isAdmin]);
 
   useEffect(()=>{
     supabase.auth.getSession().then(({data})=>setSession(data.session));
@@ -339,7 +461,7 @@ export default function App(){
 
   const sections:Record<Key,JSX.Element>={
     dash:<Dashboard go={setView} counts={counts}/>, analytics:<Analytics/>,
-    money:<Money openReceipt={(id:string)=>setDetail([{kind:'receipt',id}])} go={setView}/>,
+    money:<Money openReceipt={(id:string)=>detailApi.openReceipt(id)} go={setView}/>,
     activity:<Activity/>,
     approvals:<Approvals onChange={refreshCounts}/>,
     listings:<Listings/>,
@@ -361,10 +483,16 @@ export default function App(){
   };
 
   const top=detail[detail.length-1];
-  // Pending hiding inside the collapsed group, so nothing goes unnoticed.
-  const morePending=MORE.reduce((n,i)=>n+(counts[i.key]||0),0);
-  // Stay expanded while you're standing in one of its sections.
-  const showMore=moreOpen||MORE.some(i=>i.key===view);
+  const hub=hubOf(view);
+  const pend=(k:string)=>PENDING.has(k)?(Number(counts[k])||0):0;
+  const hubPending=(h:Hub)=>h.items.reduce((n,k)=>n+pend(k),0);
+  // Tapping a hub lands on the screen that needs you most, else the one you
+  // used last in that hub, else its first screen.
+  function openHub(h:Hub){
+    const hot=h.items.filter(k=>pend(k)>0).sort((a,b)=>pend(b)-pend(a))[0];
+    let last:Key|null=null; try{ last=localStorage.getItem('rc_hub_'+h.key) as Key|null; }catch{}
+    setView(hot || (last && h.items.includes(last) ? last : h.items[0]));
+  }
 
   return (
     <DetailCtx.Provider value={detailApi}>
@@ -377,56 +505,108 @@ export default function App(){
           <Search size={14}/> Search anything… <span className="cmdk-kbd">⌘K</span>
         </button>
         <nav className="nav">
-          {CORE.map(({key,label,Icon})=>(
-            <button key={key} className={view===key?'active':''} onClick={()=>{setView(key);setMenuOpen(false);}}>
-              <Icon size={18}/> {label}
-              {!!counts[key] && <span className="count">{counts[key]}</span>}
-            </button>
-          ))}
-          <button className="nav-more" onClick={()=>setMoreOpen(v=>!v)}>
-            {showMore?<ChevronDown size={16}/>:<ChevronRight size={16}/>} More
-            {!showMore && morePending>0 && <span className="count">{morePending}</span>}
-          </button>
-          {showMore && MORE.map(({key,label,Icon,totalKey})=>{
-            const empty = totalKey ? !(counts.total?.[totalKey]) : false;
+          {HUBS.filter(h=>h.key!=='settings').map(h=>{
+            const n=hubPending(h);
             return (
-              <button key={key} className={(view===key?'active':'')+(empty?' nav-empty':'')}
-                title={empty?'No rows yet':undefined}
-                onClick={()=>{setView(key);setMenuOpen(false);}}>
-                <Icon size={18}/> {label}
-                {!!counts[key] && <span className="count">{counts[key]}</span>}
+              <button key={h.key} className={hub.key===h.key?'active':''} onClick={()=>{openHub(h);setMenuOpen(false);}}>
+                <h.Icon size={18}/> {h.label}
+                {n>0 && <span className="count">{n}</span>}
               </button>
             );
           })}
+          <div className="nav-sep"/>
+          {(()=>{ const h=HUBS.find(x=>x.key==='settings')!; const n=hubPending(h); return (
+            <button className={hub.key==='settings'?'active':''} onClick={()=>{openHub(h);setMenuOpen(false);}}>
+              <h.Icon size={18}/> {h.label}{n>0 && <span className="count">{n}</span>}
+            </button>
+          ); })()}
         </nav>
         <div className="who">
+          <div className="theme-tg" role="radiogroup" aria-label="Theme">
+            {(['light','auto','dark'] as const).map(t=>(
+              <button key={t} role="radio" aria-checked={themePref===t} className={themePref===t?'on':''} onClick={()=>setThemePref(t)}>
+                {t==='light'?'Light':t==='dark'?'Dark':'Auto'}
+              </button>
+            ))}
+          </div>
           <div className="kbd-hint" title="g then d/a/r/k… jumps sections · j/k moves the focused row · a approve, r reject">⌨ g+key jump · j/k rows · a/r act</div>
           {session.user.email}
           <div><button onClick={()=>supabase.auth.signOut()}>Sign out</button></div>
         </div>
       </aside>
       <main className="main">
+        {!online && <div className="offline">You're offline — numbers on screen may be out of date. Changes won't save until you're back.</div>}
+        {hub.items.length>1 && (
+          <div className="hubbar">
+            <div className="hubbar-t"><hub.Icon size={16}/> {hub.label}</div>
+            <div className="hubtabs" role="tablist">
+              {hub.items.map(k=>{
+                const it=ITEMS[k]; const n=pend(k);
+                const empty=it.totalKey ? !(counts.total?.[it.totalKey]) : false;
+                return (
+                  <button key={k} role="tab" aria-selected={view===k}
+                    className={'hubtab'+(view===k?' on':'')+(empty&&view!==k?' empty':'')}
+                    title={empty?'Nothing here yet':undefined} onClick={()=>setView(k)}>
+                    {it.label}{n>0 && <span className="count">{n}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {view==='dash' && <MobileTriage counts={counts} go={(k)=>setView(k)}/>}
-        {sections[view]}
+        {/* Screens load on first visit (the app used to download all 34 up front). */}
+        <div key={view+':'+navTick} className="page"><ScreenBoundary><Suspense fallback={<div className="loading">Loading…</div>}>{sections[view]}</Suspense></ScreenBoundary></div>
       </main>
 
       {/* Thumb-reachable bottom bar (phones only) for the most-used sections. */}
       <nav className="btabs">
-        <button className={view==='dash'?'on':''} onClick={()=>setView('dash')}><LayoutDashboard size={20}/><span>Home</span></button>
-        <button className={view==='approvals'?'on':''} onClick={()=>setView('approvals')}><Inbox size={20}/>{!!counts.approvals&&<i className="bdot">{counts.approvals}</i>}<span>Approvals</span></button>
-        <button className={view==='listings'?'on':''} onClick={()=>setView('listings')}><ListChecks size={20}/><span>Listings</span></button>
-        <button className={view==='users'?'on':''} onClick={()=>setView('users')}><UsersIcon size={20}/><span>Users</span></button>
-        <button onClick={()=>setCmdk(true)}><Search size={20}/><span>Search</span></button>
+        {HUBS.filter(h=>['today','people','market','convos'].includes(h.key)).map(h=>{
+          const n=hubPending(h);
+          return (
+            <button key={h.key} className={hub.key===h.key?'on':''} onClick={()=>openHub(h)}>
+              <h.Icon size={20}/>{n>0&&<i className="bdot">{n>99?'99+':n}</i>}
+              <span>{h.key==='people'?'People':h.key==='convos'?'Chats':h.label}</span>
+            </button>
+          );
+        })}
+        <button onClick={()=>setMenuOpen(true)}><SettingsIcon size={20}/><span>More</span></button>
       </nav>
 
       {cmdk && <CommandK onOpenResult={openHit}
+        screens={NAV.map(it=>({ view:it.key, label:it.label, hub:hubOf(it.key).label, Icon:it.Icon }))}
         onGo={(v,qp)=>{ setCmdk(false); setView(v as Key,qp); }}
         onClose={()=>setCmdk(false)}/>}
-      {top?.kind==='user' && <UserDetail userId={top.id} onClose={popDetail}/>}
-      {top?.kind==='listing' && <Listing360 listingId={top.id} onClose={popDetail}
-        onOpenUser={(id)=>pushDetail({kind:'user',id})} onChanged={refreshCounts}/>}
-      {top?.kind==='receipt' && <Receipt360 receiptId={top.id} onClose={popDetail}
-        onOpenUser={(id)=>pushDetail({kind:'user',id})} onOpenListing={(id)=>pushDetail({kind:'listing',id})}/>}
+      {/* One side panel for every user / listing / receipt. Opening something
+          from inside it adds a breadcrumb step instead of a new popup. */}
+      {top && (
+        <div className="drawer-scrim" onClick={closeAllDetail}>
+          <aside className="drawer" role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>
+            <div className="drawer-h">
+              {detail.length>1 && <button className="drawer-back" onClick={popDetail} aria-label="Back"><ChevronLeft size={18}/></button>}
+              <div className="drawer-crumbs">
+                {detail.slice(0,-1).map((d,i)=>(
+                  <button key={i} className="crumb" onClick={()=>popTo(i)}>{titles[i]||KIND_LABEL[d.kind]}</button>
+                ))}
+                <span className="crumb now">{titles[detail.length-1]||KIND_LABEL[top.kind]}</span>
+              </div>
+              <button className="x" onClick={closeAllDetail} aria-label="Close"><X size={20}/></button>
+            </div>
+            {/* key = kind+id+depth: opening user B from inside user A must mount
+                a fresh panel, never A's with B's name on it. */}
+            <DrawerCtx.Provider key={top.kind+top.id+detail.length} value={{ setTitle:(t)=>setTitles(m=>({...m,[detail.length-1]:t})) }}>
+              <div className="drawer-scroll">
+                {top.kind==='user' && <UserDetail userId={top.id} onClose={popDetail}/>}
+                {top.kind==='listing' && <Listing360 listingId={top.id} onClose={popDetail}
+                  onOpenUser={(id)=>pushDetail({kind:'user',id})} onChanged={refreshCounts}/>}
+                {top.kind==='receipt' && <Receipt360 receiptId={top.id} onClose={popDetail}
+                  onOpenUser={(id)=>pushDetail({kind:'user',id})} onOpenListing={(id)=>pushDetail({kind:'listing',id})}/>}
+              </div>
+            </DrawerCtx.Provider>
+          </aside>
+        </div>
+      )}
+      <FeedbackHost/>
     </div>
     </DetailCtx.Provider>
   );

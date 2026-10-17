@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { Flag, Trash2, Ban, X } from 'lucide-react';
 import { Empty, Loading, timeAgo, inr, useParamState, useRowKeys, UserLink, ListingLink } from '../ui';
 import { useDetail } from '../detail';
+import { toast, ask } from '../feedback';
 
 export default function Reports({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
@@ -22,10 +23,10 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
   async function bulkDismiss(){
     const ids=[...picked];
-    if(!confirm(`Dismiss ${ids.length} report${ids.length>1?'s':''}?`)) return;
+    if(!await ask(`Dismiss ${ids.length} report${ids.length>1?'s':''}?`)) return;
     const { error }=await supabase.from('reports')
       .update({ status:'dismissed', reviewed_at:new Date().toISOString() }).in('id',ids);
-    if(error){ alert('Bulk dismiss failed: '+error.message); return; }
+    if(error){ toast('Bulk dismiss failed: '+error.message); return; }
     setPicked(new Set()); load(); onChange?.();
   }
 
@@ -36,28 +37,28 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
     ).order('created_at',{ascending:false}).limit(100);
     if(tab==='open') q=q.eq('status','open');
     const { data,error }=await q;
-    if(error){ alert(error.message); }
+    if(error){ toast(error.message); }
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
 
   async function mark(id:string,status:string){
-    const { error }=await supabase.from('reports').update({ status, reviewed_at:new Date().toISOString() }).eq('id',id); if(error){ alert('Could not update report: '+error.message); return; } load(); onChange?.();
+    const { error }=await supabase.from('reports').update({ status, reviewed_at:new Date().toISOString() }).eq('id',id); if(error){ toast('Could not update report: '+error.message); return; } load(); onChange?.();
   }
   async function removeListing(r:any){
-    if(!r.listing?.id){ alert('Listing already removed.'); await mark(r.id,'actioned'); return; }
+    if(!r.listing?.id){ toast('Listing already removed.'); await mark(r.id,'actioned'); return; }
     // Item 16 — soft delete: 30-day undo window (restore from the listing's 360), auto-purged after.
-    if(!confirm('Remove this listing from the app? You can restore it for 30 days (search it in ⌘K → Restore).')) return;
+    if(!await ask('Remove this listing from the app? You can restore it for 30 days (search it in ⌘K → Restore).')) return;
     const { error }=await supabase.from('listings')
       .update({ status:'removed', removed_at:new Date().toISOString() }).eq('id',r.listing.id);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     await mark(r.id,'actioned');
   }
   async function banUser(userId:string|undefined,reportId:string){
-    if(!userId){ alert('No user on this report.'); return; }
-    if(!confirm('Ban this user? They will be blocked from using the app.')) return;
+    if(!userId){ toast('No user on this report.'); return; }
+    if(!await ask('Ban this user? They will be blocked from using the app.')) return;
     const { error }=await supabase.from('users').update({ banned:true }).eq('id',userId);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     await mark(reportId,'actioned');
   }
 

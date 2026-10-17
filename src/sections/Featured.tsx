@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Star, Zap } from 'lucide-react';
 import { Empty, Loading, timeAgo, inr, UserLink, Copyable } from '../ui';
+import { toast, ask, askText } from '../feedback';
 
 export default function Featured({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
@@ -23,17 +24,17 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
   useEffect(()=>{ load(); },[tab]);
 
   async function approve(r:any){
-    const input=prompt('Feature for how many hours?', '24');
+    const input=await askText('Feature for how many hours?', '24');
     if(input===null) return; // Cancel pressed — don't activate
     const hours=Number(input)||24;
     const { error }=await supabase.rpc('activate_feature',{ p_request:r.id, p_hours:hours });
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     load(); onChange();
   }
   async function reject(r:any){
-    if(!confirm('Reject this feature request?')) return;
+    if(!await ask('Reject this feature request?')) return;
     const { error }=await supabase.from('feature_requests').update({ status:'rejected' }).eq('id',r.id);
-    if(error){ alert('Could not reject: '+error.message); return; }
+    if(error){ toast('Could not reject: '+error.message); return; }
     load(); onChange();
   }
 

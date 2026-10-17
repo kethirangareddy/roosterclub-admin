@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { Truck, Check, Plus } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, inr, timeAgo, Copyable } from '../ui';
 import { STATES, districtsFor } from '../locations';
+import { toast, ask } from '../feedback';
 
 const AVAIL = [['daily','Daily'],['pre_order','Pre-order'],['bulk','Bulk']] as const;
 const BLANK = { name:'', feed_type:'BSF larvae', price_per_kg:0, availability:'daily',
@@ -27,25 +28,25 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
 
   async function approve(id:string){
     const { error }=await supabase.from('live_feed_sellers').update({ approved:true }).eq('id',id);
-    if(error){ alert('Could not approve: '+error.message); return; }
+    if(error){ toast('Could not approve: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
   async function remove(id:string){
-    if(!confirm('Remove this live-feed seller?')) return;
+    if(!await ask('Remove this live-feed seller?')) return;
     const { error }=await supabase.from('live_feed_sellers').delete().eq('id',id);
-    if(error){ alert('Could not delete: '+error.message); return; }
+    if(error){ toast('Could not delete: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
   async function save(){
     const v={...edit};
-    if(!String(v.name||'').trim()){ alert('Name is required.'); return; }
-    if(!String(v.phone||'').trim()){ alert('Phone is required.'); return; }
+    if(!String(v.name||'').trim()){ toast('Name is required.'); return; }
+    if(!String(v.phone||'').trim()){ toast('Phone is required.'); return; }
     v.price_per_kg=Number(v.price_per_kg)||0;
     const id=v.id; delete v.id; delete v.created_at;
     if(!id) v.user_id=meId;
     const { error }= id ? await supabase.from('live_feed_sellers').update(v).eq('id',id)
                         : await supabase.from('live_feed_sellers').insert(v);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     setEdit(null);
     setTab('approved'); // admin-added sellers are approved → show them
     load(); onChange();

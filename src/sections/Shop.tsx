@@ -4,6 +4,7 @@ import { Store, Plus, Pencil, ImagePlus } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, Modal, Field } from '../ui';
 import { AccessoryEditor, DetailsForm, fromForm, toForm } from './AccessoryEditor';
 import { ApparelEditor, ApparelState, StockGrid, apparelPayload, defaultGrid, emptyApparel, loadVariants, saveVariants } from './ApparelEditor';
+import { toast, ask } from '../feedback';
 
 // Values MUST match the DB check constraint shop_products_category_check (lowercase).
 const CATEGORIES = [
@@ -57,7 +58,7 @@ export default function Shop() {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `admin/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true });
-      if (up.error) { alert('Image upload failed: ' + up.error.message); break; }
+      if (up.error) { toast('Image upload failed: ' + up.error.message); break; }
       urls.push(supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl);
     }
     return urls;
@@ -69,7 +70,7 @@ export default function Shop() {
     // then look seller names up separately.
     const { data, error } = await supabase.from('shop_products')
       .select('*').order('created_at', { ascending: false }).limit(300);
-    if (error) { alert('Could not load products: ' + error.message); setLoading(false); return; }
+    if (error) { toast('Could not load products: ' + error.message); setLoading(false); return; }
     const products = data || [];
     const ids = Array.from(new Set(products.map((p: any) => p.user_id).filter(Boolean)));
     let names: Record<string, string> = {};
@@ -86,21 +87,21 @@ export default function Shop() {
     // 'suspended' isn't in the status check constraint — 'out_of_stock' is the legal "off" state.
     const next = r.status === 'active' ? 'out_of_stock' : 'active';
     const { error } = await supabase.from('shop_products').update({ status: next }).eq('id', r.id);
-    if (error) { alert('Could not update product: ' + error.message); return; }
+    if (error) { toast('Could not update product: ' + error.message); return; }
     setRows(x => x.map(p => p.id === r.id ? { ...p, status: next } : p));
   }
   // Item 16 — soft delete: restorable for 30 days, then the purge cron hard-deletes it.
   async function remove(r: any) {
     if (r.status === 'removed') {
       const { error } = await supabase.from('shop_products').update({ status: 'active', removed_at: null }).eq('id', r.id);
-      if (error) { alert('Could not restore: ' + error.message); return; }
+      if (error) { toast('Could not restore: ' + error.message); return; }
       setRows(x => x.map(p => p.id === r.id ? { ...p, status: 'active', removed_at: null } : p));
       return;
     }
-    if (!confirm('Remove this product? It disappears from the app and can be restored for 30 days.')) return;
+    if (!await ask('Remove this product? It disappears from the app and can be restored for 30 days.')) return;
     const removed_at = new Date().toISOString();
     const { error } = await supabase.from('shop_products').update({ status: 'removed', removed_at }).eq('id', r.id);
-    if (error) { alert('Could not remove: ' + error.message); return; }
+    if (error) { toast('Could not remove: ' + error.message); return; }
     setRows(x => x.map(p => p.id === r.id ? { ...p, status: 'removed', removed_at } : p));
   }
 
@@ -116,7 +117,7 @@ export default function Shop() {
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
         const path = `admin/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true });
-        if (up.error) { alert('Image upload failed: ' + up.error.message); return; }
+        if (up.error) { toast('Image upload failed: ' + up.error.message); return; }
         urls.push(supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl);
       }
       // `edit` is captured from render, so build off the latest state, not the closure —
@@ -151,7 +152,7 @@ export default function Shop() {
   }
 
   async function save() {
-    if (!edit?.name?.trim()) { alert('Name is required.'); return; }
+    if (!edit?.name?.trim()) { toast('Name is required.'); return; }
     setSaving(true);
     // category/price/stock_count/state/district/mandal/status are NOT NULL in the DB
     // (defaults ''/0/'active'). Never send null for them or the row fails to save.
@@ -171,8 +172,8 @@ export default function Shop() {
       name_te: edit.name_te?.trim() || null,
     };
     if (isApparel && apparel) {
-      if (!apparel.colours.length) { setSaving(false); alert('Add at least one colour.'); return; }
-      if (!Object.values(grid).some((r) => Object.keys(r).length)) { setSaving(false); alert('Tick at least one size.'); return; }
+      if (!apparel.colours.length) { setSaving(false); toast('Add at least one colour.'); return; }
+      if (!Object.values(grid).some((r) => Object.keys(r).length)) { setSaving(false); toast('Tick at least one size.'); return; }
       // Printed tees: paid by UPI up front, printed and shipped by our print partner.
       payload.apparel = apparelPayload(apparel);
       payload.prepaid = !!edit.prepaid;
@@ -193,7 +194,7 @@ export default function Shop() {
     }
     if (!error && isApparel && id) error = await saveVariants(id, grid);
     setSaving(false);
-    if (error) { alert('Could not save: ' + error.message); return; }
+    if (error) { toast('Could not save: ' + error.message); return; }
     setEdit(null); setApparel(null); load();
   }
 

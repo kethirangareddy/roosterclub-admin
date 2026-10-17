@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Bird, Plus } from 'lucide-react';
 import { Modal, Field, Empty, Loading } from '../ui';
+import { toast, ask } from '../feedback';
 
 const BLANK={ name:'',bloodline:'',origin:'',traits:'',description:'',photo_url:'' };
 
@@ -19,15 +20,15 @@ export default function Breeds(){
 
   async function save(){
     const v={...edit}; const id=v.id; delete v.id; delete v.created_at;
-    if(!v.name?.trim()){ alert('Name required'); return; }
+    if(!v.name?.trim()){ toast('Name required'); return; }
     const { error }= id ? await supabase.from('breed_encyclopedia').update(v).eq('id',id)
                         : await supabase.from('breed_encyclopedia').insert(v);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     setEdit(null); load();
   }
   async function remove(id:string){
-    if(!confirm('Delete this breed entry?')) return;
-    const { error }=await supabase.from('breed_encyclopedia').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load();
+    if(!await ask('Delete this breed entry?')) return;
+    const { error }=await supabase.from('breed_encyclopedia').delete().eq('id',id); if(error){ toast('Could not delete: '+error.message); return; } load();
   }
 
   return (

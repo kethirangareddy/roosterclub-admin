@@ -5,9 +5,10 @@ import { Users, ListChecks, Inbox, Truck, Siren, Rocket, Stethoscope,
   Activity, Radio, AlertTriangle, HeartPulse, Map as MapIcon, UserPlus, ReceiptText,
   MessagesSquare, Store, Shield, ShieldAlert, Repeat, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from '../ui';
-import Listing360 from './Listing360';
+import { useDetail, useOnChanged } from '../detail';
 import Online from './Online';
 import TopActive from './TopActive';
+import { toast } from '../feedback';
 
 const FEED_META: Record<string,{Icon:any;c:string}> = {
   signup:{Icon:UserPlus,c:'var(--ok)'}, listing:{Icon:ListChecks,c:'var(--cta)'},
@@ -102,6 +103,8 @@ export default function Dashboard({ go, counts }:{
   go:(k:any,qp?:Record<string,string>)=>void;
   counts:Record<string,any>;
 }){
+  // counts arrive a moment after the page — show a dash, never "undefined".
+  const cv=(k:string)=>counts?.[k]??'—';
   const [err,setErr]=useState<string|null>(null);
   const [pulse,setPulse]=useState<any|null>(null);
   const [anoms,setAnoms]=useState<any[]>([]);
@@ -132,7 +135,8 @@ export default function Dashboard({ go, counts }:{
   const [drill,setDrill]=useState<Drill|null>(null);
   const [drillList,setDrillList]=useState<any[]>([]);
   const [drillBusy,setDrillBusy]=useState(false);
-  const [open360,setOpen360]=useState<string|null>(null);
+  const { openListing }=useDetail();
+  useOnChanged(()=>loadSlow());
 
   async function openListings(district:string, state?:string, prev?:Drill|null){
     setDrill({ level:'listings', district, state, prev:prev??null });
@@ -142,7 +146,7 @@ export default function Dashboard({ go, counts }:{
       .eq('district',district).order('created_at',{ascending:false}).limit(100);
     if(state) q=q.eq('state',state);
     const { data,error }=await q;
-    if(error) alert('Could not load listings: '+error.message);
+    if(error) toast('Could not load listings: '+error.message);
     setDrillList(data||[]); setDrillBusy(false);
   }
 
@@ -241,20 +245,20 @@ export default function Dashboard({ go, counts }:{
     : 'OTP, push and functions all healthy';
 
   const brief=[
-    `${counts.signups_today} ${counts.signups_today===1?'signup':'signups'} today`,
-    `${counts.new_users_7d} this week`,
+    `${cv('signups_today')} ${counts.signups_today===1?'signup':'signups'} today`,
+    `${cv('new_users_7d')} this week`,
     d1!==null ? `${d1}% of yesterday's signups came back` : null,
-    `${counts.listings_today} ${counts.listings_today===1?'listing':'listings'} today`,
+    `${cv('listings_today')} ${counts.listings_today===1?'listing':'listings'} today`,
     totalPending>0 ? `${totalPending} ${totalPending===1?'item':'items'} need review` : 'queue clear',
   ].filter(Boolean).join('  ·  ');
 
   // `drill` opens the rows behind the number; `go` jumps to a section instead.
   const cards:{lab:string;val:any;delta?:string;Icon:any;go?:string;drill?:DrillKind}[]=[
-    { lab:'Total users', val:counts.users, delta:`+${counts.new_users_7d} this week`, Icon:Users, drill:'new_users_7d' },
+    { lab:'Total users', val:cv('users'), delta:`+${cv('new_users_7d')} this week`, Icon:Users, drill:'new_users_7d' },
     { lab:'Came back D1', val:d1===null?'—':d1+'%', delta:y?`of ${y.signups} yesterday`:'no cohort yet', Icon:Repeat, go:'analytics' },
-    { lab:'Active listings', val:counts.active_listings, delta:`${counts.listings_today} posted today`, Icon:ListChecks, drill:'active_listings' },
-    { lab:'Reachable by push', val:reach?`${reachPct}%`:'—', delta:reach?`${reach.active30_no_token} active users have no token`:undefined, Icon:HeartPulse, drill:'push_unreachable' },
-    { lab:'Chats with no reply', val:fh?fh.chats_no_seller_reply:'—', delta:fh?`of ${fh.chats} in 30d`:undefined, Icon:MessagesSquare, drill:'unreplied_chats' },
+    { lab:'Active listings', val:cv('active_listings'), delta:`${cv('listings_today')} posted today`, Icon:ListChecks, drill:'active_listings' },
+    { lab:'Reachable by push', val:reach?`${reachPct}%`:'—', delta:reach?`${reach.active30_no_token??'—'} active users have no token`:undefined, Icon:HeartPulse, drill:'push_unreachable' },
+    { lab:'Chats with no reply', val:fh?fh.chats_no_seller_reply:'—', delta:fh?`of ${fh.chats??'—'} in 30d`:undefined, Icon:MessagesSquare, drill:'unreplied_chats' },
     { lab:'Median first reply', val:fh?.median_first_reply_min!=null?`${fh.median_first_reply_min}m`:'—', delta:'seller → buyer', Icon:Clock, go:'analytics' },
   ];
 
@@ -268,7 +272,7 @@ export default function Dashboard({ go, counts }:{
         <span className={'sysdot'+(sysBad?' bad':'')}/>
         <span className="sysline">{sysLine}</span>
         {sms?.last_ok_provider && <span className="sysmeta">{sms.last_ok_provider}</span>}
-        {twBal && <span className="sysmeta">SMS bal {`${twBal.currency||''} ${twBal.balance}`.trim()}</span>}
+        {twBal && <span className="sysmeta">SMS bal {`${twBal.currency||''} ${twBal.balance??'—'}`.trim()}</span>}
         {sysOpen?<ChevronDown size={14}/>:<ChevronRight size={14}/>}
       </button>
       {sysOpen && (
@@ -318,7 +322,7 @@ export default function Dashboard({ go, counts }:{
           {totalPending>0 && <span className="badge b-info">{totalPending} open</span>}</div>
         {queue.length===0
           ? <div className="empty"><CheckCircle2 size={26} style={{color:'var(--ok)',marginBottom:8}}/><div>All clear — nothing needs you right now.</div></div>
-          : <table><tbody>
+          : <table className="qtable"><tbody>
               {queue.map(q=>(
                 <tr key={q.key} style={{cursor:'pointer'}} onClick={()=>go(q.go,q.qp)}>
                   <td style={{width:38}}><q.Icon size={17} style={{color:q.sev>=3?'var(--danger)':'var(--cta)'}}/></td>
@@ -339,7 +343,7 @@ export default function Dashboard({ go, counts }:{
           { lab:'Online now', val:pulse?.online_now, Icon:Activity, hot:true, drill:'online_now' },
           { lab:'Signups today', val:pulse?.signups_today, Icon:UserPlus, drill:'signups_today' },
           { lab:'Listings today', val:pulse?.listings_today, Icon:ListChecks, drill:'listings_today' },
-          { lab:'Chats today', val:counts.chats_today, Icon:MessagesSquare, drill:'chats_today' },
+          { lab:'Chats today', val:cv('chats_today'), Icon:MessagesSquare, drill:'chats_today' },
           { lab:'Msgs / hour', val:pulse?.messages_hour, Icon:Radio, drill:'messages_hour' },
         ] as const).map(p=>(
           <button key={p.lab} className="p-item p-click"
@@ -485,7 +489,7 @@ export default function Dashboard({ go, counts }:{
             drillList.length===0 ? <div className="empty">No listings in {drill.district}.</div> :
             <table><thead><tr><th>Breed</th><th>Type</th><th>Price</th><th>Status</th><th>Posted</th></tr></thead><tbody>
               {drillList.map(l=>(
-                <tr key={l.id} style={{cursor:'pointer'}} title="Open listing 360" onClick={()=>setOpen360(l.id)}>
+                <tr key={l.id} style={{cursor:'pointer'}} title="Open listing 360" onClick={()=>openListing(l.id)}>
                   <td style={{fontWeight:600}}>{l.breed||'—'}<div className="muted" style={{fontSize:11}}>{[l.village,l.mandal].filter(Boolean).join(', ')}</div></td>
                   <td><span className="badge b-mut">{l.type}</span></td>
                   <td>{inr(l.price)}</td>
@@ -497,7 +501,6 @@ export default function Dashboard({ go, counts }:{
           )}
         </Modal>
       )}
-      {open360 && <Listing360 listingId={open360} onClose={()=>setOpen360(null)} onChanged={loadSlow}/>}
 
       {/* The rows behind whichever number was clicked. */}
       {drillKind && <Drill kind={drillKind.kind} label={drillKind.label}

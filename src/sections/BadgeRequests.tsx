@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Award, Check, X, Send } from 'lucide-react';
 import { Empty, Loading, timeAgo, WaButton, WaIcon, FOUNDER_CAP, UserLink, Copyable } from '../ui';
+import { toast, ask, askText } from '../feedback';
 
 // WhatsApp API template (MSG91). Sent ONLY when the admin presses a button — never automatically.
 const WA_TEMPLATE='badge_invite_earn';
@@ -30,7 +31,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('status','pending');
     const { data,error }=await q;
-    if(error){ alert(error.message); }
+    if(error){ toast(error.message); }
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
     setRows(list.map((r:any)=>({...r, user:r.user?{...r.user, phone:phones[r.user_id]||null}:r.user}))); setLoading(false);
@@ -59,39 +60,41 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
     setWaBusy(busyKey);
     const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ template:WA_TEMPLATE, user_ids:ids, resend } });
     setWaBusy(null);
-    if(error || (data as any)?.error){ alert('WhatsApp send failed: '+((data as any)?.error||error?.message)); loadWa(); return; }
+    if(error || (data as any)?.error){ toast('WhatsApp send failed: '+((data as any)?.error||error?.message)); loadWa(); return; }
     const d=data as any;
-    alert(`WhatsApp invite — sent: ${d.sent}, failed: ${d.failed}, skipped: ${d.skipped}`+
+    toast(`WhatsApp invite — sent: ${d.sent}, failed: ${d.failed}, skipped: ${d.skipped}`+
       (d.failed? '\n\nFirst error: '+(d.results.find((x:any)=>x.status==='failed')?.error||''):''));
     loadWa();
   }
-  function waSendOne(r:any, resend=false){
+  async function waSendOne(r:any, resend=false){
     const name=r.user?.full_name||'this user';
-    if(!confirm(`Send the WhatsApp "Invite & Earn" message to ${name}?\n\nCost ≈ ₹${WA_COST.toFixed(2)}`)) return;
+    if(!await ask(`Send the WhatsApp "Invite & Earn" message to ${name}?\n\nCost ≈ ₹${WA_COST.toFixed(2)}`)) return;
     waSend([r.user_id], r.user_id, resend);
   }
   async function waSendTest(){
-    const to=prompt('Send a TEST message to which WhatsApp number? (your own)','9515369756');
+    const to=await askText('Send a TEST message to which WhatsApp number? (your own)','9515369756');
     if(!to) return;
-    const lang=confirm('Send the Telugu version? (Cancel = English)')?'te':'en';
+    const pick=await ask('Which language for the test message?', { okText: 'Telugu', cancelText: 'English', danger: false, nullOnDismiss: true });
+    if(pick===null) return; // closed the dialog = don't send
+    const lang=pick?'te':'en';
     setWaBusy('test');
     const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ template:WA_TEMPLATE, test_to:to, test_lang:lang } });
     setWaBusy(null);
-    if(error || !(data as any)?.ok) alert('Test failed: '+JSON.stringify((data as any)?.response||(data as any)?.error||error?.message).slice(0,400));
-    else alert('Test sent — check WhatsApp on '+to);
+    if(error || !(data as any)?.ok) toast('Test failed: '+JSON.stringify((data as any)?.response||(data as any)?.error||error?.message).slice(0,400));
+    else toast('Test sent — check WhatsApp on '+to);
   }
 
   async function approve(r:any){
     const badge=pick[r.id]||r.user?.badge||'bronze';
     if(badge==='founding_member' && founders && founders.remaining===0){
-      alert(`All ${FOUNDER_CAP} Founder's Badges have been issued — pick a different badge.`);
+      toast(`All ${FOUNDER_CAP} Founder's Badges have been issued — pick a different badge.`);
       return;
     }
-    if(!confirm(`Give ${r.user?.full_name||'this user'} the ${badge} badge?`)) return;
+    if(!await ask(`Give ${r.user?.full_name||'this user'} the ${badge} badge?`)) return;
     // badge_source:'admin' protects this badge from the nightly earned-badge cron (it only recomputes non-admin badges).
     const u=await supabase.from('users').update({ badge, badge_source:'admin', badge_awarded_at:new Date().toISOString() }).eq('id',r.user_id);
     if(u.error){
-      alert(/cap reached/i.test(u.error.message)
+      toast(/cap reached/i.test(u.error.message)
         ? `All ${FOUNDER_CAP} Founder's Badges have been issued — pick a different badge.`
         : u.error.message);
       loadFounders();
@@ -99,13 +102,13 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
     }
     loadFounders();
     const { error }=await supabase.from('badge_requests').update({ status:'approved', reviewed_at:new Date().toISOString() }).eq('id',r.id);
-    if(error){ alert('Badge granted, but could not mark the request approved: '+error.message); }
+    if(error){ toast('Badge granted, but could not mark the request approved: '+error.message); }
     load(); onChange?.();
   }
   async function reject(r:any){
-    if(!confirm('Reject this badge request?')) return;
+    if(!await ask('Reject this badge request?')) return;
     const { error }=await supabase.from('badge_requests').update({ status:'rejected', reviewed_at:new Date().toISOString() }).eq('id',r.id);
-    if(error){ alert('Could not reject: '+error.message); return; }
+    if(error){ toast('Could not reject: '+error.message); return; }
     load(); onChange?.();
   }
 
@@ -115,9 +118,9 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   const bDists = Array.from(new Set(rows.filter(r=>fState==='all'||r.user?.state===fState).map(r=>r.user?.district).filter(Boolean))).sort();
   const shown = rows.filter(r=> (fState==='all'||r.user?.state===fState) && (fDist==='all'||r.user?.district===fDist));
   const unsentIds = Array.from(new Set(shown.filter(r=>r.user?.phone && waSent[r.user_id]?.status!=='sent').map(r=>r.user_id))).slice(0,100);
-  function waSendAll(){
-    if(unsentIds.length===0){ alert('Everyone shown has already been sent the invite.'); return; }
-    if(!confirm(`Send the WhatsApp "Invite & Earn" message to ${unsentIds.length} people shown here who haven't received it yet?\n\nEstimated cost ≈ ₹${Math.ceil(unsentIds.length*WA_COST)}\n\nThis cannot be undone.`)) return;
+  async function waSendAll(){
+    if(unsentIds.length===0){ toast('Everyone shown has already been sent the invite.'); return; }
+    if(!await ask(`Send the WhatsApp "Invite & Earn" message to ${unsentIds.length} people shown here who haven't received it yet?\n\nEstimated cost ≈ ₹${Math.ceil(unsentIds.length*WA_COST)}\n\nThis cannot be undone.`)) return;
     waSend(unsentIds,'bulk');
   }
 

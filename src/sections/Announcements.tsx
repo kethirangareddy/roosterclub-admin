@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { Megaphone, Send, Clock, FlaskConical, Trash2 } from 'lucide-react';
 import { Field, Empty, Loading, timeAgo } from '../ui';
 import { STATES, districtsFor } from '../locations';
+import { toast, ask } from '../feedback';
 
 export default function Announcements(){
   const [rows,setRows]=useState<any[]>([]);
@@ -47,38 +48,38 @@ export default function Announcements(){
   }
 
   async function testSend(){
-    if(!title.trim()||!body.trim()){ alert('Title and message are required.'); return; }
+    if(!title.trim()||!body.trim()){ toast('Title and message are required.'); return; }
     setSending(true);
     const { data, error }=await supabase.functions.invoke('broadcast',{ body:payload({ test:true }) });
     setSending(false);
-    if(error){ alert('Test failed: '+error.message); return; }
-    alert(`Test sent to your ${(data as any)?.count ?? 0} device(s). Check your phone.`);
+    if(error){ toast('Test failed: '+error.message); return; }
+    toast(`Test sent to your ${(data as any)?.count ?? 0} device(s). Check your phone.`);
   }
 
   async function send(){
-    if(!title.trim()||!body.trim()){ alert('Title and message are required.'); return; }
+    if(!title.trim()||!body.trim()){ toast('Title and message are required.'); return; }
     const scheduled_at=when?new Date(when).toISOString():undefined;
-    if(when && new Date(when).getTime()<=Date.now()){ alert('Schedule time is in the past — clear it to send now.'); return; }
+    if(when && new Date(when).getTime()<=Date.now()){ toast('Schedule time is in the past — clear it to send now.'); return; }
     const reach=[
       district.trim()?`${district.trim()}, ${state.trim()}`:state.trim()||'EVERYONE',
       kyc?'KYC-verified only':null, badge?'badge holders only':null, inactive?'inactive 30d+ only':null,
     ].filter(Boolean).join(' · ');
-    if(!confirm(scheduled_at
+    if(!await ask(scheduled_at
       ? `Schedule this announcement for ${new Date(when).toLocaleString('en-IN')} to ${reach}?`
       : `Send this announcement now to ${reach}?`)) return;
     setSending(true);
     const { data, error }=await supabase.functions.invoke('broadcast',{ body:payload({ scheduled_at }) });
     setSending(false);
-    if(error){ alert('Could not send: '+error.message); return; }
-    alert((data as any)?.scheduled ? 'Scheduled ✓ — the panel sends it automatically.' : `Sent to ${(data as any)?.count ?? 0} device(s).`);
+    if(error){ toast('Could not send: '+error.message); return; }
+    toast((data as any)?.scheduled ? 'Scheduled ✓ — the panel sends it automatically.' : `Sent to ${(data as any)?.count ?? 0} device(s).`);
     setTitle(''); setBody(''); setState(''); setDistrict(''); setKyc(false); setBadge(false); setInactive(false); setWhen('');
     load();
   }
 
   async function cancelScheduled(id:string){
-    if(!confirm('Cancel this scheduled announcement?')) return;
+    if(!await ask('Cancel this scheduled announcement?', { okText: 'Cancel it', cancelText: 'Keep it' })) return;
     const { error }=await supabase.from('announcements').delete().eq('id',id).eq('status','scheduled');
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     load();
   }
 

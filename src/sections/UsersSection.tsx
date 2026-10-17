@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
 import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink } from '../ui';
-import UserDetail from './UserDetail';
+import { useDetail } from '../detail';
+import { toast, ask } from '../feedback';
 
 const BADGES:{v:string;label:string}[]=[
   {v:'',label:'No badge'},
@@ -23,7 +24,7 @@ export default function UsersSection(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [q,setQ]=useState('');
-  const [viewId,setViewId]=useState<string|null>(null);
+  const { openUser }=useDetail();
   // Items 12–14: All (created desc) | High risk (auto-flag queue) | Duplicates (ban evasion)
   const [tab,setTab]=useParamState<'all'|'risk'|'dups'|'refs'>('tab','all');
   const [dups,setDups]=useState<any[]>([]);
@@ -48,24 +49,24 @@ export default function UsersSection(){
     setLoading(true);
     if(tab==='refs'){
       const { data, error }=await supabase.rpc('admin_referral_pairs');
-      if(error) alert('Could not load referrals: '+error.message);
+      if(error) toast('Could not load referrals: '+error.message);
       setRefs(data||[]); setLoading(false); return;
     }
     if(tab==='dups'){
       const { data, error }=await supabase.rpc('admin_duplicates');
-      if(error) alert('Could not load duplicates: '+error.message);
+      if(error) toast('Could not load duplicates: '+error.message);
       setDups(data||[]); setLoading(false); return;
     }
     if(tab==='risk'){
       const { data, error }=await supabase.rpc('admin_flagged_users');
-      if(error) alert('Could not load flagged users: '+error.message);
+      if(error) toast('Could not load flagged users: '+error.message);
       setRows(data||[]); setLoading(false); return;
     }
     const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new', p_limit: lim, p_offset: 0 });
-    if(error) alert('Could not load users: '+error.message);
+    if(error) toast('Could not load users: '+error.message);
     let list = data||[];
     // total_n is a window count computed before LIMIT — the real match count.
-    setTotal(list.length ? Number(list[0].total_n) : 0);
+    setTotal(list.length ? (Number(list[0].total_n) || list.length) : 0);
     // Merge referral info (who invited them + how many they invited) so the
     // list can filter by referral. Additive RPC — keeps admin_users unchanged.
     const { data:refs }=await supabase.rpc('admin_user_referrals');
@@ -101,7 +102,7 @@ export default function UsersSection(){
       .update({ badge:badge||null, badge_source:badge?'admin':null, badge_awarded_at:badge?new Date().toISOString():null }).eq('id',id);
     if(error){
       // trg_founder_badge_cap rejects the 101st Founder's Badge.
-      alert(/cap reached/i.test(error.message)
+      toast(/cap reached/i.test(error.message)
         ? `All ${FOUNDER_CAP} Founder's Badges have been issued — this one can't be given.`
         : 'Could not save badge: '+error.message);
       return;
@@ -110,9 +111,9 @@ export default function UsersSection(){
     loadFounders();
   }
   async function toggleBan(u:any){
-    if(!confirm(u.banned?'Unban this user?':'Ban this user?')) return;
+    if(!await ask(u.banned?'Unban this user?':'Ban this user?')) return;
     const { error }=await supabase.from('users').update({ banned:!u.banned }).eq('id',u.id);
-    if(error){ alert('Could not update: '+error.message); return; }
+    if(error){ toast('Could not update: '+error.message); return; }
     setRows(r=>r.map(x=>x.id===u.id?{...x,banned:!u.banned}:x));
   }
 
@@ -196,7 +197,7 @@ export default function UsersSection(){
                     <td>
                       <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
                         {(d.members||[]).map((u:any)=>(
-                          <button key={u.id} className="btn ghost sm" onClick={()=>setViewId(u.id)}>
+                          <button key={u.id} className="btn ghost sm" onClick={()=>openUser(u.id)}>
                             {u.name||('@'+(u.handle||'user'))}{u.banned?' · banned':''}
                             <span className="muted" style={{marginLeft:4,fontSize:11}}>{u.district||''} · {timeAgo(u.created_at)}</span>
                           </button>
@@ -224,7 +225,7 @@ export default function UsersSection(){
                     <td>{u.open_reports||0}</td>
                     <td>{u.reports_24h||0}</td>
                     <td>{u.shared_upi?<span className="badge b-danger">yes</span>:<span className="badge b-mut">—</span>}</td>
-                    <td className="right"><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
+                    <td className="right"><button className="btn ghost sm" onClick={()=>openUser(u.id)}><Eye size={13}/> View</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -307,7 +308,7 @@ export default function UsersSection(){
                     </select>
                   </td>
                   <td><WaButton phone={u.phone} lang={u.language}/></td>
-                  <td><button className="btn ghost sm" onClick={()=>setViewId(u.id)}><Eye size={13}/> View</button></td>
+                  <td><button className="btn ghost sm" onClick={()=>openUser(u.id)}><Eye size={13}/> View</button></td>
                   <td><button className={'btn sm '+(u.banned?'ghost':'danger')} onClick={()=>toggleBan(u)}>{u.banned?'Unban':'Ban'}</button></td>
                 </tr>
               ))}
@@ -316,7 +317,6 @@ export default function UsersSection(){
         )}
       </div>
       )}
-      {viewId && <UserDetail userId={viewId} onClose={()=>setViewId(null)}/>}
     </>
   );
 }

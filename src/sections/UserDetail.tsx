@@ -4,6 +4,7 @@ import { Modal } from '../ui';
 import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users, BellRing, Send, Gift } from 'lucide-react';
 import { useDetail } from '../detail';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { toast } from '../feedback';
 
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
 const day = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -20,34 +21,40 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
   const [pushing, setPushing] = useState(false);
 
   async function sendPush() {
-    if (!pTitle.trim() || !pBody.trim()) { alert('Title and message are required.'); return; }
+    if (!pTitle.trim() || !pBody.trim()) { toast('Title and message are required.'); return; }
     setPushing(true);
     const { data, error } = await supabase.rpc('admin_notify_user', { p_user: userId, p_title: pTitle.trim(), p_body: pBody.trim() });
     setPushing(false);
-    if (error) { alert('Could not send: ' + error.message); return; }
-    alert(`Delivered to ${data ?? 0} device(s) — it's also in their in-app notifications.`);
+    if (error) { toast('Could not send: ' + error.message); return; }
+    toast(`Delivered to ${data ?? 0} device(s) — it's also in their in-app notifications.`);
     setCompose(false); setPTitle(''); setPBody('');
   }
   useEffect(() => {
     // Distinguish a real load failure from a genuinely missing user, instead of
     // collapsing every error into "User not found."
-    supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data, error }) => setD(error ? { __error: error.message } : (data ?? {})));
+    let alive = true; setD(null);
+    supabase.rpc('admin_user_overview', { p_user: userId }).then(({ data, error }) => { if (alive) setD(error ? { __error: error.message } : (data ?? {})); });
+    return () => { alive = false; };
   }, [userId]);
   useEffect(() => {
     // Who referred this user, and whom they referred (users.referred_by is the source of truth).
-    setRefs(null);
-    supabase.rpc('admin_user_referrals', { p_user: userId }).then(({ data, error }) => setRefs(error ? { __error: error.message } : (data ?? {})));
+    let alive = true; setRefs(null);
+    supabase.rpc('admin_user_referrals', { p_user: userId }).then(({ data, error }) => { if (alive) setRefs(error ? { __error: error.message } : (data ?? {})); });
+    return () => { alive = false; };
   }, [userId]);
   useEffect(() => {
     // Latest KYC request only. Photos are NOT fetched here — they open on tap through the
     // kyc-admin service, which issues 5-minute links and logs every view.
+    let alive = true;
+    setZoom(null); setCompose(false);
     (async () => {
       setKyc(null);
       const { data } = await supabase.from('kyc_submissions')
         .select('id,status,id_type,uidai_verified,photos_purged_at,created_at')
         .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
-      setKyc(data ? { ...data } : { none: true });
+      if (alive) setKyc(data ? { ...data } : { none: true });
     })();
+    return () => { alive = false; };
   }, [userId]);
 
   const p = d?.profile;

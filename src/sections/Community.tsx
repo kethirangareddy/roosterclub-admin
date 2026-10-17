@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { MessagesSquare, Pin, Trash2, Eye, VolumeX, Volume2 } from 'lucide-react';
 import { Modal, Empty, Loading, timeAgo, UserLink } from '../ui';
+import { toast, ask } from '../feedback';
 
 export default function Community({ onChange }: { onChange?: () => void }) {
   const [threads, setThreads] = useState<any[]>([]);
@@ -14,21 +15,21 @@ export default function Community({ onChange }: { onChange?: () => void }) {
     const { data, error } = await supabase.from('forum_threads')
       .select('*, users!forum_threads_user_id_fkey(id, full_name, handle, forum_muted_until)')
       .eq('status', 'active').order('last_reply_at', { ascending: false }).limit(200);
-    if (error) alert('Could not load discussions: ' + error.message);
+    if (error) toast('Could not load discussions: ' + error.message);
     setThreads(data || []);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
 
   async function removeThread(id: string) {
-    if (!confirm('Remove this discussion? It will be hidden from the app.')) return;
+    if (!await ask('Remove this discussion? It will be hidden from the app.')) return;
     const { error } = await supabase.from('forum_threads').update({ status: 'removed' }).eq('id', id);
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     setThreads(t => t.filter(x => x.id !== id)); onChange?.();
   }
   async function togglePin(r: any) {
     const { error } = await supabase.from('forum_threads').update({ pinned: !r.pinned }).eq('id', r.id);
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     setThreads(t => t.map(x => x.id === r.id ? { ...x, pinned: !x.pinned } : x));
   }
   async function openReplies(t: any) {
@@ -40,9 +41,9 @@ export default function Community({ onChange }: { onChange?: () => void }) {
   }
   async function removeReply(id: string) {
     // Hard delete — confirm first (the only destructive action here without one).
-    if (!confirm('Delete this reply? This cannot be undone.')) return;
+    if (!await ask('Delete this reply? This cannot be undone.')) return;
     const { error } = await supabase.from('forum_replies').delete().eq('id', id);
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     setReplies(r => r.filter(x => x.id !== id));
   }
 
@@ -50,16 +51,16 @@ export default function Community({ onChange }: { onChange?: () => void }) {
   const isMuted = (u: any) => !!u?.forum_muted_until && new Date(u.forum_muted_until) > new Date();
   async function muteUser(u: any, days = 7) {
     if (!u?.id) return;
-    if (!confirm(`Mute ${u.full_name || '@' + (u.handle || 'user')} for ${days} days? They can read the forum but can't post or reply.`)) return;
+    if (!await ask(`Mute ${u.full_name || '@' + (u.handle || 'user')} for ${days} days? They can read the forum but can't post or reply.`)) return;
     const until = new Date(Date.now() + days * 864e5).toISOString();
     const { error } = await supabase.from('users').update({ forum_muted_until: until }).eq('id', u.id);
-    if (error) { alert('Could not mute: ' + error.message); return; }
+    if (error) { toast('Could not mute: ' + error.message); return; }
     patchUser(u.id, until);
   }
   async function unmuteUser(u: any) {
     if (!u?.id) return;
     const { error } = await supabase.from('users').update({ forum_muted_until: null }).eq('id', u.id);
-    if (error) { alert('Could not unmute: ' + error.message); return; }
+    if (error) { toast('Could not unmute: ' + error.message); return; }
     patchUser(u.id, null);
   }
   function patchUser(userId: string, until: string | null) {

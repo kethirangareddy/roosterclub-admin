@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, ChevronLeft } from 'lucide-react';
 import { Empty, Loading, UserLink } from '../ui';
+import { toast } from '../feedback';
 
 /* Daily active users.
    users.last_seen_at only holds each person's LAST visit, so it can't answer
@@ -50,7 +51,7 @@ export default function Online() {
     setLoading(true);
     supabase.rpc('admin_daily_active', { days: span }).then(({ data, error }) => {
       if (dead) return;
-      if (error) alert('Could not load daily actives: ' + error.message);
+      if (error) toast('Could not load daily actives: ' + error.message);
       setDays((data as Day[]) || []); setLoading(false);
     });
     return () => { dead = true; };
@@ -64,7 +65,7 @@ export default function Online() {
     setPeopleLoading(true);
     supabase.rpc('admin_active_users_on', { d: pickedDay }).then(({ data, error }) => {
       if (dead) return;
-      if (error) alert('Could not load that day: ' + error.message);
+      if (error) toast('Could not load that day: ' + error.message);
       setPeople((data as Person[]) || []); setPeopleLoading(false);
     });
     return () => { dead = true; };

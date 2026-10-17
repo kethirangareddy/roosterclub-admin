@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { Send, RefreshCw } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink, WaIcon } from '../ui';
+import { toast, ask } from '../feedback';
 
 // WhatsApp inbox for 95153 69756 (MSG91 → wa-inbound webhook → wa_inbox).
 // Replies go out ONLY when the admin presses Send, and only inside WhatsApp's
@@ -16,19 +17,21 @@ export default function WaInbox(){
   const [draft,setDraft]=useState('');
   const [busy,setBusy]=useState(false);
   const endRef=useRef<HTMLDivElement>(null);
+  const selRef=useRef<string|null>(null); selRef.current=sel;
 
   async function loadThreads(){
     const { data, error }=await supabase.rpc('admin_wa_threads');
-    if(error) alert(error.message);
+    if(error){ console.error(error.message); setLoading(false); return; }
     setThreads(data||[]); setLoading(false);
   }
   async function loadThread(n:string){
     const { data }=await supabase.rpc('admin_wa_thread',{ p_number:n });
+    if(selRef.current!==n) return; // you've moved to another number since
     setMsgs(data||[]);
     setTimeout(()=>endRef.current?.scrollIntoView({block:'end'}),50);
   }
   useEffect(()=>{ loadThreads(); const t=setInterval(loadThreads,20000); return ()=>clearInterval(t); },[]);
-  useEffect(()=>{ if(!sel) return; loadThread(sel); const t=setInterval(()=>loadThread(sel),10000); return ()=>clearInterval(t); },[sel]);
+  useEffect(()=>{ setMsgs([]); if(!sel) return; loadThread(sel); const t=setInterval(()=>loadThread(sel),10000); return ()=>clearInterval(t); },[sel]);
 
   const cur=threads.find(t=>t.customer_number===sel);
   const windowOpen=!!cur?.last_in_at && Date.now()-new Date(cur.last_in_at).getTime()<DAY;
@@ -36,12 +39,12 @@ export default function WaInbox(){
 
   async function send(){
     const text=draft.trim(); if(!sel||!text) return;
-    if(!confirm(`Send this WhatsApp reply to +${sel}?\n\n"${text.slice(0,200)}"`)) return;
+    if(!await ask(`Send this WhatsApp reply to +${sel}?\n\n"${text.slice(0,200)}"`)) return;
     setBusy(true);
     const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ reply_to:sel, text } });
     setBusy(false);
     if(error || !(data as any)?.ok){
-      alert('Reply failed: '+((data as any)?.error||JSON.stringify((data as any)?.response||error?.message)).slice(0,400));
+      toast('Reply failed: '+((data as any)?.error||JSON.stringify((data as any)?.response||error?.message)).slice(0,400));
     } else setDraft('');
     loadThread(sel); loadThreads();
   }

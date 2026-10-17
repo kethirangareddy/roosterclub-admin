@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { History, Search } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink, ListingLink, ReceiptLink, Copyable, shortId } from '../ui';
+import { toast } from '../feedback';
 
 /** Item 15 — audit log. Every admin action (ban, approve, verify, delete, badge…)
     is captured by DB triggers into admin_audit; this is the searchable view. */
@@ -35,7 +36,7 @@ export default function Activity() {
   async function load() {
     setLoading(true);
     const { data, error } = await supabase.rpc('admin_audit_log', { p_q: q.trim() || null, p_limit: 200 });
-    if (error) alert('Could not load activity: ' + error.message);
+    if (error) toast('Could not load activity: ' + error.message);
     setRows(data || []); setLoading(false);
   }
   useEffect(() => { load(); }, []);

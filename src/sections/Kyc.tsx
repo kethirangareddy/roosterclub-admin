@@ -3,6 +3,7 @@ import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X, ZoomIn, ZoomOut, RotateCw, Copy, KeyRound, Upload } from 'lucide-react';
 import { Empty, Loading, timeAgo, useParamState, useRowKeys, UserLink, Copyable, Modal } from '../ui';
 import { useDetail } from '../detail';
+import { toast, ask } from '../feedback';
 
 /* Verifications (KYC)
    - The list comes from admin_kyc_list (duplicate-ID count, attempts, live-selfie + UIDAI flags).
@@ -45,7 +46,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   async function load(){
     setLoading(true);
     const { data,error }=await supabase.rpc('admin_kyc_list',{ p_status: tab==='pending'?'pending':'all', p_limit: 200 });
-    if(error){ alert(error.message); }
+    if(error){ toast(error.message); }
     const list:any[]=data||[];
     const phones=await adminPhones(list.map(r=>r.user_id));
     list.forEach(r=>{ r.phone=phones[r.user_id]||null; });
@@ -57,10 +58,10 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
     const list=rows.filter(r=>picked.has(r.id)&&r.status==='pending');
     if(!list.length) return;
     const risky=list.filter(r=>r.dup_users>0).length;
-    if(!confirm(`Approve ${list.length} verification${list.length>1?'s':''} without opening each one?`+(risky?`\n\n${risky} of them use an ID seen on another account.`:''))) return;
+    if(!await ask(`Approve ${list.length} verification${list.length>1?'s':''} without opening each one?`+(risky?`\n\n${risky} of them use an ID seen on another account.`:''))) return;
     for(const r of list){
       const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:true });
-      if(error){ alert(`@${r.handle||'user'}: ${error.message}`); break; }
+      if(error){ toast(`@${r.handle||'user'}: ${error.message}`); break; }
     }
     setPicked(new Set()); load(); onChange?.();
   }
@@ -165,20 +166,20 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
   });
 
   async function approve(){
-    if(r.dup_users>0 && !confirm(`This ID appears on ${r.dup_users} other account(s). Approve anyway?`)) return;
+    if(r.dup_users>0 && !await ask(`This ID appears on ${r.dup_users} other account(s). Approve anyway?`)) return;
     setBusy(true);
     const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:true });
     setBusy(false);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     onDone();
   }
   async function reject(){
-    if(!reason){ alert('Pick a reason.'); return; }
-    if(reason==='other' && !note.trim()){ alert('Write a short note for "Other".'); return; }
+    if(!reason){ toast('Pick a reason.'); return; }
+    if(reason==='other' && !note.trim()){ toast('Write a short note for "Other".'); return; }
     setBusy(true);
     const { error }=await supabase.rpc('admin_kyc_decide',{ p_id:r.id, p_approve:false, p_reason:reason, p_note:note.trim()||null });
     setBusy(false);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     onDone();
   }
 
@@ -296,7 +297,7 @@ function UidaiCerts(){
       if(text.includes('-----BEGIN')) b64=text.replace(/-----[^-]+-----/g,'').replace(/\s+/g,'');
       else { let s=''; buf.forEach(c=>{ s+=String.fromCharCode(c); }); b64=btoa(s); }
       const { error }=await supabase.rpc('admin_uidai_cert_set',{ p_name:f.name, p_der_b64:b64, p_active:true });
-      if(error) alert(error.message); else load();
+      if(error) toast(error.message); else load();
     } finally { setBusy(false); }
   }
   return (

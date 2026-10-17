@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { Send, RefreshCw } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink } from '../ui';
+import { toast } from '../feedback';
 
 // In-app "Rooster Club Team" chat (9 Oct 2026). Users write from the pinned row at the
 // top of their Chats tab; replies here are saved and sent to their phone as a push.
@@ -13,17 +14,21 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   const [draft,setDraft]=useState('');
   const [busy,setBusy]=useState(false);
   const endRef=useRef<HTMLDivElement>(null);
+  // The thread on screen. A reply that comes back for a thread you've already
+  // left (10s polling + slow network) must not paint over the one you opened.
+  const selRef=useRef<string|null>(null); selRef.current=sel;
 
   async function loadThreads(){
     const { data, error }=await supabase.rpc('admin_support_threads',{ p_limit:200 });
-    if(error) alert(error.message);
+    if(error){ console.error(error.message); setLoading(false); return; }
     setThreads(data||[]); setLoading(false);
   }
   async function loadThread(uid:string, markRead=false){
     const { data, error }=await supabase.from('support_messages')
       .select('id, from_admin, body, created_at').eq('user_id',uid)
       .order('created_at',{ ascending:true }).limit(500);
-    if(error){ alert(error.message); return; }
+    if(selRef.current!==uid) return;
+    if(error){ console.error(error.message); return; }
     setMsgs(data||[]);
     setTimeout(()=>endRef.current?.scrollIntoView({block:'end'}),50);
     if(markRead){
@@ -33,7 +38,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     }
   }
   useEffect(()=>{ loadThreads(); const t=setInterval(loadThreads,20000); return ()=>clearInterval(t); },[]);
-  useEffect(()=>{ if(!sel) return; loadThread(sel,true); const t=setInterval(()=>loadThread(sel,true),10000); return ()=>clearInterval(t); },[sel]);
+  useEffect(()=>{ setMsgs([]); if(!sel) return; loadThread(sel,true); const t=setInterval(()=>loadThread(sel,true),10000); return ()=>clearInterval(t); },[sel]);
 
   const cur=threads.find(t=>t.user_id===sel);
   const nameOf=(t:any)=>t?.farm_name||t?.full_name||(t?.handle?'@'+t.handle:'User');
@@ -43,7 +48,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     setBusy(true);
     const { error }=await supabase.rpc('admin_support_reply',{ p_user:sel, p_body:text });
     setBusy(false);
-    if(error){ alert('Reply failed: '+error.message); return; }
+    if(error){ toast('Reply failed: '+error.message); return; }
     setDraft('');
     loadThread(sel); loadThreads();
   }

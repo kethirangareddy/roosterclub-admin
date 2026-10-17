@@ -4,7 +4,7 @@
 /* BUMP THIS ON EVERY DEPLOY that changes the shell. The activate handler
    deletes every cache whose name isn't the current one, so changing the string
    is what actually evicts a stale shell from an already-installed browser. */
-const CACHE = 'rcc-shell-v2';
+const CACHE = 'rcc-shell-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 

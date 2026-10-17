@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Rocket, Plus, Zap } from 'lucide-react';
 import { Modal, Field, Empty, Loading, inr, timeAgo, UserLink, ListingLink, Copyable } from '../ui';
+import { toast, askText } from '../feedback';
 
 const LEVELS=[
   { v:'mandal', label:'Mandal — ₹99', price:99 },
@@ -41,18 +42,18 @@ export default function Boosts(){
 
   async function create(){
     const a={...adding};
-    if(!a.listing_id){ alert('Pick a listing'); return; }
+    if(!a.listing_id){ toast('Pick a listing'); return; }
     const lst=listings.find(l=>l.id===a.listing_id);
     const { error }=await supabase.from('boosts').insert({
       listing_id:a.listing_id, seller_id:lst?.user_id, level:a.level,
       price_paid:Number(a.price_paid)||0, upi_ref:a.upi_ref||null,
     });
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     setAdding(null); load();
   }
 
   async function activate(b:any){
-    const input = prompt('Boost duration in days?', '5');
+    const input = await askText('Boost duration in days?', '5');
     if(input===null) return; // Cancel pressed — don't activate
     const days = Number(input)||5;
     const now=new Date(); const exp=new Date(now.getTime()+days*864e5);
@@ -63,7 +64,7 @@ export default function Boosts(){
     const e2=await supabase.from('listings').update({
       boost_level:b.level, boost_expires_at:exp.toISOString()
     }).eq('id',b.listing_id);
-    if(e1.error||e2.error){ alert((e1.error||e2.error)?.message); return; }
+    if(e1.error||e2.error){ toast((e1.error||e2.error)?.message); return; }
     load();
   }
 

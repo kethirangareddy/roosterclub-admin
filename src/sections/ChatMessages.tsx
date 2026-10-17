@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { timeAgo } from '../ui';
 
@@ -22,14 +22,27 @@ function body(m: Msg) {
 }
 
 // Reusable buyer↔seller transcript for one chat. Seller right/gold, buyer left.
-export default function ChatMessages({ chatId, sellerId }:{ chatId: string; sellerId: string }) {
+export default function ChatMessages({ chatId, sellerId, live = false }:{ chatId: string; sellerId: string; live?: boolean }) {
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Guard: if you tap chat A then chat B, A's slower reply must not land under B.
+    let alive = true;
     setMsgs(null);
     supabase.rpc('admin_chat_messages', { p_chat: chatId })
-      .then(({ data, error }) => setMsgs(error ? [] : (data || [])));
+      .then(({ data, error }) => { if (alive) setMsgs(error ? [] : (data || [])); });
+    // Live mode: new messages appear on their own every 10s while you read.
+    const t = live ? setInterval(() => {
+      if (document.hidden) return;
+      supabase.rpc('admin_chat_messages', { p_chat: chatId }).then(({ data, error }) => {
+        if (!alive || error) return;
+        setMsgs(prev => (prev && data && prev.length === data.length) ? prev : (data || []));
+      });
+    }, 10000) : null;
+    return () => { alive = false; if (t) clearInterval(t); };
   }, [chatId]);
+  useEffect(() => { if (live && msgs?.length) endRef.current?.scrollIntoView({ block: 'end' }); }, [msgs?.length]);
 
   if (msgs === null) return <div className="loading">Loading messages…</div>;
   if (msgs.length === 0) return <div className="empty">No messages in this conversation.</div>;
@@ -54,6 +67,7 @@ export default function ChatMessages({ chatId, sellerId }:{ chatId: string; sell
           </div>
         );
       })}
+      <div ref={endRef} />
     </div>
   );
 }
