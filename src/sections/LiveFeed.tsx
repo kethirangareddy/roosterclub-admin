@@ -101,8 +101,8 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
       </div>
 
       {edit && (
-        <Modal title={edit.id?'Edit seller':'Add live-feed seller'} onClose={()=>setEdit(null)}
-          footer={<><button className="btn ghost" onClick={()=>setEdit(null)}>Cancel</button>
+        <Modal title={edit.id?'Edit seller':'Add live-feed seller'} onClose={()=>{ if(!saveBusy.current) setEdit(null); }}
+          footer={<><button className="btn ghost" onClick={()=>{ if(!saveBusy.current) setEdit(null); }}>Cancel</button>
                     <button className="btn" onClick={save}>Save</button></>}>
           <Field label="Unit / seller name"><input style={{width:'100%'}} value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})} placeholder="e.g. Sri Larvae Farms"/></Field>
           <div className="grid2">

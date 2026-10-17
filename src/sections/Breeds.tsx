@@ -76,8 +76,8 @@ export default function Breeds(){
       </div>
 
       {edit && (
-        <Modal title={edit.id?'Edit breed':'Add breed'} onClose={()=>setEdit(null)}
-          footer={<><button className="btn ghost" onClick={()=>setEdit(null)}>Cancel</button>
+        <Modal title={edit.id?'Edit breed':'Add breed'} onClose={()=>{ if(!saveBusy.current) setEdit(null); }}
+          footer={<><button className="btn ghost" onClick={()=>{ if(!saveBusy.current) setEdit(null); }}>Cancel</button>
                     <button className="btn" onClick={save}>Save</button></>}>
           <Field label="Name"><input style={{width:'100%'}} value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></Field>
           <div className="grid2">

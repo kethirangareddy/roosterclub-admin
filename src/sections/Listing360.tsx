@@ -18,6 +18,8 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
   // Only the answer for the listing that is open right now may land on screen —
   // a slow reply for the previous listing used to overwrite the current one.
   const want=useRef(listingId); want.current=listingId;
+  const instaTimer=useRef<number|undefined>(undefined);
+  useEffect(()=>()=>window.clearTimeout(instaTimer.current),[]); // no reload after the panel closes
   function load(){
     const asked=listingId;
     supabase.rpc('admin_listing_overview',{ p_listing:asked })
@@ -31,7 +33,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     const { error }=await supabase.from('listings').update({ approval_status }).eq('id',listingId);
     setBusy(false);
     if(error){ toast(error.message); return; }
-    load(); onChanged?.(); emitChanged();
+    load(); onChanged?.(); emitChanged(); onChanged?.(); emitChanged();
   }
   async function feature(days:number|null){
     setBusy(true);
@@ -68,7 +70,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     setBusy(false);
     if(error){ setPushMsg('❌ '+error.message); return; }
     setPushMsg('✅ Queued — posts in the background in ~10–60s'+(hasVideo?' (longer for branded reels)':'')+'. Status refreshes shortly.');
-    setTimeout(load, 45000);
+    instaTimer.current=window.setTimeout(load, 45000);
   }
 
   const boosted=l && l.boost_level>0 && l.boost_expires_at && new Date(l.boost_expires_at)>new Date();

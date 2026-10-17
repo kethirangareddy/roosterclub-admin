@@ -60,11 +60,13 @@ function OrdersTab() {
     if (error) { toast('Could not load: ' + error.message); return; }
     setRows(data ?? []);
   }
-  async function setStatus(o: any, s: Status) {
+  // The note belongs to the order whose popup it was typed in — row buttons
+  // never send it (a note typed on order A used to be saved on order B).
+  async function setStatus(o: any, s: Status, withNote = false) {
     if (s === 'cancelled' && !await ask(`Cancel ${o.order_no}? Refund any payment yourself by UPI.`, { okText: 'Cancel order', cancelText: 'Keep order' })) return;
     if (s === 'awaiting_payment' && !await ask('Mark payment as NOT found? The farmer is asked to check and pay again.')) return;
     setSaving(true);
-    const { error } = await supabase.rpc('admin_set_custom_feed_status', { p_order: o.id, p_status: s, p_note: note || null });
+    const { error } = await supabase.rpc('admin_set_custom_feed_status', { p_order: o.id, p_status: s, p_note: withNote ? (note || null) : null });
     setSaving(false);
     if (error) { toast('Could not update: ' + error.message); return; }
     setOpen(null); setNote(''); load();
@@ -116,7 +118,7 @@ function OrdersTab() {
       </div>
 
       {open && (
-        <Modal title={`Feed order ${open.order_no}`} onClose={() => setOpen(null)}>
+        <Modal title={`Feed order ${open.order_no}`} onClose={() => { setOpen(null); setNote(''); }}>
           <div style={{ display: 'grid', gap: 12 }}>
             <div id="batch-sheet">
               <strong>Batch sheet · {open.order_no}</strong>
@@ -163,7 +165,7 @@ function OrdersTab() {
               <input placeholder="Note to farmer (optional, shown when cancelling)" value={note} onChange={(e) => setNote(e.target.value)} style={{ width: '100%', marginTop: 6 }} />
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
                 {[...FLOW, 'cancelled'].map((s) => (
-                  <button key={s} className={'btn sm' + (open.status === s ? ' primary' : '')} disabled={saving || open.status === s} onClick={() => setStatus(open, s as Status)}>
+                  <button key={s} className={'btn sm' + (open.status === s ? ' primary' : '')} disabled={saving || open.status === s} onClick={() => setStatus(open, s as Status, true)}>
                     {LABEL[s as Status]}
                   </button>
                 ))}
@@ -231,7 +233,8 @@ function MillTab() {
     o[path[path.length - 1]] = Number(v) || 0; setCfg(c);
   };
   return (
-    <div style={{ display: 'grid', gap: 12, marginTop: 8 }}>
+    // Inputs lock while saving: the reload after Save would wipe anything typed meanwhile.
+    <fieldset disabled={saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'grid', gap: 12, marginTop: 8 }}>
       <div className="card">
         <strong>Payment and pricing</strong>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 10, marginTop: 8 }}>
@@ -278,6 +281,6 @@ function MillTab() {
         </tbody></table>
       </div>
       <div><button className="btn primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save all'}</button></div>
-    </div>
+    </fieldset>
   );
 }

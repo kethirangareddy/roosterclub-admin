@@ -81,8 +81,8 @@ export default function Kukuta(){
       </div>
 
       {edit && (
-        <Modal title={edit.id?'Edit article':'Write article'} onClose={()=>setEdit(null)}
-          footer={<><button className="btn ghost" onClick={()=>setEdit(null)}>Cancel</button>
+        <Modal title={edit.id?'Edit article':'Write article'} onClose={()=>{ if(!saveBusy.current) setEdit(null); }}
+          footer={<><button className="btn ghost" onClick={()=>{ if(!saveBusy.current) setEdit(null); }}>Cancel</button>
                     <button className="btn" onClick={save}>Save</button></>}>
           <Field label="Title"><input style={{width:'100%'}} value={edit.title} onChange={e=>setEdit({...edit,title:e.target.value})}/></Field>
           <Field label="Category"><select style={{width:'100%'}} value={edit.category||'General'} onChange={e=>setEdit({...edit,category:e.target.value})}>{CATS.map(c=><option key={c}>{c}</option>)}</select></Field>

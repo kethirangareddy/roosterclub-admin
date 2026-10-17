@@ -119,8 +119,8 @@ export default function Boosts(){
       </div>
 
       {adding && (
-        <Modal title="Log boost payment" onClose={()=>setAdding(null)}
-          footer={<><button className="btn ghost" onClick={()=>setAdding(null)}>Cancel</button>
+        <Modal title="Log boost payment" onClose={()=>{ if(!createBusy.current) setAdding(null); }}
+          footer={<><button className="btn ghost" onClick={()=>{ if(!createBusy.current) setAdding(null); }}>Cancel</button>
                     <button className="btn" onClick={create}>Save</button></>}>
           <Field label="Listing">
             <select style={{width:'100%'}} value={adding.listing_id} onChange={e=>setAdding({...adding,listing_id:e.target.value})}>

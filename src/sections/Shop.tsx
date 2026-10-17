@@ -46,7 +46,13 @@ export default function Shop() {
     if (row.category === 'apparel') {
       const a: ApparelState = row.apparel ? { ...emptyApparel(), ...row.apparel, badge: row.apparel.badge ?? '', model: { ...(row.apparel.model ?? {}) } } : emptyApparel();
       setApparel(a); setGrid({});
-      const g = await loadVariants(row.id);
+      let g: StockGrid;
+      try { g = await loadVariants(row.id); }
+      catch (e: any) {
+        if (editId.current !== row.id) return;
+        toast('Could not load sizes and stock: ' + (e?.message || 'network error') + '. Close and reopen before saving.');
+        setEdit(null); setApparel(null); return;
+      }
       if (editId.current !== row.id) return;
       setGrid(Object.keys(g).length ? g : defaultGrid(a));
     } else { setApparel(null); setGrid({}); }

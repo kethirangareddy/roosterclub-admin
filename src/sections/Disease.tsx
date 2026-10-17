@@ -130,8 +130,8 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
       </div>
 
       {edit && (
-        <Modal title={edit.id?'Edit alert':'New disease alert'} onClose={()=>setEdit(null)}
-          footer={<><button className="btn ghost" onClick={()=>setEdit(null)}>Cancel</button>
+        <Modal title={edit.id?'Edit alert':'New disease alert'} onClose={()=>{ if(!saveBusy.current) setEdit(null); }}
+          footer={<><button className="btn ghost" onClick={()=>{ if(!saveBusy.current) setEdit(null); }}>Cancel</button>
                     <button className="btn" onClick={save}>Save</button></>}>
           <Field label="Title"><input style={{width:'100%'}} value={edit.title} onChange={e=>setEdit({...edit,title:e.target.value})} placeholder="e.g. Ranikhet outbreak reported"/></Field>
           <Field label="Description"><textarea rows={4} style={{width:'100%',resize:'vertical'}} value={edit.description||''} onChange={e=>setEdit({...edit,description:e.target.value})}/></Field>

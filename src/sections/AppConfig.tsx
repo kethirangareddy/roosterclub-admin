@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { ToggleLeft, Wrench, Smartphone, Save, IndianRupee, Image as ImageIcon, Link2 } from 'lucide-react';
 import { Field, Loading } from '../ui';
@@ -27,6 +27,7 @@ function partnerProblem(p:any): string|null {
 /** Remote config — flip app behavior live, no EAS rebuild. The app reads app_config at launch. */
 export default function AppConfig(){
   const [cfg,setCfg]=useState<Record<string,any>|null>(null);
+  const cfgRef=useRef<Record<string,any>|null>(null); cfgRef.current=cfg;
   const [dirty,setDirty]=useState<Set<string>>(new Set());
   const [saving,setSaving]=useState(false);
   const [bannerUploading,setBannerUploading]=useState(false);
@@ -65,12 +66,14 @@ export default function AppConfig(){
     // Save what was changed when you pressed Save; anything edited while it
     // saves stays marked unsaved (it used to be marked saved but never written).
     const batch=[...dirty];
+    const snap:Record<string,any>={}; batch.forEach(k=>{ snap[k]=cfg[k]; });
     for(const key of batch){
       const { error }=await supabase.from('app_config')
         .upsert({ key, value:cfg[key], updated_at:new Date().toISOString() });
       if(error){ setSaving(false); toast(`Could not save "${key}": `+error.message); return; }
     }
-    setSaving(false); setDirty(d=>{ const s=new Set(d); batch.forEach(k=>s.delete(k)); return s; });
+    // A key you kept editing while it saved stays "unsaved" (its new value wasn't written).
+    setSaving(false); setDirty(d=>{ const s=new Set(d); batch.forEach(k=>{ if(cfgRef.current?.[k]===snap[k]) s.delete(k); }); return s; });
     toast('Saved. Users pick this up next time the app launches.');
   }
 

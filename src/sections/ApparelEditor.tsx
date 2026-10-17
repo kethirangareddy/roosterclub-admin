@@ -73,7 +73,10 @@ export async function saveVariants(productId: string, grid: StockGrid) {
 }
 
 export async function loadVariants(productId: string): Promise<StockGrid> {
-  const { data } = await supabase.from('shop_product_variants').select('colour, size, stock_count, active').eq('product_id', productId);
+  const { data, error } = await supabase.from('shop_product_variants').select('colour, size, stock_count, active').eq('product_id', productId);
+  // A failed read must not look like "no sizes yet" — that filled every size
+  // with 999 and Save overwrote real stock. Callers handle the error.
+  if (error) throw error;
   const g: StockGrid = {};
   (data ?? []).forEach((v: any) => { if (!v.active) return; (g[v.colour] ??= {})[v.size] = v.stock_count; });
   return g;

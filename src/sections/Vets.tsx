@@ -99,8 +99,8 @@ export default function Vets({ onChange }:{ onChange?:()=>void }){
       </div>
 
       {edit && (
-        <Modal title={edit.id?'Edit doctor':'Add doctor'} onClose={()=>setEdit(null)}
-          footer={<><button className="btn ghost" onClick={()=>setEdit(null)}>Cancel</button>
+        <Modal title={edit.id?'Edit doctor':'Add doctor'} onClose={()=>{ if(!saveBusy.current) setEdit(null); }}
+          footer={<><button className="btn ghost" onClick={()=>{ if(!saveBusy.current) setEdit(null); }}>Cancel</button>
                     <button className="btn" onClick={save}>Save</button></>}>
           <Field label="Name"><input style={{width:'100%'}} value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></Field>
           <Field label="Speciality"><input style={{width:'100%'}} value={edit.speciality||''} onChange={e=>setEdit({...edit,speciality:e.target.value})} placeholder="e.g. Poultry surgery"/></Field>
