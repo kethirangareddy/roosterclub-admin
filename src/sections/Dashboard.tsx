@@ -8,6 +8,7 @@ import { Loading, timeAgo, Modal, inr, UserLink, ListingLink, ReceiptLink } from
 import { useDetail, useOnChanged } from '../detail';
 import Online from './Online';
 import TopActive from './TopActive';
+import { toast } from '../feedback';
 
 const FEED_META: Record<string,{Icon:any;c:string}> = {
   signup:{Icon:UserPlus,c:'var(--ok)'}, listing:{Icon:ListChecks,c:'var(--cta)'},
@@ -143,7 +144,7 @@ export default function Dashboard({ go, counts }:{
       .eq('district',district).order('created_at',{ascending:false}).limit(100);
     if(state) q=q.eq('state',state);
     const { data,error }=await q;
-    if(error) alert('Could not load listings: '+error.message);
+    if(error) toast('Could not load listings: '+error.message);
     setDrillList(data||[]); setDrillBusy(false);
   }
 

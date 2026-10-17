@@ -9,6 +9,7 @@ import { useDetail } from '../detail';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
+import { toast } from '../feedback';
 
 type Metrics = {
   gmv: number; sales: number; avg_price: number; new_users: number; new_listings: number;
@@ -399,7 +400,7 @@ function Liquidity() {
 
   useEffect(() => {
     supabase.rpc('admin_liquidity', { p_days: 30 }).then(({ data, error }) => {
-      if (error) alert('Could not load liquidity: ' + error.message);
+      if (error) toast('Could not load liquidity: ' + error.message);
       setRows((data as Liq[]) || []); setLoading(false);
     });
   }, []);
@@ -572,7 +573,7 @@ function Sources() {
 
   useEffect(() => {
     supabase.rpc('admin_acquisition_counts').then(({ data, error }) => {
-      if (error) alert('Could not load acquisition data: ' + error.message);
+      if (error) toast('Could not load acquisition data: ' + error.message);
       setRows(((data as any[]) || []).map(r => ({ source: r.source, count: Number(r.n) })));
       setLoading(false);
     });

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Wheat } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable } from '../ui';
+import { toast, ask } from '../feedback';
 
 // Make My Feed: farmers design a feed in the app; Protein Factory mills it in 10 kg sacks.
 // Orders are paid by UPI in advance: the farmer sends the UPI reference, we check it here,
@@ -53,16 +54,16 @@ function OrdersTab() {
     else if (filter !== 'all') q = q.eq('status', filter);
     const { data, error } = await q;
     setLoading(false);
-    if (error) { alert('Could not load: ' + error.message); return; }
+    if (error) { toast('Could not load: ' + error.message); return; }
     setRows(data ?? []);
   }
   async function setStatus(o: any, s: Status) {
-    if (s === 'cancelled' && !confirm(`Cancel ${o.order_no}? Refund any payment yourself by UPI.`)) return;
-    if (s === 'awaiting_payment' && !confirm('Mark payment as NOT found? The farmer is asked to check and pay again.')) return;
+    if (s === 'cancelled' && !await ask(`Cancel ${o.order_no}? Refund any payment yourself by UPI.`)) return;
+    if (s === 'awaiting_payment' && !await ask('Mark payment as NOT found? The farmer is asked to check and pay again.')) return;
     setSaving(true);
     const { error } = await supabase.rpc('admin_set_custom_feed_status', { p_order: o.id, p_status: s, p_note: note || null });
     setSaving(false);
-    if (error) { alert('Could not update: ' + error.message); return; }
+    if (error) { toast('Could not update: ' + error.message); return; }
     setOpen(null); setNote(''); load();
   }
   const next = (s: Status): Status | null => {
@@ -197,7 +198,7 @@ function MillTab() {
       supabase.from('mill_addons').select('*').order('sort'),
       supabase.from('app_config').select('value').eq('key', 'custom_feed').maybeSingle(),
     ]);
-    if (a.error || b.error || c.error) { alert('Could not load mill data'); return; }
+    if (a.error || b.error || c.error) { toast('Could not load mill data'); return; }
     setIngs((a.data ?? []).filter((i: any) => !i.home));
     const m: any = {};
     for (const r of b.data ?? []) m[r.key] = { price: String(r.price_per_kg), in_stock: r.in_stock };
@@ -214,7 +215,7 @@ function MillTab() {
     const r3 = await supabase.from('app_config').update({ value: cfg, updated_at: new Date().toISOString() }).eq('key', 'custom_feed');
     setSaving(false);
     const err = r1.error || r2.error || r3.error;
-    if (err) alert('Could not save: ' + err.message); else { alert('Saved'); load(); }
+    if (err) toast('Could not save: ' + err.message); else { toast('Saved'); load(); }
   }
   if (!ings || !cfg) return <Loading />;
   const num = (path: string[], v: string) => {

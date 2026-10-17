@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { Send, RefreshCw } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink } from '../ui';
+import { toast } from '../feedback';
 
 // In-app "Rooster Club Team" chat (9 Oct 2026). Users write from the pinned row at the
 // top of their Chats tab; replies here are saved and sent to their phone as a push.
@@ -47,7 +48,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     setBusy(true);
     const { error }=await supabase.rpc('admin_support_reply',{ p_user:sel, p_body:text });
     setBusy(false);
-    if(error){ alert('Reply failed: '+error.message); return; }
+    if(error){ toast('Reply failed: '+error.message); return; }
     setDraft('');
     loadThread(sel); loadThreads();
   }

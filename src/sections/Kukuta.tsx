@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { BookOpen, Plus } from 'lucide-react';
 import { Modal, Field, Empty, Loading, timeAgo } from '../ui';
+import { toast, ask } from '../feedback';
 
 const CATS=['Breed Guide','Ancient Omens','Training','Care & Health','Bloodlines','General'];
 const BLANK={ title:'',body:'',category:'General',cover_url:'',published:false };
@@ -20,18 +21,18 @@ export default function Kukuta(){
 
   async function save(){
     const v={...edit}; const id=v.id; delete v.id; delete v.created_at;
-    if(!v.title?.trim()||!v.body?.trim()){ alert('Title and body are both required.'); return; }
+    if(!v.title?.trim()||!v.body?.trim()){ toast('Title and body are both required.'); return; }
     const { error }= id ? await supabase.from('kukuta_articles').update(v).eq('id',id)
                         : await supabase.from('kukuta_articles').insert(v);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     setEdit(null); load();
   }
   async function togglePub(r:any){
-    const { error }=await supabase.from('kukuta_articles').update({published:!r.published}).eq('id',r.id); if(error){ alert('Could not update: '+error.message); return; } load();
+    const { error }=await supabase.from('kukuta_articles').update({published:!r.published}).eq('id',r.id); if(error){ toast('Could not update: '+error.message); return; } load();
   }
   async function remove(id:string){
-    if(!confirm('Delete this article?')) return;
-    const { error }=await supabase.from('kukuta_articles').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load();
+    if(!await ask('Delete this article?')) return;
+    const { error }=await supabase.from('kukuta_articles').delete().eq('id',id); if(error){ toast('Could not delete: '+error.message); return; } load();
   }
 
   return (

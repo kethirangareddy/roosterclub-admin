@@ -3,6 +3,7 @@ import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
 import { Empty, Loading, timeAgo, useParamState, useRowKeys, UserLink, Copyable } from '../ui';
 import { useDetail } from '../detail';
+import { toast, ask } from '../feedback';
 
 export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
@@ -23,15 +24,15 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   async function bulkDecide(approveIt:boolean){
     const list=rows.filter(r=>picked.has(r.id)&&r.status==='pending');
     if(list.length===0) return;
-    if(!confirm(`${approveIt?'Approve':'Reject'} ${list.length} verification${list.length>1?'s':''}? Both photos stay on file.`)) return;
+    if(!await ask(`${approveIt?'Approve':'Reject'} ${list.length} verification${list.length>1?'s':''}? Both photos stay on file.`)) return;
     if(approveIt){
       const { error }=await supabase.from('users').update({ aadhaar_verified:true }).in('id',list.map(r=>r.user_id));
-      if(error){ alert(error.message); return; }
+      if(error){ toast(error.message); return; }
     }
     const { error }=await supabase.from('kyc_submissions')
       .update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString() })
       .in('id',list.map(r=>r.id));
-    if(error){ alert('Could not update KYC: '+error.message); return; }
+    if(error){ toast('Could not update KYC: '+error.message); return; }
     setPicked(new Set()); load(); onChange?.();
   }
 
@@ -42,7 +43,7 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
     ).order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('status','pending');
     const { data,error }=await q;
-    if(error){ alert(error.message); }
+    if(error){ toast(error.message); }
     const list:any[]=(data||[]);
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
     list.forEach((r:any)=>{ if(r.user) r.user.phone=phones[r.user_id]||null; });
@@ -55,19 +56,19 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   useEffect(()=>{ load(); },[tab]);
 
   async function decide(r:any, approveIt:boolean){
-    if(!confirm(approveIt
+    if(!await ask(approveIt
       ? 'Approve and give the verified badge? Both photos stay on file (users upload a masked Aadhaar).'
       : 'Reject this verification? Both photos stay on file (users upload a masked Aadhaar).')) return;
     if(approveIt){
       const { error }=await supabase.from('users').update({ aadhaar_verified:true }).eq('id',r.user_id);
-      if(error){ alert(error.message); return; }
+      if(error){ toast(error.message); return; }
     }
     // Both photos are retained on file as the verification/fraud trail (Aadhaar is uploaded masked).
     const { error }=await supabase.from('kyc_submissions').update({ status:approveIt?'approved':'rejected', reviewed_at:new Date().toISOString() }).eq('id',r.id);
     if(error){
       // Roll back the badge so we don't leave the user verified with the request still pending.
       if(approveIt) await supabase.from('users').update({ aadhaar_verified:false }).eq('id',r.user_id);
-      alert('Could not update KYC: '+error.message); return;
+      toast('Could not update KYC: '+error.message); return;
     }
     load(); onChange?.();
   }

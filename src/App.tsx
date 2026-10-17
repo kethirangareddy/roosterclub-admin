@@ -4,8 +4,9 @@ import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, ListChecks, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
   Rocket, Users as UsersIcon, Truck, Store, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield, ChevronDown, ChevronRight,
-  Wheat,
+  Wheat, Settings as SettingsIcon, ShoppingBag, Sun,
 } from 'lucide-react';
+import { FeedbackHost } from './feedback';
 import CommandK, { Hit } from './CommandK';
 import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
 import Money from './sections/Money';
@@ -49,50 +50,60 @@ type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
-// Nav is for places you GO. The attention queue is for things that NEED you —
-// so a queue that is empty earns no permanent slot up here; it gets promoted
-// into the dashboard queue the moment it has an item. CORE is what's open every
-// day; everything else lives behind "More", dimmed when its table is empty.
-const CORE: NavItem[] = [
-  { key:'dash', label:'Dashboard', Icon:LayoutDashboard },
-  { key:'analytics', label:'Analytics', Icon:BarChart3 },
-  { key:'approvals', label:'Approvals', Icon:Inbox },
-  { key:'listings', label:'Listings', Icon:ListChecks },
-  { key:'users', label:'Users & Badges', Icon:UsersIcon },
-  { key:'kyc', label:'Verifications', Icon:ShieldCheck },
-  { key:'badges', label:'Badge Requests', Icon:Award },
-  { key:'reports', label:'Reports', Icon:Flag },
-  { key:'support', label:'Support', Icon:MessagesSquare },
-  { key:'chats', label:'Chats', Icon:MessagesSquare },
-  { key:'whatsapp', label:'WhatsApp', Icon:MessagesSquare },
-  { key:'announce', label:'Announcements', Icon:Megaphone },
-  { key:'ads', label:'Ads', Icon:Megaphone },
-  { key:'activity', label:'Activity', Icon:HistoryIcon },
-  { key:'appconfig', label:'App Config', Icon:SlidersHorizontal },
-];
+/* Every screen, with the label used in tabs and search. totalKey → counts.total
+   tells us a section has never had a row, so its tab renders dimmed. */
+const ITEMS: Record<Key, NavItem> = {
+  dash:{ key:'dash', label:'Overview', Icon:LayoutDashboard },
+  users:{ key:'users', label:'Members', Icon:UsersIcon },
+  kyc:{ key:'kyc', label:'Verifications', Icon:ShieldCheck },
+  badges:{ key:'badges', label:'Badge requests', Icon:Award },
+  reports:{ key:'reports', label:'Reports', Icon:Flag },
+  theft:{ key:'theft', label:'Theft alerts', Icon:ShieldAlert, totalKey:'theft' },
+  disease:{ key:'disease', label:'Disease alerts', Icon:Siren, totalKey:'disease' },
+  syndicates:{ key:'syndicates', label:'Syndicates', Icon:Shield, totalKey:'syndicates' },
+  approvals:{ key:'approvals', label:'Approvals', Icon:Inbox },
+  listings:{ key:'listings', label:'Listings', Icon:ListChecks },
+  featured:{ key:'featured', label:'Featured', Icon:Star, totalKey:'featured' },
+  boosts:{ key:'boosts', label:'Boosts', Icon:Rocket, totalKey:'boosts' },
+  ads:{ key:'ads', label:'Ads', Icon:Megaphone },
+  auctions:{ key:'auctions', label:'Auctions', Icon:Gavel, totalKey:'auctions' },
+  livefeed:{ key:'livefeed', label:'Live feed', Icon:Truck, totalKey:'livefeed' },
+  competitions:{ key:'competitions', label:'Competitions', Icon:Trophy, totalKey:'competitions' },
+  chats:{ key:'chats', label:'Member chats', Icon:MessagesSquare },
+  support:{ key:'support', label:'Support', Icon:MessagesSquare },
+  whatsapp:{ key:'whatsapp', label:'WhatsApp', Icon:MessagesSquare },
+  community:{ key:'community', label:'Forum', Icon:MessagesSquare, totalKey:'community' },
+  announce:{ key:'announce', label:'Broadcasts', Icon:Megaphone },
+  shop:{ key:'shop', label:'Products', Icon:Store, totalKey:'shop' },
+  orders:{ key:'orders', label:'Orders', Icon:Store, totalKey:'orders' },
+  feedorders:{ key:'feedorders', label:'Feed orders', Icon:Wheat },
+  analytics:{ key:'analytics', label:'Analytics', Icon:BarChart3 },
+  money:{ key:'money', label:'Money', Icon:Wallet },
+  activity:{ key:'activity', label:'Audit log', Icon:HistoryIcon },
+  appconfig:{ key:'appconfig', label:'App config', Icon:SlidersHorizontal },
+  vets:{ key:'vets', label:'Doctors', Icon:Stethoscope, totalKey:'vets' },
+  breeds:{ key:'breeds', label:'Breeds', Icon:Bird, totalKey:'breeds' },
+  kukuta:{ key:'kukuta', label:'Kukuta', Icon:BookOpen, totalKey:'kukuta' },
+};
 
-// totalKey → counts.total.<key>; 0 rows renders the item dimmed ("nothing here yet")
-// instead of pretending to be a live section.
-const MORE: NavItem[] = [
-  { key:'money', label:'Money Desk', Icon:Wallet },
-  { key:'theft', label:'Theft Alerts', Icon:ShieldAlert, totalKey:'theft' },
-  { key:'disease', label:'Disease Alerts', Icon:Siren, totalKey:'disease' },
-  { key:'syndicates', label:'Syndicates', Icon:Shield, totalKey:'syndicates' },
-  { key:'competitions', label:'Competitions', Icon:Trophy, totalKey:'competitions' },
-  { key:'featured', label:'Featured', Icon:Star, totalKey:'featured' },
-  { key:'boosts', label:'Boosts', Icon:Rocket, totalKey:'boosts' },
-  { key:'auctions', label:'Auctions', Icon:Gavel, totalKey:'auctions' },
-  { key:'livefeed', label:'Live Feed', Icon:Truck, totalKey:'livefeed' },
-  { key:'shop', label:'Shop', Icon:Store, totalKey:'shop' },
-  { key:'orders', label:'Orders', Icon:Store, totalKey:'orders' },
-  { key:'feedorders', label:'Feed orders', Icon:Wheat },
-  { key:'vets', label:'Doctors', Icon:Stethoscope, totalKey:'vets' },
-  { key:'community', label:'Community', Icon:MessagesSquare, totalKey:'community' },
-  { key:'kukuta', label:'Kukuta', Icon:BookOpen, totalKey:'kukuta' },
-  { key:'breeds', label:'Breeds', Icon:Bird, totalKey:'breeds' },
+type HubKey='today'|'people'|'market'|'convos'|'shop'|'insights'|'settings';
+type Hub={ key:HubKey; label:string; Icon:any; items:Key[] };
+/* Six places to go, plus Settings. Every screen belongs to exactly one hub,
+   and inside a hub the screens are tabs across the top. */
+export const HUBS: Hub[] = [
+  { key:'today', label:'Today', Icon:Sun, items:['dash'] },
+  { key:'people', label:'People & Safety', Icon:UsersIcon, items:['users','kyc','badges','reports','theft','disease','syndicates'] },
+  { key:'market', label:'Market', Icon:ListChecks, items:['approvals','listings','featured','boosts','ads','auctions','livefeed','competitions'] },
+  { key:'convos', label:'Conversations', Icon:MessagesSquare, items:['chats','support','whatsapp','community','announce'] },
+  { key:'shop', label:'Shop', Icon:ShoppingBag, items:['orders','feedorders','shop'] },
+  { key:'insights', label:'Insights', Icon:BarChart3, items:['analytics','money','activity'] },
+  { key:'settings', label:'Settings', Icon:SettingsIcon, items:['appconfig','vets','breeds','kukuta'] },
 ];
-
-const NAV: NavItem[] = [...CORE, ...MORE];
+// Only these counts mean "something is waiting for you". admin_counts also
+// returns totals like users=1866 — those must never show as a red badge.
+const PENDING=new Set<string>(['approvals','kyc','badges','reports','support','theft','disease','syndicates','featured','boosts','auctions','livefeed','orders','feedorders','vets','community']);
+const hubOf=(k:Key)=>HUBS.find(h=>h.items.includes(k))||HUBS[0];
+const NAV: NavItem[] = Object.values(ITEMS);
 const KEYS = NAV.map(n=>n.key);
 // g + letter → jump to a section from anywhere (Gmail-style).
 const GNAV: Record<string,Key> = {
@@ -156,7 +167,6 @@ export default function App(){
     return v && KEYS.includes(v) ? v : 'dash';
   });
   const [counts,setCounts]=useState<Record<string,any>>({});
-  const [moreOpen,setMoreOpen]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false);
   const [cmdk,setCmdk]=useState(false);
   // stack: Receipt-360 → seller 360 etc. Mirrored to ?d= so a 360 survives a
@@ -222,6 +232,8 @@ export default function App(){
   // back/forward works. Switching sections drops stale filter params.
   function setView(k:Key, qp?:Record<string,string>){
     setViewRaw(k);
+    try{ localStorage.setItem('rc_hub_'+hubOf(k).key,k); }catch{}
+    window.scrollTo(0,0);
     setDetail([]); // the URL is about to lose ?d= — drop the stack with it
     const u=new URL(location.href);
     const keep=k==='dash'?null:k;
@@ -373,10 +385,16 @@ export default function App(){
   };
 
   const top=detail[detail.length-1];
-  // Pending hiding inside the collapsed group, so nothing goes unnoticed.
-  const morePending=MORE.reduce((n,i)=>n+(counts[i.key]||0),0);
-  // Stay expanded while you're standing in one of its sections.
-  const showMore=moreOpen||MORE.some(i=>i.key===view);
+  const hub=hubOf(view);
+  const pend=(k:string)=>PENDING.has(k)?(Number(counts[k])||0):0;
+  const hubPending=(h:Hub)=>h.items.reduce((n,k)=>n+pend(k),0);
+  // Tapping a hub lands on the screen that needs you most, else the one you
+  // used last in that hub, else its first screen.
+  function openHub(h:Hub){
+    const hot=h.items.filter(k=>pend(k)>0).sort((a,b)=>pend(b)-pend(a))[0];
+    let last:Key|null=null; try{ last=localStorage.getItem('rc_hub_'+h.key) as Key|null; }catch{}
+    setView(hot || (last && h.items.includes(last) ? last : h.items[0]));
+  }
 
   return (
     <DetailCtx.Provider value={detailApi}>
@@ -389,27 +407,21 @@ export default function App(){
           <Search size={14}/> Search anything… <span className="cmdk-kbd">⌘K</span>
         </button>
         <nav className="nav">
-          {CORE.map(({key,label,Icon})=>(
-            <button key={key} className={view===key?'active':''} onClick={()=>{setView(key);setMenuOpen(false);}}>
-              <Icon size={18}/> {label}
-              {!!counts[key] && <span className="count">{counts[key]}</span>}
-            </button>
-          ))}
-          <button className="nav-more" onClick={()=>setMoreOpen(v=>!v)}>
-            {showMore?<ChevronDown size={16}/>:<ChevronRight size={16}/>} More
-            {!showMore && morePending>0 && <span className="count">{morePending}</span>}
-          </button>
-          {showMore && MORE.map(({key,label,Icon,totalKey})=>{
-            const empty = totalKey ? !(counts.total?.[totalKey]) : false;
+          {HUBS.filter(h=>h.key!=='settings').map(h=>{
+            const n=hubPending(h);
             return (
-              <button key={key} className={(view===key?'active':'')+(empty?' nav-empty':'')}
-                title={empty?'No rows yet':undefined}
-                onClick={()=>{setView(key);setMenuOpen(false);}}>
-                <Icon size={18}/> {label}
-                {!!counts[key] && <span className="count">{counts[key]}</span>}
+              <button key={h.key} className={hub.key===h.key?'active':''} onClick={()=>{openHub(h);setMenuOpen(false);}}>
+                <h.Icon size={18}/> {h.label}
+                {n>0 && <span className="count">{n}</span>}
               </button>
             );
           })}
+          <div className="nav-sep"/>
+          {(()=>{ const h=HUBS.find(x=>x.key==='settings')!; const n=hubPending(h); return (
+            <button className={hub.key==='settings'?'active':''} onClick={()=>{openHub(h);setMenuOpen(false);}}>
+              <h.Icon size={18}/> {h.label}{n>0 && <span className="count">{n}</span>}
+            </button>
+          ); })()}
         </nav>
         <div className="who">
           <div className="kbd-hint" title="g then d/a/r/k… jumps sections · j/k moves the focused row · a approve, r reject">⌨ g+key jump · j/k rows · a/r act</div>
@@ -418,17 +430,40 @@ export default function App(){
         </div>
       </aside>
       <main className="main">
+        {hub.items.length>1 && (
+          <div className="hubbar">
+            <div className="hubbar-t"><hub.Icon size={16}/> {hub.label}</div>
+            <div className="hubtabs" role="tablist">
+              {hub.items.map(k=>{
+                const it=ITEMS[k]; const n=pend(k);
+                const empty=it.totalKey ? !(counts.total?.[it.totalKey]) : false;
+                return (
+                  <button key={k} role="tab" aria-selected={view===k}
+                    className={'hubtab'+(view===k?' on':'')+(empty&&view!==k?' empty':'')}
+                    title={empty?'Nothing here yet':undefined} onClick={()=>setView(k)}>
+                    {it.label}{n>0 && <span className="count">{n}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {view==='dash' && <MobileTriage counts={counts} go={(k)=>setView(k)}/>}
-        {sections[view]}
+        <div key={view} className="page">{sections[view]}</div>
       </main>
 
       {/* Thumb-reachable bottom bar (phones only) for the most-used sections. */}
       <nav className="btabs">
-        <button className={view==='dash'?'on':''} onClick={()=>setView('dash')}><LayoutDashboard size={20}/><span>Home</span></button>
-        <button className={view==='approvals'?'on':''} onClick={()=>setView('approvals')}><Inbox size={20}/>{!!counts.approvals&&<i className="bdot">{counts.approvals}</i>}<span>Approvals</span></button>
-        <button className={view==='listings'?'on':''} onClick={()=>setView('listings')}><ListChecks size={20}/><span>Listings</span></button>
-        <button className={view==='users'?'on':''} onClick={()=>setView('users')}><UsersIcon size={20}/><span>Users</span></button>
-        <button onClick={()=>setCmdk(true)}><Search size={20}/><span>Search</span></button>
+        {HUBS.filter(h=>['today','people','market','convos'].includes(h.key)).map(h=>{
+          const n=hubPending(h);
+          return (
+            <button key={h.key} className={hub.key===h.key?'on':''} onClick={()=>openHub(h)}>
+              <h.Icon size={20}/>{n>0&&<i className="bdot">{n>99?'99+':n}</i>}
+              <span>{h.key==='people'?'People':h.key==='convos'?'Chats':h.label}</span>
+            </button>
+          );
+        })}
+        <button onClick={()=>setMenuOpen(true)}><SettingsIcon size={20}/><span>More</span></button>
       </nav>
 
       {cmdk && <CommandK onOpenResult={openHit}
@@ -442,6 +477,7 @@ export default function App(){
         onOpenUser={(id)=>pushDetail({kind:'user',id})} onChanged={refreshCounts}/>}
       {top?.kind==='receipt' && <Receipt360 key={'r'+top.id+detail.length} receiptId={top.id} onClose={popDetail}
         onOpenUser={(id)=>pushDetail({kind:'user',id})} onOpenListing={(id)=>pushDetail({kind:'listing',id})}/>}
+      <FeedbackHost/>
     </div>
     </DetailCtx.Provider>
   );

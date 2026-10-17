@@ -4,6 +4,7 @@ import { Modal } from '../ui';
 import { ShieldCheck, Flag, Star, Store, ListChecks, IndianRupee, Users, BellRing, Send, Gift } from 'lucide-react';
 import { useDetail } from '../detail';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { toast } from '../feedback';
 
 const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN');
 const day = (s: string) => new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -20,12 +21,12 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
   const [pushing, setPushing] = useState(false);
 
   async function sendPush() {
-    if (!pTitle.trim() || !pBody.trim()) { alert('Title and message are required.'); return; }
+    if (!pTitle.trim() || !pBody.trim()) { toast('Title and message are required.'); return; }
     setPushing(true);
     const { data, error } = await supabase.rpc('admin_notify_user', { p_user: userId, p_title: pTitle.trim(), p_body: pBody.trim() });
     setPushing(false);
-    if (error) { alert('Could not send: ' + error.message); return; }
-    alert(`Delivered to ${data ?? 0} device(s) — it's also in their in-app notifications.`);
+    if (error) { toast('Could not send: ' + error.message); return; }
+    toast(`Delivered to ${data ?? 0} device(s) — it's also in their in-app notifications.`);
     setCompose(false); setPTitle(''); setPBody('');
   }
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { Send, RefreshCw } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink, WaIcon } from '../ui';
+import { toast, ask } from '../feedback';
 
 // WhatsApp inbox for 95153 69756 (MSG91 → wa-inbound webhook → wa_inbox).
 // Replies go out ONLY when the admin presses Send, and only inside WhatsApp's
@@ -38,12 +39,12 @@ export default function WaInbox(){
 
   async function send(){
     const text=draft.trim(); if(!sel||!text) return;
-    if(!confirm(`Send this WhatsApp reply to +${sel}?\n\n"${text.slice(0,200)}"`)) return;
+    if(!await ask(`Send this WhatsApp reply to +${sel}?\n\n"${text.slice(0,200)}"`)) return;
     setBusy(true);
     const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ reply_to:sel, text } });
     setBusy(false);
     if(error || !(data as any)?.ok){
-      alert('Reply failed: '+((data as any)?.error||JSON.stringify((data as any)?.response||error?.message)).slice(0,400));
+      toast('Reply failed: '+((data as any)?.error||JSON.stringify((data as any)?.response||error?.message)).slice(0,400));
     } else setDraft('');
     loadThread(sel); loadThreads();
   }

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { supabase } from '../supabase';
 import { Field } from '../ui';
+import { toast } from '../feedback';
 
 export const SIZES = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
@@ -110,7 +111,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
     setColour(i, { name, key: name.trim() ? key : c.key });
   }
   function removeColour(i: number) {
-    if (a.colours.length <= 1) { alert('Keep at least one colour.'); return; }
+    if (a.colours.length <= 1) { toast('Keep at least one colour.'); return; }
     const c = a.colours[i];
     const g = { ...grid }; delete g[c.key];
     onGrid(g);

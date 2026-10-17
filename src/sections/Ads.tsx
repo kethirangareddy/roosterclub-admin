@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { Megaphone, Plus, Pencil, ImagePlus } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, Modal, Field } from '../ui';
 import { STATES } from '../locations';
+import { toast, ask } from '../feedback';
 
 // Your own product ads shown in the app (Oct 2026): Sponsored reels on Home, a card on
 // the bird page and a Featured slot in the Shop. The app asks the server which ads to
@@ -44,7 +45,7 @@ export default function Ads() {
       supabase.rpc('admin_ad_stats'),
       supabase.from('shop_products').select('id, name, price, status').neq('status', 'removed').order('name'),
     ]);
-    if (error) alert('Could not load ads: ' + error.message);
+    if (error) toast('Could not load ads: ' + error.message);
     setRows(data || []);
     const m: Record<string, any> = {}; (st || []).forEach((r: any) => { m[r.ad_id] = r; });
     setStats(m);
@@ -55,15 +56,15 @@ export default function Ads() {
 
   async function upload(file: File, which: 'media' | 'poster') {
     const isVideo = file.type.startsWith('video/');
-    if (!isVideo && !file.type.startsWith('image/')) { alert('Choose a photo or a video.'); return; }
-    if (which === 'poster' && isVideo) { alert('The cover must be a photo.'); return; }
-    if (file.size > 40 * 1024 * 1024) { alert('Please keep the file under 40 MB (a 15–30 second video is ideal).'); return; }
+    if (!isVideo && !file.type.startsWith('image/')) { toast('Choose a photo or a video.'); return; }
+    if (which === 'poster' && isVideo) { toast('The cover must be a photo.'); return; }
+    if (file.size > 40 * 1024 * 1024) { toast('Please keep the file under 40 MB (a 15–30 second video is ideal).'); return; }
     setUploading(which);
     try {
       const ext = (file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg')).toLowerCase();
       const path = `ads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: false });
-      if (up.error) { alert('Upload failed: ' + up.error.message); return; }
+      if (up.error) { toast('Upload failed: ' + up.error.message); return; }
       const url = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
       setEdit((cur: any) => which === 'media' ? { ...cur, media_url: url, media_type: isVideo ? 'video' : 'photo' } : { ...cur, poster_url: url });
     } finally { setUploading(''); }
@@ -78,12 +79,12 @@ export default function Ads() {
 
   async function save() {
     const e = edit;
-    if (!e.title.trim()) { alert('Title is required.'); return; }
-    if (!e.media_url) { alert('Upload a photo or video.'); return; }
-    if (!e.product_id && !/^https:\/\//.test(e.link.trim())) { alert('Pick a Shop product, or give a link starting with https:// (e.g. https://wa.me/91…).'); return; }
-    if (!e.placements.length) { alert('Choose at least one place to show the ad.'); return; }
+    if (!e.title.trim()) { toast('Title is required.'); return; }
+    if (!e.media_url) { toast('Upload a photo or video.'); return; }
+    if (!e.product_id && !/^https:\/\//.test(e.link.trim())) { toast('Pick a Shop product, or give a link starting with https:// (e.g. https://wa.me/91…).'); return; }
+    if (!e.placements.length) { toast('Choose at least one place to show the ad.'); return; }
     if (e.media_type === 'video' && e.placements.some((p: string) => p !== 'reel') && !e.poster_url) {
-      if (!confirm('This is a video. The bird page and Shop show a still picture — add a cover photo? (Cancel = save anyway)')) { /* save anyway */ } else return;
+      if (!await ask('This is a video. The bird page and Shop show a still picture — add a cover photo first?', { okText: 'Add cover photo', cancelText: 'Save anyway', danger: false })) { /* save anyway */ } else return;
     }
     setSaving(true);
     const payload: any = {
@@ -98,14 +99,14 @@ export default function Ads() {
     };
     const { error } = e.id ? await supabase.from('ads').update(payload).eq('id', e.id) : await supabase.from('ads').insert(payload);
     setSaving(false);
-    if (error) { alert('Could not save: ' + error.message); return; }
+    if (error) { toast('Could not save: ' + error.message); return; }
     setEdit(null); load();
   }
 
   async function setStatus(r: any, status: string) {
-    if (status === 'ended' && !confirm('End this ad? It stops showing. You can still see its numbers.')) return;
+    if (status === 'ended' && !await ask('End this ad? It stops showing. You can still see its numbers.')) return;
     const { error } = await supabase.from('ads').update({ status }).eq('id', r.id);
-    if (error) { alert('Could not update: ' + error.message); return; }
+    if (error) { toast('Could not update: ' + error.message); return; }
     setRows((x) => x.map((a) => a.id === r.id ? { ...a, status } : a));
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { PackageCheck } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable } from '../ui';
+import { toast, ask } from '../feedback';
 
 // Mirrors the check constraint on shop_orders.status. 'cancelled' sits outside the
 // happy path so it isn't offered as a "next step" button.
@@ -42,11 +43,11 @@ export default function Orders() {
   async function savePay() {
     if (!pay) return;
     const upi = pay.upi_id.trim();
-    if (upi && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upi)) { alert('That does not look like a UPI ID (like name@okhdfcbank).'); return; }
+    if (upi && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upi)) { toast('That does not look like a UPI ID (like name@okhdfcbank).'); return; }
     const value = { upi_id: upi, payee_name: pay.payee_name.trim() || 'Rooster Club', pay_hours: Math.max(1, Number(pay.pay_hours) || 24) };
     const { error } = await supabase.from('app_config').upsert({ key: 'shop_pay', value }, { onConflict: 'key' });
-    if (error) { alert('Could not save: ' + error.message); return; }
-    alert(upi ? 'Saved. Buyers can now pay by UPI.' : 'Saved. UPI payments are closed.');
+    if (error) { toast('Could not save: ' + error.message); return; }
+    toast(upi ? 'Saved. Buyers can now pay by UPI.' : 'Saved. UPI payments are closed.');
   }
 
   async function load() {
@@ -62,16 +63,16 @@ export default function Orders() {
 
     const { data, error } = await q;
     setLoading(false);
-    if (error) { alert('Could not load orders: ' + error.message); return; }
+    if (error) { toast('Could not load orders: ' + error.message); return; }
     setRows(data ?? []);
   }
 
   async function setStatus(order: any, status: Status) {
-    if (status === 'cancelled' && !confirm(`Cancel ${order.order_no}? Stock goes back on the shelf.`)) return;
+    if (status === 'cancelled' && !await ask(`Cancel ${order.order_no}? Stock goes back on the shelf.`)) return;
     setSaving(true);
     const { error } = await supabase.rpc('set_shop_order_status', { p_order: order.id, p_status: status });
     setSaving(false);
-    if (error) { alert('Could not update: ' + error.message); return; }
+    if (error) { toast('Could not update: ' + error.message); return; }
     setOpen(null);
     load();
   }

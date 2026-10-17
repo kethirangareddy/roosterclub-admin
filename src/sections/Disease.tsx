@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Siren, Plus, Send } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, timeAgo, UserLink } from '../ui';
+import { toast, ask } from '../feedback';
 
 const SEV=['low','medium','high'];
 const BLANK={ title:'',description:'',severity:'medium',state:'',district:'',mandal:'',verified:false };
@@ -21,7 +22,7 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
     const { data, error }=await supabase.from('disease_alerts')
       .select('*, reporter:users!disease_alerts_reported_by_fkey(id,full_name,farm_name,handle,district,state)')
       .order('created_at',{ascending:false});
-    if(error){ alert('Could not load alerts: '+error.message); setLoading(false); return; }
+    if(error){ toast('Could not load alerts: '+error.message); setLoading(false); return; }
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.reported_by));
     setRows(list.map((r:any)=>({
@@ -34,26 +35,26 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
 
   async function save(){
     const v={...edit}; const id=v.id; delete v.id; delete v.created_at; delete v.reported_by; delete v.pushed_at; delete v.reporter;
-    if(!v.title?.trim()){ alert('Title required'); return; }
+    if(!v.title?.trim()){ toast('Title required'); return; }
     // Blank region must be NULL, not '' — the app's Alerts list matches state to the
     // user's state OR NULL (all-India); an empty string matches neither and hides the alert.
     for(const f of ['state','district','mandal'] as const){ v[f]=(v[f]||'').trim()||null; }
     const { error }= id ? await supabase.from('disease_alerts').update(v).eq('id',id)
                         : await supabase.from('disease_alerts').insert(v);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     setEdit(null); load(); onChange();
   }
   async function verifyPush(r:any){
     // Verify AND actually push the alert to the region via the edge function.
     // (Previously this only flipped verified/pushed_at and never sent a notification.)
     const { data, error }=await supabase.functions.invoke('notify-disease-verified',{ body:{ alert_id:r.id } });
-    if(error){ alert('Could not verify & push: '+error.message); return; }
-    if(data?.error){ alert('Could not verify & push: '+data.error); return; }
+    if(error){ toast('Could not verify & push: '+error.message); return; }
+    if(data?.error){ toast('Could not verify & push: '+data.error); return; }
     load(); onChange();
   }
   async function remove(id:string){
-    if(!confirm('Delete this alert?')) return;
-    const { error }=await supabase.from('disease_alerts').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load(); onChange();
+    if(!await ask('Delete this alert?')) return;
+    const { error }=await supabase.from('disease_alerts').delete().eq('id',id); if(error){ toast('Could not delete: '+error.message); return; } load(); onChange();
   }
 
   return (

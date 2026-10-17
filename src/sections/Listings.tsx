@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { ListChecks, Search, Eye } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, useParamState, UserLink } from '../ui';
 import { useDetail, useOnChanged } from '../detail';
+import { toast } from '../feedback';
 
 type Filter = 'all' | 'live' | 'pending' | 'sold' | 'expired' | 'removed';
 const FILTERS: { v: Filter; label: string }[] = [
@@ -31,7 +32,7 @@ export default function Listings() {
     else if (fStatus === 'removed') query = query.eq('status', 'removed');
     if (q.trim()) query = query.or(`breed.ilike.%${q.trim()}%,type.ilike.%${q.trim()}%`);
     const { data, error } = await query;
-    if (error) alert('Could not load listings: ' + error.message);
+    if (error) toast('Could not load listings: ' + error.message);
     setRows(data || []); setLoading(false);
   }
   useEffect(() => { load(); }, [fStatus]);

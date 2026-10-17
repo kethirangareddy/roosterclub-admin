@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { Stethoscope, Plus, Star, Check } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, inr } from '../ui';
 import { STATES, districtsFor } from '../locations';
+import { toast, ask } from '../feedback';
 
 const BLANK={ name:'',speciality:'',years_experience:0,consultation_charge:0,phone:'',
   state:'',district:'',mandal:'',is_open:true,is_featured:false,featured_position:null as number|null,
@@ -26,7 +27,7 @@ export default function Vets({ onChange }:{ onChange?:()=>void }){
   async function save(){
     const v={...edit};
     for(const f of ['name','phone','state','district','mandal'] as const){
-      if(!String(v[f]||'').trim()){ alert('Required: name, phone, state, district and mandal.'); return; }
+      if(!String(v[f]||'').trim()){ toast('Required: name, phone, state, district and mandal.'); return; }
     }
     const id=v.id; delete v.id; delete v.created_at; delete v.user_id;
     v.years_experience=Number(v.years_experience)||0;
@@ -34,15 +35,15 @@ export default function Vets({ onChange }:{ onChange?:()=>void }){
     v.featured_position=v.is_featured?(Number(v.featured_position)||1):null;
     const { error }= id ? await supabase.from('vets').update(v).eq('id',id)
                         : await supabase.from('vets').insert(v);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     setEdit(null); load(); onChange?.();
   }
   async function approve(id:string){
-    const { error }=await supabase.from('vets').update({ approved:true }).eq('id',id); if(error){ alert('Could not approve: '+error.message); return; } load(); onChange?.();
+    const { error }=await supabase.from('vets').update({ approved:true }).eq('id',id); if(error){ toast('Could not approve: '+error.message); return; } load(); onChange?.();
   }
   async function remove(id:string){
-    if(!confirm('Remove this doctor from the app? This cannot be undone.')) return;
-    const { error }=await supabase.from('vets').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load(); onChange?.();
+    if(!await ask('Remove this doctor from the app? This cannot be undone.')) return;
+    const { error }=await supabase.from('vets').delete().eq('id',id); if(error){ toast('Could not delete: '+error.message); return; } load(); onChange?.();
   }
 
   const pending = rows.filter(r=>!r.approved).length;

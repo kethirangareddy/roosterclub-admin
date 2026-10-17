@@ -555,3 +555,54 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 /* Chats list rows — one tap target per row */
 .chat-row{text-align:left;background:var(--glass);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;transition:border-color .12s,background .12s}
 .chat-row:hover,.chat-row:focus-visible{border-color:var(--cta);outline:none}
+
+/* ================= Day 2: hubs, tabs, feedback ================= */
+.nav-sep{height:1px;background:var(--line);margin:8px 6px}
+.hubbar{position:sticky;top:0;z-index:20;margin:-26px -30px 22px;padding:14px 30px 0;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.hubbar-t{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hubbar-t svg{color:var(--cta)}
+.hubtabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-top:6px}
+.hubtabs::-webkit-scrollbar{display:none}
+.hubtab{flex-shrink:0;display:inline-flex;align-items:center;gap:6px;background:none;border:0;border-bottom:2px solid transparent;
+  padding:9px 12px 10px;font-size:13.5px;font-weight:500;color:var(--muted);border-radius:0;transition:color .12s,border-color .12s}
+.hubtab:hover{color:var(--ink)}
+.hubtab.on{color:var(--ink);font-weight:650;border-bottom-color:var(--cta)}
+.hubtab.empty{opacity:.45}
+.hubtab .count{background:var(--cta);color:#fff;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 6px;min-width:18px;text-align:center}
+.page{animation:pageIn .16s ease-out}
+@keyframes pageIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+.toasts{position:fixed;right:18px;bottom:18px;z-index:200;display:flex;flex-direction:column;gap:8px;max-width:min(420px,calc(100vw - 32px))}
+.toast{display:flex;align-items:flex-start;gap:9px;background:var(--surface);color:var(--ink);border:1px solid var(--line);
+  border-left:4px solid var(--cta);border-radius:12px;padding:11px 12px;box-shadow:var(--shadow-lg);font-size:13.5px;line-height:1.4;
+  white-space:pre-wrap;animation:toastIn .18s ease-out}
+.toast>svg{flex-shrink:0;margin-top:1px}
+.toast span{flex:1}
+.toast button{background:none;border:0;color:var(--muted);padding:2px;line-height:0}
+.toast.t-ok{border-left-color:var(--ok)}.toast.t-ok>svg{color:var(--ok)}
+.toast.t-danger{border-left-color:var(--danger)}.toast.t-danger>svg{color:var(--danger)}
+.toast.t-info>svg{color:var(--cta)}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.ask-scrim{position:fixed;inset:0;z-index:210;background:rgba(30,18,10,.42);display:grid;place-items:center;padding:16px;animation:pageIn .12s}
+.ask{background:var(--surface);color:var(--ink);border-radius:16px;box-shadow:var(--shadow-lg);width:min(440px,100%);padding:20px}
+.ask-t{font-size:15px;line-height:1.5;white-space:pre-wrap;font-weight:500}
+.ask input{width:100%;margin-top:14px}
+.ask-f{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+
+@media (max-width:860px){
+  .hubbar{margin:-16px -16px 16px;padding:10px 16px 0}
+  .hubtab{padding:9px 10px 10px;font-size:13px}
+  .toasts{left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));max-width:none}
+}
+/* Phones: the bottom bar's "More" opens the menu, so the floating ☰ that
+   covered page titles is gone and the hub tabs sit at the very top. */
+@media (max-width:860px){
+  .menu-btn{display:none!important}
+  .main{padding-top:calc(14px + env(safe-area-inset-top))!important}
+  .hubbar{margin:calc(-14px - env(safe-area-inset-top)) -14px 14px;padding:calc(10px + env(safe-area-inset-top)) 14px 0}
+}
+/* hubbar sits flush at the top: main drops its top padding when a hub bar leads */
+.main:has(> .hubbar){padding-top:0!important}
+.hubbar{margin:0 -30px 22px!important}
+@media (max-width:860px){ .hubbar{margin:0 -14px 14px!important} }

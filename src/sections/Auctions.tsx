@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Gavel, Check, X, Trash2 } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, UserLink } from '../ui';
+import { toast, ask } from '../feedback';
 
 const STATUS_BADGE: Record<string,string> = {
   pending:'b-warn', approved:'b-ok', live:'b-ok', ended:'b-mut', cancelled:'b-danger',
@@ -24,12 +25,12 @@ export default function Auctions({ onChange }:{ onChange?:()=>void }){
 
   async function setStatus(id:string,status:string){
     const { error }=await supabase.from('auctions').update({ status }).eq('id',id);
-    if(error){ alert(error.message); return; }
+    if(error){ toast(error.message); return; }
     load(); onChange?.();
   }
   async function remove(id:string){
-    if(!confirm('Delete this auction? This cannot be undone.')) return;
-    const { error }=await supabase.from('auctions').delete().eq('id',id); if(error){ alert('Could not delete: '+error.message); return; } load(); onChange?.();
+    if(!await ask('Delete this auction? This cannot be undone.')) return;
+    const { error }=await supabase.from('auctions').delete().eq('id',id); if(error){ toast('Could not delete: '+error.message); return; } load(); onChange?.();
   }
 
   const pending=rows.filter(r=>r.status==='pending').length;

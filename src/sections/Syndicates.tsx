@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink, Copyable } from '../ui';
+import { toast, ask } from '../feedback';
 
 export default function Syndicates({ onChange }: { onChange?: () => void }) {
   const [rows, setRows] = useState<any[]>([]);
@@ -15,7 +16,7 @@ export default function Syndicates({ onChange }: { onChange?: () => void }) {
       .order('created_at', { ascending: false }).limit(200);
     if (tab === 'pending') q = q.eq('status', 'pending');
     const { data, error } = await q;
-    if (error) { alert(error.message); }
+    if (error) { toast(error.message); }
     const list = data || [];
     const phones = await adminPhones(list.map((r: any) => r.owner_id));
     setRows(list.map((r: any) => ({ ...r, owner: r.owner ? { ...r.owner, phone: phones[r.owner_id] || null } : r.owner })));
@@ -24,15 +25,15 @@ export default function Syndicates({ onChange }: { onChange?: () => void }) {
   useEffect(() => { load(); }, [tab]);
 
   async function approve(r: any) {
-    if (!confirm(`Approve the syndicate "${r.name}"? Its invite code goes live and the owner can invite members.`)) return;
+    if (!await ask(`Approve the syndicate "${r.name}"? Its invite code goes live and the owner can invite members.`)) return;
     const { error } = await supabase.rpc('approve_syndicate', { p_id: r.id });
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     load(); onChange?.();
   }
   async function reject(r: any) {
-    if (!confirm(`Reject "${r.name}"?`)) return;
+    if (!await ask(`Reject "${r.name}"?`)) return;
     const { error } = await supabase.rpc('reject_syndicate', { p_id: r.id });
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     load(); onChange?.();
   }
 

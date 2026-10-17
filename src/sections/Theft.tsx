@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Siren, Trash2, Eye, CheckCircle2, IndianRupee } from 'lucide-react';
 import { Modal, Empty, Loading, timeAgo, UserLink } from '../ui';
+import { toast, ask } from '../feedback';
 
 // New-style media array (photos + videos), falling back to the legacy single photo_url.
 function mediaOf(r: any): { url: string; type?: string }[] {
@@ -20,7 +21,7 @@ export default function Theft({ onChange }: { onChange?: () => void }) {
     const { data, error } = await supabase.from('theft_alerts')
       .select('*, users!theft_alerts_user_id_fkey(full_name, handle)')
       .eq('status', 'active').order('created_at', { ascending: false }).limit(200);
-    if (error) alert('Could not load theft alerts: ' + error.message);
+    if (error) toast('Could not load theft alerts: ' + error.message);
     setTheft(data || []);
     setLoading(false);
   }
@@ -28,13 +29,13 @@ export default function Theft({ onChange }: { onChange?: () => void }) {
 
   async function resolveTheft(id: string) {
     const { error } = await supabase.from('theft_alerts').update({ status: 'resolved' }).eq('id', id);
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     setTheft(t => t.filter(x => x.id !== id)); onChange?.();
   }
   async function removeTheft(id: string) {
-    if (!confirm('Remove this theft alert? It will be hidden from the app.')) return;
+    if (!await ask('Remove this theft alert? It will be hidden from the app.')) return;
     const { error } = await supabase.from('theft_alerts').update({ status: 'removed' }).eq('id', id);
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     setTheft(t => t.filter(x => x.id !== id)); onChange?.();
   }
 

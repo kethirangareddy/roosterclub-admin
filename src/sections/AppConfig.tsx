@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { ToggleLeft, Wrench, Smartphone, Save, IndianRupee, Image as ImageIcon, Link2 } from 'lucide-react';
 import { Field, Loading } from '../ui';
+import { toast } from '../feedback';
 
 const LANGS: [string,string][] = [['en','English'],['te','తెలుగు'],['hi','हिंदी'],['kn','ಕನ್ನಡ'],['ta','தமிழ்'],['ml','മലയാളം']];
 const FEATURES: [string,string][] = [
@@ -40,7 +41,7 @@ export default function AppConfig(){
 
   async function load(){
     const { data, error }=await supabase.from('app_config').select('key,value');
-    if(error){ alert('Could not load config: '+error.message); return; }
+    if(error){ toast('Could not load config: '+error.message); return; }
     const map:Record<string,any>={};
     (data||[]).forEach(r=>{ map[r.key]=r.value; });
     setCfg(map); setDirty(new Set());
@@ -54,20 +55,20 @@ export default function AppConfig(){
   async function save(){
     if(!cfg) return;
     const bl=(cfg.banner?.link??'').trim();
-    if(dirty.has('banner') && bl && !/^https:\/\//i.test(bl)){ alert('Home banner link must start with https://'); return; }
+    if(dirty.has('banner') && bl && !/^https:\/\//i.test(bl)){ toast('Home banner link must start with https://'); return; }
     if(dirty.has('partner')){
       const p=cfg.partner??{};
       const err=partnerProblem(p);
-      if(err && p.active){ alert('Partner app: '+err); return; }
+      if(err && p.active){ toast('Partner app: '+err); return; }
     }
     setSaving(true);
     for(const key of dirty){
       const { error }=await supabase.from('app_config')
         .upsert({ key, value:cfg[key], updated_at:new Date().toISOString() });
-      if(error){ setSaving(false); alert(`Could not save "${key}": `+error.message); return; }
+      if(error){ setSaving(false); toast(`Could not save "${key}": `+error.message); return; }
     }
     setSaving(false); setDirty(new Set());
-    alert('Saved. Users pick this up next time the app launches.');
+    toast('Saved. Users pick this up next time the app launches.');
   }
 
   if(!cfg) return <><h1 className="h1">App Config</h1><Loading/></>;
@@ -140,7 +141,7 @@ export default function AppConfig(){
                   const path=`banner/${Date.now()}-${Math.random().toString(36).slice(2)}.${(f.name.split('.').pop()||'jpg').toLowerCase()}`;
                   const up=await supabase.storage.from('product-images').upload(path,f,{contentType:f.type});
                   setBannerUploading(false);
-                  if(up.error){ alert('Upload failed: '+up.error.message); return; }
+                  if(up.error){ toast('Upload failed: '+up.error.message); return; }
                   const url=supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
                   patch('banner',v=>({ ...v,image_url:url }));
                 }}/>
@@ -203,7 +204,7 @@ export default function AppConfig(){
                   const path=`partner/${Date.now()}-${Math.random().toString(36).slice(2)}.${(f.name.split('.').pop()||'png').toLowerCase()}`;
                   const up=await supabase.storage.from('product-images').upload(path,f,{contentType:f.type});
                   setPartnerUploading(false);
-                  if(up.error){ alert('Upload failed: '+up.error.message); return; }
+                  if(up.error){ toast('Upload failed: '+up.error.message); return; }
                   const url=supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
                   patch('partner',v=>({ ...v,image_url:url }));
                 }}/>

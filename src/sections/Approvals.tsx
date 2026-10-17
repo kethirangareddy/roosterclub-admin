@@ -3,6 +3,7 @@ import { supabase, adminPhones } from '../supabase';
 import { Check, X, Inbox } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, useParamState, useRowKeys, UserLink, ListingLink, Copyable } from '../ui';
 import { useDetail } from '../detail';
+import { toast, ask } from '../feedback';
 
 export default function Approvals({ onChange }:{ onChange:()=>void }){
   const [rows,setRows]=useState<any[]>([]);
@@ -22,9 +23,9 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
   async function bulkSet(approval_status:string){
     const ids=[...picked];
-    if(!confirm(`${approval_status==='approved'?'Approve':'Reject'} ${ids.length} listing${ids.length>1?'s':''}?`)) return;
+    if(!await ask(`${approval_status==='approved'?'Approve':'Reject'} ${ids.length} listing${ids.length>1?'s':''}?`)) return;
     const { error }=await supabase.from('listings').update({ approval_status }).in('id',ids);
-    if(error){ alert('Bulk update failed: '+error.message); return; }
+    if(error){ toast('Bulk update failed: '+error.message); return; }
     setPicked(new Set()); load(); onChange();
   }
 
@@ -38,7 +39,7 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('approval_status','pending');
     const { data, error }=await q;
-    if(error) alert('Could not load listings: '+error.message);
+    if(error) toast('Could not load listings: '+error.message);
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
     setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.user_id]||null}:r.users}))); setLoading(false);
@@ -47,15 +48,15 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
 
   async function set(id:string, approval_status:string){
     const { error }=await supabase.from('listings').update({ approval_status }).eq('id',id);
-    if(error){ alert('Could not update listing: '+error.message); return; }
+    if(error){ toast('Could not update listing: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id || tab==='all'));
     if(tab==='all') load();
     onChange();
   }
   async function remove(id:string){
-    if(!confirm('Permanently delete this listing?')) return;
+    if(!await ask('Permanently delete this listing?')) return;
     const { error }=await supabase.from('listings').delete().eq('id',id);
-    if(error){ alert('Could not delete: '+error.message); return; }
+    if(error){ toast('Could not delete: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
 

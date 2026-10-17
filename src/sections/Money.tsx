@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { IndianRupee, Rocket, Star, Hourglass, RefreshCcw, Users, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { Empty, Loading, inr } from '../ui';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { toast } from '../feedback';
 
 /** Items 17+18 — Money Desk: boost/feature revenue, pending-UPI queue with aging,
     repeat buyers, and the receipts reconciliation sheet (months → days → receipts). */
@@ -54,14 +55,14 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
     if (openMonth === month) { setOpenMonth(null); setOpenDay(null); return; }
     setOpenMonth(month); setOpenDay(null);
     const { data, error } = await supabase.rpc('admin_recon_days', { p_month: month });
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     setDaysRows(data || []);
   }
   async function toggleDay(day: string) {
     if (openDay === day) { setOpenDay(null); return; }
     setOpenDay(day);
     const { data, error } = await supabase.rpc('admin_recon_receipts', { p_day: day });
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message); return; }
     setDayReceipts(data || []);
   }
 
