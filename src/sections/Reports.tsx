@@ -28,7 +28,13 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
   useEffect(()=>{ setPicked(p=>{ const ids=new Set(rows.map((r:any)=>r.id)); const s=new Set([...p].filter(id=>ids.has(id))); return s.size===p.size?p:s; }); },[rows]);
   const unpick=(id:string)=>setPicked(p=>{ if(!p.has(id)) return p; const s=new Set(p); s.delete(id); return s; });
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
+  const bulkBusy=useRef(false);
   async function bulkDismiss(){
+    if(bulkBusy.current) return;
+    bulkBusy.current=true;
+    try{ await bulkDismissRun(); } finally { bulkBusy.current=false; }
+  }
+  async function bulkDismissRun(){
     const ids=[...picked].filter(id=>rows.some((r:any)=>r.id===id&&r.status==='open'));
     if(!ids.length) return;
     if(!await ask(`Dismiss ${ids.length} report${ids.length>1?'s':''}?`)) return;

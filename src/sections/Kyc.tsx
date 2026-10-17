@@ -64,7 +64,13 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   }
   useEffect(()=>{ load(); },[tab]);
 
+  const bulkBusy=useRef(false); // a second tap while the first batch runs does nothing
   async function bulkApprove(){
+    if(bulkBusy.current) return;
+    bulkBusy.current=true;
+    try{ await bulkApproveRun(); } finally { bulkBusy.current=false; }
+  }
+  async function bulkApproveRun(){
     const list=rows.filter(r=>picked.has(r.id)&&r.status==='pending');
     if(!list.length) return;
     const risky=list.filter(r=>r.dup_users>0).length;

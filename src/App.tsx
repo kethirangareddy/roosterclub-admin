@@ -356,9 +356,12 @@ export default function App(){
       if(t && (t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable)) return;
       if(document.querySelector('.scrim, .drawer-scrim, .ask-scrim')) return;
       if(pending){
-        pending=false; clearTimeout(timer); (window as any).__gnav=false;
+        // The key after "g" belongs to navigation, whatever it is: mark it
+        // handled so row shortcuts (a approve / r reject) never also fire on it.
+        pending=false; clearTimeout(timer); e.preventDefault();
+        setTimeout(()=>{ (window as any).__gnav=false; },0);
         const target=GNAV[e.key.toLowerCase()];
-        if(target){ e.preventDefault(); setView(target); }
+        if(target) setView(target);
         return;
       }
       if(e.key==='g'){

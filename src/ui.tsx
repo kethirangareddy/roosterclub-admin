@@ -36,7 +36,7 @@ export function useRowKeys(count:number, actions:Record<string,(i:number)=>void>
   ref.current={sel,count,actions};
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
-      if(keysBlocked(e)) return;
+      if(e.defaultPrevented || keysBlocked(e)) return; // already handled (e.g. the key after "g")
       if((window as any).__gnav) return; // 'g' navigation sequence owns the next key
       const { sel,count,actions }=ref.current;
       if(count===0) return;

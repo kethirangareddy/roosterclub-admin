@@ -25,6 +25,7 @@ export default function Shop() {
   const [edit, setEdit] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const inflight = useRef(0);
   const [dragOver, setDragOver] = useState(false);
   // Apparel only: garment details + the colour × size stock grid.
   const [apparel, setApparel] = useState<ApparelState | null>(null);
@@ -119,7 +120,8 @@ export default function Shop() {
     // product opened while uploading, drop them instead of crashing or
     // attaching them to the wrong product.
     const token = editSeq.current, openId = edit.id ?? null;
-    setUploading(true);
+    // Count uploads in flight: Save stays off until the LAST photo is done.
+    inflight.current++; setUploading(true);
     try {
       const urls: string[] = [];
       for (const file of pics) {
@@ -136,7 +138,7 @@ export default function Shop() {
         const images = [...(cur.images ?? []), ...urls].slice(0, 8);
         return { ...cur, images, image_url: images[0] ?? cur.image_url };
       });
-    } finally { setUploading(false); }
+    } finally { inflight.current--; setUploading(inflight.current > 0); }
   }
 
   function pickImage(e: React.ChangeEvent<HTMLInputElement>) {

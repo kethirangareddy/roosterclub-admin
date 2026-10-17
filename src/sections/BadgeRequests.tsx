@@ -60,7 +60,14 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
     setWaSent(m);
   }
   useEffect(()=>{ loadWa(); },[]);
+  // Paid sends: only one batch at a time, however fast the buttons are tapped.
+  const waSending=useRef(false);
   async function waSend(ids:string[], busyKey:string, resend=false){
+    if(waSending.current){ toast('Another WhatsApp send is still running — wait for it to finish.'); return; }
+    waSending.current=true;
+    try{ await waSendRun(ids,busyKey,resend); } finally { waSending.current=false; }
+  }
+  async function waSendRun(ids:string[], busyKey:string, resend=false){
     setWaBusy(busyKey);
     const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ template:WA_TEMPLATE, user_ids:ids, resend } });
     setWaBusy(null);
