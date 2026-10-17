@@ -60,8 +60,14 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
     if(bulkBusy.current) return;
     const list=rows.filter(r=>picked.has(r.id)&&r.status==='pending');
     if(!list.length) return;
-    const risky=list.filter(r=>r.dup_users>0).length;
-    if(!await ask(`Approve ${list.length} verification${list.length>1?'s':''} without opening each one?`+(risky?`\n\n${risky} of them use an ID seen on another account.`:''))) return;
+    const n=(f:(r:any)=>boolean)=>list.filter(f).length;
+    const warn=[
+      [n(r=>r.dup_users>0),'use an ID seen on another account'],
+      [n(r=>r.quality?.aadhaar_unmasked),'show ALL 12 Aadhaar digits'],
+      [n(r=>!r.liveness_passed),'had no live selfie check'],
+      [n(r=>r.id_type==='aadhaar_qr'),'are Aadhaar QR requests (compare the QR photo with the selfie)'],
+    ].filter(([c])=>(c as number)>0).map(([c,t])=>`${c} of them ${t}.`);
+    if(!await ask(`Approve ${list.length} verification${list.length>1?'s':''} without opening each one?`+(warn.length?'\n\n'+warn.join('\n'):''))) return;
     bulkBusy.current=true;
     const failed:string[]=[];
     for(const r of list){
@@ -145,7 +151,7 @@ function Checks({ r }:{ r:any }){
 }
 
 function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>void }){
-  const [urls,setUrls]=useState<{idUrl?:string|null;selfieUrl?:string|null;err?:string}|null>(null);
+  const [urls,setUrls]=useState<{idUrl?:string|null;selfieUrl?:string|null;idFailed?:boolean;err?:string}|null>(null);
   const [rejecting,setRejecting]=useState(false);
   const [reason,setReason]=useState('');
   const [note,setNote]=useState('');
@@ -162,9 +168,17 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
     expiry.current=Date.now()+((data as any).expiresIn||300)*1000;
     // The Aadhaar QR photo is JPEG 2000 — decode it so the browser can show it next to the selfie.
     const [idUrl, selfieUrl]=await Promise.all([displayUrl((data as any).idUrl), displayUrl((data as any).selfieUrl)]);
-    setUrls({ idUrl, selfieUrl });
+    // A stored photo that couldn't be shown is NOT the same as "no photo".
+    setUrls({ idUrl, selfieUrl, idFailed: !!(data as any).idUrl && !idUrl });
   }
   useEffect(()=>{ fetchUrls(); },[r.id]);
+  // Re-render when the photo links run out so the "Links expired" bar shows by itself.
+  const [,tick]=useState(0);
+  useEffect(()=>{
+    if(!urls || urls.err) return;
+    const t=setTimeout(()=>tick(x=>x+1), Math.max(0,expiry.current-Date.now())+500);
+    return ()=>clearTimeout(t);
+  },[urls]);
 
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
@@ -172,6 +186,7 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
       const tag=(e.target as HTMLElement)?.tagName;
       if(tag==='INPUT' || tag==='TEXTAREA' || tag==='SELECT' || tag==='BUTTON') return;
       if(r.status!=='pending' || busyRef.current || rejecting) return;
+      if(document.querySelector('.drawer-scrim, .ask-scrim')) return; // user panel or a dialog is on top
       if(e.key==='a') approve();
       if(e.key==='r') setRejecting(true);
     }
@@ -248,7 +263,8 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
           <div style={{display:'grid',gridTemplateColumns:urls.idUrl&&urls.selfieUrl?'1fr 1fr':'1fr',gap:10}}>
             {urls.idUrl && <Zoomable url={urls.idUrl} label={r.id_type==='aadhaar_qr'?'Aadhaar photo (from the QR)':(ID_LABEL[r.id_type]||'ID')}/>}
             {urls.selfieUrl && <Zoomable url={urls.selfieUrl} label="Selfie"/>}
-            {!urls.idUrl && r.id_type==='aadhaar_qr' && <div className="empty" style={{padding:20}}>No ID photo — verified from the UIDAI-signed QR.</div>}
+            {!urls.idUrl && urls.idFailed && <div className="empty" style={{padding:20,color:'var(--danger)'}}>The ID photo is stored but could not be shown. Reload photos — don't approve without comparing faces.</div>}
+            {!urls.idUrl && !urls.idFailed && r.id_type==='aadhaar_qr' && <div className="empty" style={{padding:20}}>No photo inside this Aadhaar QR — compare the name and details only.</div>}
           </div>
         </>
       )}
@@ -266,7 +282,7 @@ function qualityText(q:any){
   if(q.id_readable!=null) bits.push(q.id_readable?'text readable':'text hard to read');
   if(q.aadhaar_unmasked) bits.push('ALL 12 AADHAAR DIGITS VISIBLE');
   if(q.face_found!=null) bits.push(q.face_found?'face found':'no face found');
-  if(q.liveness_steps) bits.push('selfie: '+(q.liveness_steps==='manual'?'taken by button (no live check)':q.liveness_steps));
+  if(q.liveness_steps) bits.push('selfie: '+(q.liveness_steps==='manual'?'taken by button (no live check)':q.liveness_steps+' (phone check, not proof)'));
   return bits.join(' · ')||'—';
 }
 
@@ -294,7 +310,7 @@ function Zoomable({ url, label }:{ url:string; label:string }){
   );
 }
 
-/* UIDAI certificates: needed for the "Instant verify with Aadhaar QR" route in the app.
+/* UIDAI certificates: needed for the "Scan Aadhaar QR" route in the app (QR requests still come here for a face check).
    Download the current Secure QR / offline e-KYC signing certificate from uidai.gov.in
    (Developer section → UIDAI certificate details) and upload the .cer here. Until one is uploaded
    the app quietly uses the photo route only. */
@@ -309,8 +325,12 @@ function UidaiCerts(){
       const buf=new Uint8Array(await f.arrayBuffer());
       const text=new TextDecoder().decode(buf);
       let b64:string;
+      // PEM, a bare base64 text file, or binary DER.
       if(text.includes('-----BEGIN')) b64=text.replace(/-----[^-]+-----/g,'').replace(/\s+/g,'');
+      else if(/^[A-Za-z0-9+/=\s]+$/.test(text)) b64=text.replace(/\s+/g,'');
       else { let s=''; buf.forEach(c=>{ s+=String.fromCharCode(c); }); b64=btoa(s); }
+      let first=-1; try{ first=atob(b64).charCodeAt(0); }catch{ /* not base64 */ }
+      if(first!==0x30){ toast('This is not a certificate file. Upload the .cer from uidai.gov.in.'); return; }
       const { error }=await supabase.rpc('admin_uidai_cert_set',{ p_name:f.name, p_der_b64:b64, p_active:true });
       if(error) toast(error.message); else load();
     } finally { setBusy(false); }
@@ -318,7 +338,7 @@ function UidaiCerts(){
   return (
     <div className="card">
       <div className="card-h">
-        <h2><KeyRound size={16}/> Aadhaar QR instant verify</h2>
+        <h2><KeyRound size={16}/> Aadhaar QR verify</h2>
         <label className="btn ghost sm" style={{cursor:'pointer'}}>
           <Upload size={13}/> {busy?'Uploading…':'Upload UIDAI certificate'}
           <input type="file" accept=".cer,.crt,.pem,.der" style={{display:'none'}} disabled={busy}

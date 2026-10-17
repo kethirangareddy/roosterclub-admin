@@ -596,7 +596,7 @@ export default function App(){
                 a fresh panel, never A's with B's name on it. */}
             <DrawerCtx.Provider key={top.kind+top.id+detail.length} value={{ setTitle:(t)=>setTitles(m=>({...m,[detail.length-1]:t})) }}>
               <div className="drawer-scroll">
-                {top.kind==='user' && <UserDetail userId={top.id} onClose={popDetail}/>}
+                {top.kind==='user' && <UserDetail key={top.id} userId={top.id} onClose={popDetail}/>}
                 {top.kind==='listing' && <Listing360 listingId={top.id} onClose={popDetail}
                   onOpenUser={(id)=>pushDetail({kind:'user',id})} onChanged={refreshCounts}/>}
                 {top.kind==='receipt' && <Receipt360 receiptId={top.id} onClose={popDetail}
