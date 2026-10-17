@@ -23,6 +23,10 @@ let seq = 0;
 function toneOf(text: string): Tone {
   const t = text.toLowerCase();
   const failedZero = /\bfailed:?\s*0\b|\b0 failed\b/.test(t);
+  // Harmless "nothing to do" notices — not errors.
+  if (/(already been sent|already removed|nothing to (do|send))/.test(t)) return 'info';
+  // A blocked form ("Pick a listing", "Tick at least one size") is an error too.
+  if (/^(pick|choose|tick|upload|add|keep|write|please keep|no user)\b|at least one|in the past|have been issued/.test(t)) return 'danger';
   // Database wording counts as an error too (RLS, constraints, expired login…).
   if (/(could ?n.?t|cannot|can't|error|not allowed|denied|invalid|required|missing|too (big|large|long)|must |violat|exception|admin only|only admins|expired|duplicate|permission|policy|constraint|timeout|timed out|network|fetch|not authori[sz]ed|unauthori[sz]ed|not found|not admin|already|did not load|bad status|unknown status)/.test(t)
       || (/failed/.test(t) && !failedZero)) return 'danger';

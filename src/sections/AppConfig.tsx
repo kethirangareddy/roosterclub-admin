@@ -62,7 +62,7 @@ export default function AppConfig(){
     if(dirty.has('partner')){
       const p=cfg.partner??{};
       const err=partnerProblem(p);
-      if(err && p.active){ toast('Partner app: '+err); return; }
+      if(err && p.active){ toast('Partner app: '+err,'danger'); return; }
     }
     setSaving(true);
     // Save what was changed when you pressed Save; anything edited while it

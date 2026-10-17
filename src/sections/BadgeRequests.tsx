@@ -88,7 +88,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   }
   async function waSendOne(r:any, resend=false){
     const name=r.user?.full_name||'this user';
-    if(!await ask(`Send the WhatsApp "Invite & Earn" message to ${name}?\n\nCost ≈ ₹${WA_COST.toFixed(2)}`)) return;
+    if(!await ask(`Send the WhatsApp "Invite & Earn" message to ${name}?\n\nCost ≈ ₹${WA_COST.toFixed(2)}`,{danger:false})) return;
     waSend([r.user_id], r.user_id, resend);
   }
   async function waSendTest(){

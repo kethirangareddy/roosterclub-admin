@@ -72,7 +72,7 @@ export default function WaInbox(){
 
   async function send(){
     const to=sel, text=draft.trim(); if(!to||!text) return;
-    if(!await ask(`Send this WhatsApp reply to +${to}?\n\n"${text.slice(0,200)}"`)) return;
+    if(!await ask(`Send this WhatsApp reply to +${to}?\n\n"${text.slice(0,200)}"`,{danger:false})) return;
     setBusy(true);
     const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ reply_to:to, text } });
     setBusy(false);
