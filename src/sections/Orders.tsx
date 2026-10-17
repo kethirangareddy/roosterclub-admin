@@ -135,7 +135,7 @@ export default function Orders() {
                       {/* buyer opens User-360; the phone copies on tap */}
                       <UserLink id={r.buyer_id}>{r.contact_name || 'View buyer'}</UserLink><br />
                       <span className="mut"><Copyable value={r.contact_phone} title="Copy phone number"/></span>{' '}
-                      <WaButton phone={r.contact_phone} label="WhatsApp" />
+                      <WaButton phone={r.contact_phone} label="WhatsApp" plain />
                     </td>
                     <td>{items.reduce((n: number, i: any) => n + i.qty, 0)}</td>
                     <td><strong>{inr(r.total)}</strong></td>
@@ -212,7 +212,7 @@ export default function Orders() {
                   .filter(Boolean).join(', ')}
                 {open.note ? <><br /><em>Note: {open.note}</em></> : null}
               </p>
-              <div style={{ marginTop: 6 }}><WaButton phone={open.contact_phone} label="Message the buyer" /></div>
+              <div style={{ marginTop: 6 }}><WaButton phone={open.contact_phone} label="Message the buyer" plain /></div>
             </div>
 
             <div>

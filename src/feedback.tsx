@@ -48,7 +48,7 @@ const pendingAsk = new Map<string, Promise<any>>();
     two-choice questions where "Cancel" is itself a choice. */
 export function ask(text: string, opts: { danger?: boolean; okText?: string; cancelText?: string; nullOnDismiss?: boolean } = {}): Promise<any> {
   const existing = pendingAsk.get(text);
-  if (existing) return existing.then(() => false);
+  if (existing) return existing.then(() => null); // the duplicate counts as 'closed' (falsy), never as a choice
   const p = new Promise<any>(resolve => {
     asks = [...asks, {
       id: ++seq, text, danger: opts.danger ?? DANGER_WORDS.test(text),

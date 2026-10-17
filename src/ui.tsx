@@ -250,9 +250,10 @@ export function waNumber(phone?: string | null){
   return d.length >= 11 && d.length <= 15 ? d : null;
 }
 
-export function waLink(phone?: string | null, lang?: string | null){
+export function waLink(phone?: string | null, lang?: string | null, plain = false){
   const n = waNumber(phone);
   if(!n) return null;
+  if(plain) return `https://wa.me/${n}`; // just open the chat, nothing pre-typed
   const msg = FOUNDER_MSG[lang === 'te' ? 'te' : 'en'];
   return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
 }
@@ -268,13 +269,14 @@ export function WaIcon({ size = 14 }: { size?: number }){
 }
 
 /** Opens WhatsApp with the Founder's Badge message already typed — you just hit send. */
-export function WaButton({ phone, lang, label }:{ phone?:string|null; lang?:string|null; label?:string }){
-  const href = waLink(phone, lang);
+/** plain: open the chat with nothing typed (orders) — default pre-fills the Founder's Badge invite. */
+export function WaButton({ phone, lang, label, plain=false }:{ phone?:string|null; lang?:string|null; label?:string; plain?:boolean }){
+  const href = waLink(phone, lang, plain);
   if(!href) return <span className="muted" title="No usable phone number">—</span>;
   return (
     <a className="btn ghost sm" href={href} target="_blank" rel="noopener noreferrer"
        style={{ color:'#25D366', display:'inline-flex', alignItems:'center', gap:5 }}
-       title={`Open WhatsApp with the Founder's Badge message ready to send (${lang === 'te' ? 'Telugu' : 'English'})`}>
+       title={plain ? 'Open a WhatsApp chat' : `Open WhatsApp with the Founder's Badge message ready to send (${lang === 'te' ? 'Telugu' : 'English'})`}>
       <WaIcon/>{label ?? 'WhatsApp'}
     </a>
   );

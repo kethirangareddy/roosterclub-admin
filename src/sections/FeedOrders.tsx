@@ -158,7 +158,7 @@ function OrdersTab() {
                 {open.contact_name} · <Copyable value={open.contact_phone} /><br />
                 {[open.address_line, open.village, open.mandal, open.district, open.state, open.pincode].filter(Boolean).join(', ')}
               </p>
-              <div style={{ marginTop: 6 }}><WaButton phone={open.contact_phone} label="Message the farmer" /></div>
+              <div style={{ marginTop: 6 }}><WaButton phone={open.contact_phone} label="Message the farmer" plain /></div>
             </div>
             <div>
               <strong>Status</strong>

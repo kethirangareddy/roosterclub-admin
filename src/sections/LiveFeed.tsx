@@ -58,7 +58,7 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
                         : await supabase.from('live_feed_sellers').insert(v);
     if(error){ toast(error.message); return; }
     setEdit(null);
-    setTab('approved'); // admin-added sellers are approved → show them
+    if(!id) setTab('approved'); // only a NEW admin-added seller is approved → show it there
     load(); onChange();
   }
 

@@ -27,7 +27,9 @@ const blank = {
   product_id: '', link: '', cta_label: '', price: '', placements: ['reel', 'listing', 'shop'], target_states: [] as string[],
   target_types: [] as string[], starts_at: '', ends_at: '', status: 'active', max_per_day: '2', priority: '0',
 };
-const dt = (iso?: string | null) => (iso ? new Date(iso).toISOString().slice(0, 16) : '');
+// Date boxes work in local (India) time — toISOString() is UTC, which moved every
+// edited ad 5½ hours earlier on each save.
+const dt = (iso?: string | null) => { if (!iso) return ''; const d = new Date(iso); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); };
 
 export default function Ads() {
   const [rows, setRows] = useState<any[]>([]);
@@ -85,7 +87,8 @@ export default function Ads() {
     if (!e.product_id && !/^https:\/\//.test(e.link.trim())) { toast('Pick a Shop product, or give a link starting with https:// (e.g. https://wa.me/91…).'); return; }
     if (!e.placements.length) { toast('Choose at least one place to show the ad.'); return; }
     if (e.media_type === 'video' && e.placements.some((p: string) => p !== 'reel') && !e.poster_url) {
-      if (!await ask('This is a video. The bird page and Shop show a still picture — add a cover photo first?', { okText: 'Add cover photo', cancelText: 'Save anyway', danger: false })) { /* save anyway */ } else return;
+      const pick = await ask('This is a video. The bird page and Shop show a still picture — add a cover photo first?', { okText: 'Add cover photo', cancelText: 'Save anyway', danger: false, nullOnDismiss: true });
+      if (pick !== false) return; // 'Add cover photo' or closed the question → don't save yet
     }
     setSaving(true);
     const payload: any = {

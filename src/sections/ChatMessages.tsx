@@ -37,7 +37,8 @@ export default function ChatMessages({ chatId, sellerId, live = false }:{ chatId
       if (document.hidden) return;
       supabase.rpc('admin_chat_messages', { p_chat: chatId }).then(({ data, error }) => {
         if (!alive || error) return;
-        setMsgs(prev => (prev && data && prev.length === data.length) ? prev : (data || []));
+        // Always take the fresh copy: same count can still mean a message was deleted.
+        setMsgs(data || []);
       });
     }, 10000) : null;
     return () => { alive = false; if (t) clearInterval(t); };

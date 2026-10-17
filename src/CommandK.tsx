@@ -100,6 +100,7 @@ export default function CommandK({ onOpenResult, onGo, onClose, screens=[] }:{
   }
   function run(i:number){
     if(i<acts.length){ const a=acts[i]; onGo(a.view,a.qp); return; }
+    if(busy) return; // results on screen belong to the previous search — wait for this one
     const h=shownHits[i-acts.length];
     if(h) act(h);
   }
