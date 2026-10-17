@@ -54,7 +54,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     }
   }
   useEffect(()=>{ loadThreads(); const t=setInterval(loadThreads,20000); return ()=>clearInterval(t); },[]);
-  useEffect(()=>{ setMsgs([]); if(!sel) return; loadThread(sel,true); const t=setInterval(()=>loadThread(sel,true),10000); return ()=>clearInterval(t); },[sel]);
+  useEffect(()=>{ setMsgs([]); if(!sel) return; loadThread(sel,true); const t=setInterval(()=>{ if(!document.hidden) loadThread(sel,true); },10000); return ()=>clearInterval(t); },[sel]); // polls skip while the tab is hidden, so nothing is marked read unseen
 
   const cur=threads.find(t=>t.user_id===sel);
   const nameOf=(t:any)=>t?.farm_name||t?.full_name||(t?.handle?'@'+t.handle:'User');

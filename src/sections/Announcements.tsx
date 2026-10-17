@@ -90,7 +90,8 @@ export default function Announcements(){
 
       <div className="card">
         <div className="card-h"><h2><Megaphone size={16}/> New announcement</h2></div>
-        <div style={{padding:16,display:'flex',flexDirection:'column',gap:12}}>
+        {/* Locked while sending: a successful send clears the form, which used to erase the next one you started typing. */}
+        <fieldset disabled={sending} style={{border:0,margin:0,minWidth:0,padding:16,display:'flex',flexDirection:'column',gap:12}}>
           <Field label="Title"><input style={{width:'100%'}} value={title} maxLength={80}
             onChange={e=>setTitle(e.target.value)} placeholder="e.g. New breeders joined near you"/></Field>
           <Field label="Message"><textarea rows={3} style={{width:'100%',resize:'vertical'}} value={body} maxLength={240}
@@ -134,7 +135,7 @@ export default function Announcements(){
               </button>
             </div>
           </div>
-        </div>
+        </fieldset>
       </div>
 
       <div className="card" style={{marginTop:16}}>

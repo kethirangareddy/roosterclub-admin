@@ -63,13 +63,18 @@ export function ask(text: string, opts: { danger?: boolean; okText?: string; can
 
 /** await askText('How many days?', '5') → string, or null if cancelled. */
 export function askText(text: string, initial = ''): Promise<string | null> {
-  return new Promise(resolve => {
+  // Same de-dupe as ask(): a double-click can't queue the question twice.
+  const existing = pendingAsk.get('text:' + text);
+  if (existing) return existing.then(() => null);
+  const p = new Promise<string | null>(resolve => {
     asks = [...asks, {
       id: ++seq, text, danger: false, okText: 'OK', cancelText: 'Cancel',
       input: { value: initial }, resolve,
     }];
     emit();
-  });
+  }).finally(() => pendingAsk.delete('text:' + text));
+  pendingAsk.set('text:' + text, p);
+  return p;
 }
 
 function settle(a: Ask, v: any) { asks = asks.filter(x => x.id !== a.id); emit(); a.resolve(v); }

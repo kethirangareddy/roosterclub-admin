@@ -144,7 +144,7 @@ export default function Shop() {
         const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
         const path = `admin/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true });
-        if (up.error) { toast('Image upload failed: ' + up.error.message); return; }
+        if (up.error) { toast('Image upload failed: ' + up.error.message + (urls.length ? ` — the first ${urls.length} photo(s) were kept.` : '')); break; }
         urls.push(supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl);
       }
       // `edit` is captured from render, so build off the latest state, not the closure —

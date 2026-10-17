@@ -167,9 +167,9 @@ export default function Ads() {
       </div>
 
       {edit && (
-        <Modal title={edit.id ? 'Edit ad' : 'New ad'} onClose={() => { if (!uploading) setEdit(null); }}
+        <Modal title={edit.id ? 'Edit ad' : 'New ad'} onClose={() => { if (!uploading && !saving) setEdit(null); }}
           footer={<>
-            <button className="btn ghost" disabled={!!uploading} onClick={() => setEdit(null)}>Cancel</button>
+            <button className="btn ghost" disabled={!!uploading || saving} onClick={() => setEdit(null)}>Cancel</button>
             <button className="btn" onClick={save} disabled={saving || !!uploading}>{saving ? 'Saving…' : 'Save ad'}</button>
           </>}>
           <label style={{ display: 'flex', gap: 14, alignItems: 'center', cursor: 'pointer', border: '2px dashed var(--line, #E3D9C9)', borderRadius: 12, padding: 14 }}>

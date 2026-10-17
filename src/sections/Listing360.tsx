@@ -70,6 +70,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     setBusy(false);
     if(error){ setPushMsg('❌ '+error.message); return; }
     setPushMsg('✅ Queued — posts in the background in ~10–60s'+(hasVideo?' (longer for branded reels)':'')+'. Status refreshes shortly.');
+    window.clearTimeout(instaTimer.current);
     instaTimer.current=window.setTimeout(load, 45000);
   }
 
