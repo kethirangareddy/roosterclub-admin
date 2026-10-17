@@ -153,7 +153,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
   }
 
   return (
-    <div style={{ border: '1.5px solid #E8C97A', background: '#FFFBF2', borderRadius: 12, padding: 12, marginTop: 10 }}>
+    <div style={{ border: '1.5px solid var(--line)', background: 'var(--parchment)', borderRadius: 12, padding: 12, marginTop: 10 }}>
       <div style={{ fontWeight: 700, marginBottom: 6 }}>👕 Apparel details</div>
       <div className="grid2">
         <Field label="Fit (decides the size chart)">
@@ -194,7 +194,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
         A colour with no photos uses the main photos above. Tick the sizes sold in each colour; stock 999 = print on demand, 0 = sold out.
       </div>
       {a.colours.map((c, i) => (
-        <div key={i} style={{ border: '1px solid #E3D9C9', borderRadius: 10, padding: 10, marginBottom: 8, background: '#fff' }}>
+        <div key={i} style={{ border: '1px solid var(--line)', borderRadius: 10, padding: 10, marginBottom: 8, background: 'var(--surface)' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <Field label="Colour name"><input value={c.name} onChange={(e) => renameColour(i, e.target.value)} placeholder="Black" style={{ width: 130 }} /></Field>
             <Field label="Telugu"><input value={c.name_te ?? ''} onChange={(e) => setColour(i, { name_te: e.target.value })} style={{ width: 110 }} /></Field>
@@ -209,7 +209,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
               {(c.images ?? []).map((u, k) => (
                 <div key={u} style={{ textAlign: 'center' }}>
-                  <img src={u} className="thumb" style={{ width: 48, height: 60, objectFit: 'cover', outline: k === 0 ? '2px solid #BA7517' : 'none' }} />
+                  <img src={u} className="thumb" style={{ width: 48, height: 60, objectFit: 'cover', outline: k === 0 ? '2px solid var(--cta)' : 'none' }} />
                   <div style={{ display: 'flex', gap: 2 }}>
                     {k !== 0 && <button className="btn ghost sm" onClick={() => setColour(i, { images: [u, ...(c.images ?? []).filter((x) => x !== u)] })}>1st</button>}
                     <button className="btn ghost sm" onClick={() => setColour(i, { images: (c.images ?? []).filter((x) => x !== u) })}>✕</button>
@@ -222,7 +222,7 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
             {SIZES.map((s) => {
               const on = s in (grid[c.key] ?? {});
               return (
-                <div key={s} style={{ border: '1px solid ' + (on ? '#7B3F00' : '#E3D9C9'), borderRadius: 8, padding: '4px 6px', textAlign: 'center', minWidth: 58 }}>
+                <div key={s} style={{ border: '1px solid ' + (on ? 'var(--cta)' : 'var(--line)'), borderRadius: 8, padding: '4px 6px', textAlign: 'center', minWidth: 58 }}>
                   <label style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', fontWeight: 700, cursor: 'pointer' }}>
                     <input type="checkbox" checked={on} onChange={() => toggleSize(c.key, s)} /> {s}
                   </label>

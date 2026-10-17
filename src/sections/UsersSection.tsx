@@ -25,7 +25,7 @@ export default function UsersSection(){
   const [loading,setLoading]=useState(true);
   const [q,setQ]=useState('');
   const { openUser }=useDetail();
-  useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
+  useOnChanged(()=>load(true)); // an action in the side panel (approve, remove, ban…) refreshes this list
   // Items 12–14: All (created desc) | High risk (auto-flag queue) | Duplicates (ban evasion)
   const [tab,setTab]=useParamState<'all'|'risk'|'dups'|'refs'>('tab','all');
   const [dups,setDups]=useState<any[]>([]);
@@ -48,7 +48,9 @@ export default function UsersSection(){
 
   const reqRef=useRef(0);
   const [loadErr,setLoadErr]=useState(false); // a failed load must not read as "nobody"
-  async function load(){
+  const runQ=useRef(''); // the search you ran (background reloads reuse it)
+  async function load(quiet=false){
+    if(!quiet) runQ.current=q;
     // Newest request wins: a slow 'All users' load must never fill the
     // 'High risk' tab you switched to (with Ban buttons on the wrong people).
     const my=++reqRef.current; const stale=()=>my!==reqRef.current;
@@ -71,7 +73,7 @@ export default function UsersSection(){
       setLoadErr(!!error);
       setRows(data||[]); setLoading(false); return;
     }
-    const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new', p_limit: lim, p_offset: 0 });
+    const { data, error }=await supabase.rpc('admin_users',{ p_q: runQ.current.trim()||null, p_sort:'new', p_limit: lim, p_offset: 0 });
     if(stale()) return;
     setLoadErr(!!error);
     let list = data||[];
@@ -263,7 +265,7 @@ export default function UsersSection(){
           <div className="toolbar">
             <input placeholder="Search name, handle, phone…" value={q}
               onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&load()} style={{width:240}}/>
-            <button className="btn ghost sm" onClick={load}><Search size={14}/> Search</button>
+            <button className="btn ghost sm" onClick={()=>load()}><Search size={14}/> Search</button>
             <select value={fState} onChange={e=>{setFState(e.target.value);setFDist('all');}} style={{fontSize:13,padding:'6px 8px',borderRadius:8}} title="Filter by state">
               <option value="all">All states</option>
               {fState!=='all' && !uStates.includes(fState) && <option value={fState}>{fState} (none here)</option>}

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
+import { emitChanged } from '../detail';
 import { PackageCheck } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable, LoadError } from '../ui';
 import { toast, ask } from '../feedback';
@@ -84,7 +85,7 @@ export default function Orders() {
     setSaving(false);
     if (error) { toast('Could not update: ' + error.message); return; }
     setOpen(null);
-    load();
+    load(); emitChanged(); // badges update now, not in 2 minutes
   }
 
   function nextStatus(s: Status): Status | null {

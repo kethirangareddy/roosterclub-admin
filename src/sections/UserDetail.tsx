@@ -82,10 +82,10 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
       {!d ? <div className="loading">Loading…</div> : d.__error ? <div className="empty">Could not load user: {d.__error}</div> : !p ? <div className="empty">User not found.</div> : (
         <>
           {/* header */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             {p.avatar_url ? <img src={p.avatar_url} className="thumb" style={{ width: 56, height: 56, borderRadius: '50%' }} />
               : <div className="thumb" style={{ width: 56, height: 56, borderRadius: '50%' }} />}
-            <div>
+            <div style={{ minWidth: 0, flex: '1 1 180px' }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{p.full_name || '—'}
                 {p.aadhaar_verified && <span className="badge b-ok" style={{ marginLeft: 8 }}><ShieldCheck size={12} /> KYC</span>}
                 {p.banned && <span className="badge b-danger" style={{ marginLeft: 6 }}>Banned</span>}
@@ -188,7 +188,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
           </div>
 
           {/* stat grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginTop: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 8, marginTop: 14 }}>
             {stats.map(s => (
               <div key={s.lab} style={{ background: 'var(--glass)', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' }}>
                 <div style={{ fontSize: 10.5, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.03em', display: 'flex', gap: 5, alignItems: 'center' }}><s.Icon size={12} /> {s.lab}</div>
@@ -203,8 +203,8 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
             <ResponsiveContainer width="100%" height={130}>
               <BarChart data={d.activity || []} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
-                <XAxis dataKey="day" tickFormatter={day} tick={{ fill: '#8a7458', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
-                <Tooltip contentStyle={{ background: '#FFFFFF', border: '1px solid rgba(44,24,16,.14)', borderRadius: 8, fontSize: 12, color: '#2C1810' }} labelFormatter={day} />
+                <XAxis dataKey="day" tickFormatter={day} tick={{ fill: 'var(--muted)', fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={28} />
+                <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12, color: 'var(--ink)' }} labelFormatter={day} />
                 <Bar dataKey="listings" stackId="a" fill="#BA7517" />
                 <Bar dataKey="sales" stackId="a" fill="#2E7D32" radius={[3, 3, 0, 0]} />
               </BarChart>

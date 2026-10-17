@@ -160,7 +160,7 @@ export default function AppConfig(){
             <input style={{width:'100%'}} value={banner.link??''} placeholder="https://wa.me/91…"
               onChange={e=>patch('banner',v=>({ ...v,link:e.target.value.trim() }))}/>
           </Field>
-          {!!banner.link && !/^https:\/\//i.test(banner.link) && <div style={{color:'#b45309',fontSize:12.5}}>The link must start with https:// — the app won't open anything else.</div>}
+          {!!banner.link && !/^https:\/\//i.test(banner.link) && <div style={{color:'var(--warn)',fontSize:12.5}}>The link must start with https:// — the app won't open anything else.</div>}
           {(['title','sub','cta'] as const).map(part=>(
             <div key={part}>
               <div className="muted" style={{fontSize:12,fontWeight:600,margin:'4px 0'}}>{part==='title'?'Title':part==='sub'?'Second line':'Button text'}</div>
@@ -186,7 +186,7 @@ export default function AppConfig(){
             <span style={{fontSize:13.5,fontWeight:600}}>Show the partner card on Home</span>
             <span className={'badge '+(partner.active?'b-ok':'b-danger')} style={{marginLeft:'auto'}}>{partner.active?'ON':'OFF'}</span>
           </label>
-          {partner.active && partnerProblem(partner) && <div style={{color:'#b45309',fontSize:12.5}}>{partnerProblem(partner)}</div>}
+          {partner.active && partnerProblem(partner) && <div style={{color:'var(--warn)',fontSize:12.5}}>{partnerProblem(partner)}</div>}
           <div className="grid2">
             <Field label="Play Store package (the part after id= in their link)">
               <input style={{width:'100%'}} value={partner.package??''} placeholder="kodi.sastram"

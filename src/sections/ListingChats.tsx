@@ -27,6 +27,8 @@ export default function ListingChats({ listingId, onClose }:{
     return () => { alive = false; };
   }, [listingId]);
 
+  // Chats where nobody wrote a word are left out, like in Member chats.
+  const visible = (threads || []).filter(t => Number(t.msg_count) > 0);
   const title = active
     ? `${who(active.buyer_name, active.buyer_handle)} ↔ ${who(active.seller_name, active.seller_handle)}`
     : 'Conversations on this listing';
@@ -36,10 +38,10 @@ export default function ListingChats({ listingId, onClose }:{
       {!active ? (
         threads === null ? <div className="loading">Loading…</div>
         : loadErr ? <div className="empty" style={{ color: 'var(--danger)' }}>Couldn't load the chats — {loadErr}. Close and open again.</div>
-        : threads.length === 0 ? <div className="empty">No one has chatted about this listing yet.</div>
+        : visible.length === 0 ? <div className="empty">{threads.length ? `Only ${threads.length} empty chat${threads.length>1?'s':''} (opened, nobody wrote).` : 'No one has chatted about this listing yet.'}</div>
         : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {threads.map(t => (
+            {visible.map(t => (
               <button key={t.chat_id} onClick={() => setActive(t)}
                 style={{ textAlign: 'left', background: 'var(--glass)', border: '1px solid var(--line)',
                   borderRadius: 10, padding: '10px 12px', cursor: 'pointer', display: 'flex',

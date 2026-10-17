@@ -17,13 +17,15 @@ export default function Listings() {
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useParamState<Filter>('f', 'all');
   const { openListing } = useDetail();
-  useOnChanged(() => load());
+  useOnChanged(() => load(true));
 
   // Only the newest request may fill the table — tapping Pending then Removed
   // on a slow network used to show Pending's rows under the Removed tab.
   const reqRef = useRef(0);
   const [loadErr, setLoadErr] = useState(false);
-  async function load() {
+  // Background reloads reuse the search you ran, not half-typed text.
+  const runQ = useRef('');
+  async function load(quiet = false) {
     const my = ++reqRef.current;
     setLoading(true);
     const nowIso = new Date().toISOString();
@@ -36,7 +38,8 @@ export default function Listings() {
     else if (fStatus === 'expired') query = query.eq('status', 'expired');
     else if (fStatus === 'removed') query = query.eq('status', 'removed');
     // Commas/brackets would break the filter syntax — treat them as spaces.
-    const term = q.trim().replace(/[,()*%]/g, ' ').trim();
+    if (!quiet) runQ.current = q;
+    const term = runQ.current.trim().replace(/[,()*%]/g, ' ').trim();
     if (term) query = query.or(`breed.ilike.%${term}%,type.ilike.%${term}%`);
     const { data, error } = await query;
     if (my !== reqRef.current) return;
@@ -62,7 +65,7 @@ export default function Listings() {
           <div className="toolbar">
             <input placeholder="Search breed / type…" value={q}
               onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && load()} style={{ width: 220 }} />
-            <button className="btn ghost sm" onClick={load}><Search size={14} /> Search</button>
+            <button className="btn ghost sm" onClick={() => load()}><Search size={14} /> Search</button>
           </div>
         </div>
         <div className="tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 0 12px' }}>

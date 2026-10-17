@@ -321,7 +321,7 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
 
       {/* 2 — BRIEF */}
       <div className="card brief">
-        <Sparkles size={16} style={{color:'#7B3F00',flexShrink:0}}/>
+        <Sparkles size={16} style={{color:'var(--iris)',flexShrink:0}}/>
         <span>{brief}.</span>
       </div>
 

@@ -104,7 +104,7 @@ function Overview() {
     URL.revokeObjectURL(url); // free the blob instead of leaking it each export
   }
 
-  if (err) return <div className="card" style={{ padding: 24, color: '#c0392b' }}>Could not load analytics: {err} <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Retry</button></div>;
+  if (err) return <div className="card" style={{ padding: 24, color: 'var(--danger)' }}>Could not load analytics: {err} <button className="btn sm" style={{ marginLeft: 8 }} onClick={() => location.reload()}>Retry</button></div>;
   if (loading) return <Loading />;
   if (!m || !funnel) return <div className="card" style={{ padding: 24 }}>No analytics data yet.</div>;
 
@@ -157,8 +157,8 @@ function Overview() {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
-              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-              <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => v >= 1000 ? (v / 1000) + 'k' : v} />
+              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: 'var(--muted)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+              <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} tickLine={false} axisLine={false} width={48} tickFormatter={(v) => v >= 1000 ? (v / 1000) + 'k' : v} />
               <Tooltip contentStyle={tt} labelFormatter={fmtDay} formatter={(v: any) => [inr(v as number), 'GMV']} />
               <Area type="monotone" dataKey="gmv" stroke="#2E7D32" strokeWidth={2} fill="url(#gGmv)" />
             </AreaChart>
@@ -174,8 +174,8 @@ function Overview() {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={funnelData} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
                 <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
-                <XAxis dataKey="stage" tick={{ fill: '#a8977e', fontSize: 12 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={38} />
+                <XAxis dataKey="stage" tick={{ fill: 'var(--muted)', fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} tickLine={false} axisLine={false} width={38} />
                 <Tooltip contentStyle={tt} cursor={{ fill: 'rgba(186,117,23,.08)' }} />
                 <Bar dataKey="v" radius={[6, 6, 0, 0]}>
                   {funnelData.map((d, i) => <Cell key={i} fill={d.c} />)}
@@ -197,8 +197,8 @@ function Overview() {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={series} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
                 <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false} />
-                <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-                <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
+                <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: 'var(--muted)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
                 <Tooltip contentStyle={tt} labelFormatter={fmtDay} cursor={{ fill: 'rgba(186,117,23,.08)' }} />
                 <Bar dataKey="listings" stackId="a" fill="#BA7517" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="users" stackId="a" fill="#7B3F00" radius={[4, 4, 0, 0]} />
@@ -278,8 +278,8 @@ function FragmentRows({ g, total, open, onToggle }: {
 }
 
 const tt = {
-  background: '#FFFFFF', border: '1px solid rgba(44,24,16,.14)', borderRadius: 10,
-  color: '#2C1810', fontSize: 12, boxShadow: '0 8px 24px rgba(44,24,16,.14)',
+  background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10,
+  color: 'var(--ink)', fontSize: 12, boxShadow: 'var(--shadow-lg)',
 } as const;
 
 /* ─────────────────────────────────────────────────────────────────────────────

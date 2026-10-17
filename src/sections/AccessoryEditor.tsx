@@ -54,7 +54,7 @@ export function AccessoryEditor({ value, onChange, others }: {
     <Field label={label}><textarea rows={rows} value={f[k] as string} onChange={(e) => set({ [k]: e.target.value } as any)} placeholder={ph} /></Field>
   );
   return (
-    <div style={{ border: '1.5px solid #E8C97A', background: '#FFFBF2', borderRadius: 12, padding: 12, marginTop: 10 }}>
+    <div style={{ border: '1.5px solid var(--line)', background: 'var(--parchment)', borderRadius: 12, padding: 12, marginTop: 10 }}>
       <div style={{ fontWeight: 700, marginBottom: 6 }}>🧰 Accessory page details</div>
       <div className="grid2">
         <Field label="Group (shelf chip)">
@@ -94,7 +94,7 @@ export function AccessoryEditor({ value, onChange, others }: {
         {others.map((o) => {
           const on = f.kit_ids.includes(o.id);
           return (
-            <label key={o.id} style={{ border: '1px solid ' + (on ? '#7B3F00' : '#E3D9C9'), borderRadius: 8, padding: '4px 8px', display: 'flex', gap: 5, alignItems: 'center', cursor: 'pointer', background: '#fff' }}>
+            <label key={o.id} style={{ border: '1px solid ' + (on ? 'var(--cta)' : 'var(--line)'), borderRadius: 8, padding: '4px 8px', display: 'flex', gap: 5, alignItems: 'center', cursor: 'pointer', background: 'var(--surface)' }}>
               <input type="checkbox" checked={on} onChange={() => set({ kit_ids: on ? f.kit_ids.filter((x) => x !== o.id) : [...f.kit_ids, o.id] })} />
               {o.name} <span className="muted">₹{o.price}</span>
             </label>

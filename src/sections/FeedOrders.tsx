@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
+import { emitChanged } from '../detail';
 import { Wheat } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable, LoadError } from '../ui';
 import { toast, ask } from '../feedback';
@@ -72,7 +73,7 @@ function OrdersTab() {
     const { error } = await supabase.rpc('admin_set_custom_feed_status', { p_order: o.id, p_status: s, p_note: withNote ? (note || null) : null });
     setSaving(false);
     if (error) { toast('Could not update: ' + error.message); return; }
-    setOpen(null); setNote(''); load();
+    setOpen(null); setNote(''); load(); emitChanged();
   }
   const next = (s: Status): Status | null => {
     const i = FLOW.indexOf(s as any);

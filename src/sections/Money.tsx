@@ -18,8 +18,8 @@ const fmtMonth = (s: string) => new Date(s).toLocaleDateString('en-IN', { month:
 const daysWaiting = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 864e5);
 
 const tt = {
-  background: '#FFFFFF', border: '1px solid rgba(44,24,16,.14)', borderRadius: 10,
-  color: '#2C1810', fontSize: 12, boxShadow: '0 8px 24px rgba(44,24,16,.14)',
+  background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 10,
+  color: 'var(--ink)', fontSize: 12, boxShadow: 'var(--shadow-lg)',
 } as const;
 
 export default function Money({ openReceipt, go }: { openReceipt: (id: string) => void; go: (k: any) => void }) {
@@ -160,8 +160,8 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={m.series || []} margin={{ top: 6, right: 12, left: -6, bottom: 0 }}>
               <CartesianGrid stroke="rgba(44,24,16,.09)" vertical={false}/>
-              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24}/>
-              <YAxis tick={{ fill: '#8a7458', fontSize: 11 }} tickLine={false} axisLine={false} width={44}/>
+              <XAxis dataKey="day" tickFormatter={fmtDay} tick={{ fill: 'var(--muted)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24}/>
+              <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }} tickLine={false} axisLine={false} width={44}/>
               <Tooltip contentStyle={tt} labelFormatter={fmtDay} cursor={{ fill: 'rgba(186,117,23,.08)' }}
                 formatter={(v: any, name: any) => [inr(Number(v)), name === 'boost' ? 'Boosts' : 'Features']}/>
               <Bar dataKey="boost" stackId="a" fill="#BA7517"/>

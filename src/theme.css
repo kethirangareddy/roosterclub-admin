@@ -713,3 +713,17 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 .scrim.cmdk-scrim{z-index:65}
 /* Phone: the open menu covers the bottom tab bar, so Sign out is reachable. */
 @media (max-width:860px){ .nav-scrim{z-index:47} .side{z-index:48} }
+
+/* Dark mode: status colours. The light rules above hard-code dark text
+   (#1f6b26 / #8a4600 / #a52f22) that disappears on the roast background —
+   switch to the bright dark-theme tokens with soft translucent borders. */
+:root[data-theme="dark"] .b-ok,
+:root[data-theme="dark"] .note{color:var(--ok);border-color:rgba(91,190,106,.32)}
+:root[data-theme="dark"] .b-warn{color:var(--warn);border-color:rgba(233,168,68,.34)}
+:root[data-theme="dark"] .b-danger,
+:root[data-theme="dark"] .err,
+:root[data-theme="dark"] .anom{color:var(--danger);border-color:rgba(239,106,90,.34)}
+:root[data-theme="dark"] .b-info{color:var(--iris);border-color:rgba(224,161,90,.34)}
+:root[data-theme="dark"] .p-item.bad{border-color:rgba(239,106,90,.34)}
+:root[data-theme="dark"] .copybtn.done{color:var(--ok)}
+:root[data-theme="dark"] .dau-new{background:var(--iris);opacity:.7}

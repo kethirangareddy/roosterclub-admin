@@ -30,8 +30,13 @@
            skipWaiting(), so when it takes control we reload once to pick up
            the new bundle. */
         var rcReloaded = false;
+        /* Only reload for an UPDATE (a worker was already in control). On a
+           browser's first visit, or while the set-new-password screen is open,
+           reloading would wipe what's on screen. */
+        var rcHadController = !!navigator.serviceWorker.controller;
         navigator.serviceWorker.addEventListener('controllerchange', function () {
-          if (rcReloaded) return;
+          if (rcReloaded || !rcHadController || window.__rcNoReload) return;
+          if (/type=recovery/.test(location.hash)) return;
           rcReloaded = true;
           location.reload();
         });

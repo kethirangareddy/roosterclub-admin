@@ -230,6 +230,8 @@ export default function App(){
   const [themePref,setThemePref]=useTheme();
   const [session,setSession]=useState<Session|null>(null);
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
+  const [accessErr,setAccessErr]=useState(false);
+  const [accessTry,setAccessTry]=useState(0);
   const [recovery,setRecovery]=useState(false);
   const [view,setViewRaw]=useState<Key>(()=>{
     const v=new URLSearchParams(location.search).get('view') as Key|null;
@@ -428,6 +430,7 @@ export default function App(){
         access_token: h.get('access_token')!,
         refresh_token: h.get('refresh_token')||'',
       }).finally(()=>{
+        (window as any).__rcNoReload=true; // keep the reset screen through an app update
         setRecovery(true);
         history.replaceState(null,'',window.location.pathname+window.location.search);
       });
@@ -436,9 +439,11 @@ export default function App(){
 
   useEffect(()=>{
     if(!session){ setIsAdmin(null); return; }
+    // A failed check (offline, blip) is NOT "not an admin" — show Retry instead.
+    setAccessErr(false);
     supabase.from('admins').select('id').eq('id',session.user.id).maybeSingle()
-      .then(({data})=>setIsAdmin(!!data));
-  },[session]);
+      .then(({data,error})=>{ if(error){ setAccessErr(true); return; } setIsAdmin(!!data); });
+  },[session,accessTry]);
 
   // One RPC instead of 11 count round-trips. It also carries the per-table
   // totals the "More" group uses to dim sections that have no rows, and the
@@ -449,12 +454,15 @@ export default function App(){
   const [countsStatus,setCountsStatus]=useState<'loading'|'ok'|'error'>('loading');
   async function refreshCounts(){
     const my=++countsReq.current; // an older, slower reply must not overwrite newer counts
-    const [{ data, error }, sup, feed]=await Promise.all([
+    const [{ data, error }, sup, feed, shop]=await Promise.all([
       supabase.rpc('admin_counts'),
       supabase.rpc('admin_support_unread'),
       // admin_counts has no feed-order number, so count the ones that need you here.
       supabase.from('custom_feed_orders').select('id',{ count:'exact', head:true })
         .in('status',['payment_review','paid','milling','packed']),
+      // Shop orders waiting on YOU (not unpaid UPI orders waiting on the buyer).
+      supabase.from('shop_orders').select('id',{ count:'exact', head:true })
+        .in('status',['payment_review','pending','confirmed','packed']),
     ]);
     // Keep the last known counts — a transient blip shouldn't blank the sidebar.
     if(my!==countsReq.current) return;
@@ -463,7 +471,8 @@ export default function App(){
     // If only the support count failed, keep the last known number — a failure is not "0 unread".
     setCounts(prev=>({ ...((data as any)||{}),
       support: sup.error ? (prev.support??0) : Number(sup.data)||0,
-      feedorders: feed.error ? (prev.feedorders??0) : (feed.count??0) }));
+      feedorders: feed.error ? (prev.feedorders??0) : (feed.count??0),
+      orders: shop.error ? (prev.orders??(data as any)?.orders??0) : (shop.count??0) }));
   }
   // Deliberately NOT keyed on `view`: this used to refire 11 queries on every
   // section change (~110 queries per 10 clicks). Sections call refreshCounts()
@@ -475,9 +484,11 @@ export default function App(){
     return ()=>clearInterval(t);
   },[isAdmin]);
 
-  if(recovery) return <ResetPassword onDone={()=>setRecovery(false)}/>;
+  if(recovery) return <ResetPassword onDone={()=>{ (window as any).__rcNoReload=false; setRecovery(false); }}/>;
   if(!session) return <Login/>;
-  if(isAdmin===null) return <div className="login"><div className="box">Checking access…</div></div>;
+  if(isAdmin===null) return <div className="login"><div className="box">{accessErr
+    ? <>Can't reach the server{online?'':' — you are offline'}.<div style={{marginTop:12}}><button className="btn" onClick={()=>setAccessTry(n=>n+1)}>Retry</button></div></>
+    : 'Checking access…'}</div></div>;
   if(isAdmin===false) return (
     <div className="login"><div className="box">
       <div className="logo">Access denied</div>

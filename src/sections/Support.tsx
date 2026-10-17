@@ -32,8 +32,11 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   },[sel]);
   const draftRef=useRef(''); draftRef.current=draft;
 
+  const threadsReq=useRef(0); // newest list wins; a reply sent before mark-read is dropped
   async function loadThreads(){
+    const my=++threadsReq.current;
     const { data, error }=await supabase.rpc('admin_support_threads',{ p_limit:200 });
+    if(my!==threadsReq.current) return;
     if(error){ console.error(error.message); setListErr(true); setLoading(false); return; }
     setListErr(false); setThreads(data||[]); setLoading(false);
   }
@@ -51,6 +54,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     lenRef.current=n;
     if(markRead){
       await supabase.rpc('admin_support_mark_read',{ p_user:uid });
+      threadsReq.current++;
       setThreads(ts=>ts.map(t=>t.user_id===uid?{...t,admin_unread:0}:t));
       onChange?.();
     }

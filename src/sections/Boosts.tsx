@@ -3,6 +3,7 @@ import { supabase, adminPhones } from '../supabase';
 import { Rocket, Plus, Zap } from 'lucide-react';
 import { Modal, Field, Empty, Loading, LoadError, inr, timeAgo, UserLink, ListingLink, Copyable } from '../ui';
 import { toast, askText } from '../feedback';
+import { emitChanged } from '../detail';
 
 const LEVELS=[
   { v:'mandal', label:'Mandal — ₹99', price:99 },
@@ -66,7 +67,7 @@ export default function Boosts(){
       price_paid:Number(a.price_paid)||0, upi_ref:a.upi_ref||null,
     });
     if(error){ toast(error.message); return; }
-    setAdding(null); load();
+    setAdding(null); load(); emitChanged();
   }
 
   // One activation at a time: a second tap while the prompt or the reload is
