@@ -11,7 +11,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   const [loading,setLoading]=useState(true);
   const [listErr,setListErr]=useState(false);   // thread list failed
   const [threadErr,setThreadErr]=useState(false); // open conversation failed
-  const [sel,setSel]=useState<string|null>(null);
+  const [sel,setSel]=useState<string|null>(()=>{ const v=history.state?.rcSel; return typeof v==='string'?v:null; });
   const [msgs,setMsgs]=useState<any[]>([]);
   const [draft,setDraft]=useState('');
   const [busy,setBusy]=useState(false);
@@ -23,13 +23,13 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   // so the phone's Back returns to the list instead of leaving the screen.
   function openSel(id:string){
     if(id===selRef.current) return;
-    if(history.state?.rcSel) history.replaceState(history.state,'',location.href);
-    else history.pushState({...(history.state||{}),rcSel:true},'',location.href);
+    if(history.state?.rcSel) history.replaceState({...history.state,rcSel:id},'',location.href);
+    else history.pushState({...(history.state||{}),rcSel:id},'',location.href);
     setSel(id);
   }
   function closeSel(){ if(history.state?.rcSel) history.back(); else setSel(null); }
   useEffect(()=>{
-    const onPop=()=>{ if(!history.state?.rcSel) setSel(null); };
+    const onPop=()=>{ const v=history.state?.rcSel; setSel(typeof v==='string'?v:null); };
     window.addEventListener('popstate',onPop);
     return ()=>window.removeEventListener('popstate',onPop);
   },[]);

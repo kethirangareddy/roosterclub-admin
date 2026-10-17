@@ -37,6 +37,7 @@
         navigator.serviceWorker.addEventListener('controllerchange', function () {
           if (rcReloaded || !rcHadController || window.__rcNoReload) return;
           if (/type=recovery/.test(location.hash)) return;
+          try { if (sessionStorage.getItem('rc_recovery') === '1') return; } catch (e) {}
           rcReloaded = true;
           location.reload();
         });

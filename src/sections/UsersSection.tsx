@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
 import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink, LoadError } from '../ui';
-import { useDetail, useOnChanged } from '../detail';
+import { useDetail, useOnChanged, emitChanged } from '../detail';
 import { toast, ask } from '../feedback';
 
 const BADGES:{v:string;label:string}[]=[
@@ -104,7 +104,7 @@ export default function UsersSection(){
     }
     setRows(list); setLoading(false);
   }
-  useEffect(()=>{ load(); },[tab,lim]);
+  useEffect(()=>{ load(true); },[tab,lim]);
 
   // Founder's Badge counter — refreshed whenever a badge changes below.
   async function loadFounders(){
@@ -132,7 +132,8 @@ export default function UsersSection(){
     if(!await ask(u.banned?'Unban this user?':'Ban this user?')) return;
     const { error }=await supabase.from('users').update({ banned:!u.banned }).eq('id',u.id);
     if(error){ toast('Could not update: '+error.message); return; }
-    setRows(r=>r.map(x=>x.id===u.id?{...x,banned:!u.banned}:x));
+    setRows(r=>tab==='risk'&&!u.banned ? r.filter(x=>x.id!==u.id) : r.map(x=>x.id===u.id?{...x,banned:!u.banned}:x));
+    emitChanged();
   }
 
   // Online = seen within 5 min (matches the Command Center pulse "online now").

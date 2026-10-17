@@ -46,7 +46,7 @@ export default function Listings() {
     setLoadErr(!!error); // a failed load must not read as "no listings"
     setRows(data || []); setLoading(false);
   }
-  useEffect(() => { load(); }, [fStatus]);
+  useEffect(() => { load(true); }, [fStatus]);
 
   function liveLabel(r: any) {
     // Not approved yet (or rejected) — show that, not a green "active".

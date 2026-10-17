@@ -24,6 +24,7 @@ const tt = {
 
 export default function Money({ openReceipt, go }: { openReceipt: (id: string) => void; go: (k: any) => void }) {
   const [days, setDays] = useState(30);
+  const [moneyTry, setMoneyTry] = useState(0); // Retry re-runs the range load
   const [m, setM] = useState<any | null>(null);
   const [months, setMonths] = useState<any[]>([]);
   const [openMonth, setOpenMonth] = useState<string | null>(null);
@@ -48,10 +49,10 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
       ]);
       if (!alive) return;
       if (mo.error || re.error) { setErr((mo.error || re.error)!.message); return; }
-      setM(mo.data); setMonths(re.data || []); setCost(co.data);
+      setM(mo.data); setMonths(re.data || []); setCost(co.error ? { error: co.error.message } : co.data);
     })();
     return () => { alive = false; };
-  }, [days]);
+  }, [days, moneyTry]);
 
   const wantMonth = useRef<string | null>(null);
   const wantDay = useRef<string | null>(null);
@@ -134,7 +135,8 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
       {/* What it COSTS to run. Revenue is ₹0 by design today (you take no cut and
           nobody has bought a boost yet) — so the honest money question is spend
           per user, not income. Rate is app_config.sms_rate_paise, edit it there. */}
-      {cost && (
+      {cost?.error && <LoadError what="the running-cost numbers" onRetry={()=>setMoneyTry(n=>n+1)}/>}
+      {cost && !cost.error && (
         <div className="card">
           <div className="card-h"><h2><IndianRupee size={16}/> What it cost to get here</h2>
             <span className="badge b-mut">last {cost.days} days</span></div>

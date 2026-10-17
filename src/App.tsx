@@ -5,7 +5,7 @@ import { Component, Suspense, lazy, useEffect, useRef, useState, type ReactNode 
    instead of showing a blank screen. */
 function lazyScreen(load:()=>Promise<any>){
   return lazy(()=>load().catch(err=>{
-    if(!sessionStorage.getItem('rc_chunk_reload')){ sessionStorage.setItem('rc_chunk_reload','1'); location.reload(); }
+    if(navigator.onLine && !sessionStorage.getItem('rc_chunk_reload')){ sessionStorage.setItem('rc_chunk_reload','1'); location.reload(); }
     throw err;
   }).then(m=>{ sessionStorage.removeItem('rc_chunk_reload'); return m; }));
 }
@@ -258,7 +258,7 @@ export default function App(){
       // shared ?d= link). We never go Back past that — it would leave the app.
       const st=history.state;
       const base=st?.rcDetail!=null ? (st.rcBase??0) : detail.length;
-      history.pushState({rcDetail:next.length,rcBase:base},'',u);
+      history.pushState({...(st||{}),rcDetail:next.length,rcBase:base},'',u);
     } else history.replaceState(history.state,'',u);
   }
 
@@ -431,6 +431,12 @@ export default function App(){
   // then show the "set a new password" screen.
   useEffect(()=>{
     const h=new URLSearchParams(window.location.hash.replace(/^#/,''));
+    if(h.get('error_code') || h.get('error')){
+      // Supabase sends expired / already-used links back as #error=…
+      setRecoveryBad(true); setRecovery(true);
+      history.replaceState(null,'',window.location.pathname+window.location.search);
+      return;
+    }
     if(h.get('type')==='recovery' && h.get('access_token')){
       supabase.auth.setSession({
         access_token: h.get('access_token')!,

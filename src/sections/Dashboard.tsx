@@ -118,6 +118,8 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
   const [fh,setFh]=useState<any|null>(null);       // funnel health (30d)
   const [coh,setCoh]=useState<any[]>([]);          // last few signup cohorts
   const [feed,setFeed]=useState<any[]>([]);
+  const [feedErr,setFeedErr]=useState(false);
+  const [healthErr,setHealthErr]=useState(false);
   const [regions,setRegions]=useState<{state:string;district:string;n:number}[]>([]);
   const [sysOpen,setSysOpen]=useState(false);
   const [drillKind,setDrillKind]=useState<{kind:DrillKind;label:string}|null>(null);
@@ -173,9 +175,12 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
     if(!a.error) setAnoms((a.data as any[])||[]);
     if(!h.error) setHealth(h.data);
     if(!s.error) setSms(s.data);
+    setHealthErr(!!(h.error||s.error));
   }
   async function pollFeed(){
-    const { data }=await supabase.rpc('admin_recent_events',{ p_since:feedSince.current });
+    const { data, error }=await supabase.rpc('admin_recent_events',{ p_since:feedSince.current });
+    setFeedErr(!!error);
+    if(error) return;
     const fresh=((data as any[])||[]).filter(e=>{
       const key=e.kind+e.id;
       if(feedSeen.current.has(key)) return false;
@@ -258,8 +263,9 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
   // Systems: one line. Green when nothing is wrong, red with the reason when it is.
   const smsBad = !!sms && ((sms.failed_1h??0)>0 || ((sms.sent_1h??0)>=6 && (sms.logins_1h??0)===0) || (sms.stuck_2h??0)>=8);
   const fnBad  = (health?.http_fails_24h??0)>0;
-  const sysBad = smsBad||fnBad;
-  const sysLine = smsBad ? 'OTP / SMS — logins at risk'
+  const sysBad = smsBad||fnBad||healthErr;
+  const sysLine = healthErr ? "Couldn't check OTP / push health — retrying every minute"
+    : smsBad ? 'OTP / SMS — logins at risk'
     : fnBad ? `${health.http_fails_24h} push/function failures in 24h`
     : 'OTP, push and functions all healthy';
 
@@ -444,7 +450,9 @@ export default function Dashboard({ go, counts, countsFailed=false, retryCounts 
             {newSince>0 && <span className="badge b-info">{newSince} new</span>}
             <span className="p-dot"/></div>
           <div className="feedlist">
-            {feed.length===0
+            {feedErr && feed.length===0
+              ? <LoadError what="the live feed" onRetry={pollFeed}/>
+              : feed.length===0
               ? <div className="empty" style={{padding:'24px 12px'}}>Quiet right now — new signups, listings, receipts and alerts stream in here.</div>
               : feed.map((e:any,idx:number)=>{
                   const m=FEED_META[e.kind]||FEED_META.listing;

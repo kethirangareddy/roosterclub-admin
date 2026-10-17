@@ -7,6 +7,8 @@ import ListingChats from './ListingChats';
 import { toast, ask } from '../feedback';
 
 /** Listing-360 — everything about one listing + approve/reject/feature/delete, from anywhere. */
+const INSTA_LOCK=new Map<string,number>(); // listing id → time the Insta button unlocks
+
 export default function Listing360({ listingId, onClose, onOpenUser, onChanged }:{
   listingId:string; onClose:()=>void; onOpenUser?:(userId:string)=>void; onChanged?:()=>void;
 }){
@@ -19,7 +21,10 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
   // a slow reply for the previous listing used to overwrite the current one.
   const want=useRef(listingId); want.current=listingId;
   const instaTimer=useRef<number|undefined>(undefined);
-  const [queued,setQueued]=useState(false);
+  // The lock lives outside the panel, so closing and reopening the listing
+  // can't unlock the button and queue a second Instagram post.
+  const [queued,setQueued]=useState(()=>(INSTA_LOCK.get(listingId)||0)>Date.now());
+  useEffect(()=>{ setQueued((INSTA_LOCK.get(listingId)||0)>Date.now()); },[listingId]);
   useEffect(()=>()=>window.clearTimeout(instaTimer.current),[]); // no reload after the panel closes
   function load(){
     const asked=listingId;
@@ -77,6 +82,7 @@ export default function Listing360({ listingId, onClose, onOpenUser, onChanged }
     setPushMsg('✅ Queued — posts in the background in ~10–60s'+(hasVideo?' (longer for branded reels)':'')+'. Status refreshes shortly.');
     // Lock the button until the post has had time to land — a second tap used
     // to queue a duplicate Instagram post.
+    INSTA_LOCK.set(listingId,Date.now()+45000);
     setQueued(true);
     window.clearTimeout(instaTimer.current);
     instaTimer.current=window.setTimeout(()=>{ setQueued(false); load(); }, 45000);
