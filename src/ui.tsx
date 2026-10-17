@@ -283,7 +283,7 @@ export function WaButton({ phone, lang, label, plain=false }:{ phone?:string|nul
   if(!href) return <span className="muted" title="No usable phone number">—</span>;
   return (
     <a className="btn ghost sm" href={href} target="_blank" rel="noopener noreferrer"
-       style={{ color:'#25D366', display:'inline-flex', alignItems:'center', gap:5 }}
+       style={{ color:'#128C4A', display:'inline-flex', alignItems:'center', gap:5 }}
        title={plain ? 'Open a WhatsApp chat' : `Open WhatsApp with the Founder's Badge message ready to send (${lang === 'te' ? 'Telugu' : 'English'})`}>
       <WaIcon/>{label ?? 'WhatsApp'}
     </a>

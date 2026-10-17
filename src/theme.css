@@ -465,7 +465,7 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
   .card>table>tbody>tr>td:not([data-label]){text-align:left}
   .card>table>tbody>tr>td:not([data-label])::before{display:none}
   .card>table>tbody>tr>td:not([data-label]) .row-acts{width:100%}
-  .card>table>tbody>tr>td:not([data-label]) .row-acts .btn{flex:1;justify-content:center;padding:11px 12px}
+  .card>table>tbody>tr>td:not([data-label]) .row-acts .btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;padding:11px 12px}
 
   /* Checkbox cell stays left. */
   .card>table>tbody>tr>td.ck{justify-content:flex-start}

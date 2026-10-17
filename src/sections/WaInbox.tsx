@@ -138,7 +138,7 @@ export default function WaInbox(){
                 placeholder={windowOpen?'Type a reply…':'24h window closed — they must message you first, or use an approved template'}
                 style={{flex:1,resize:'vertical',padding:8,borderRadius:8,fontSize:13.5}}/>
               <button className="btn" disabled={!windowOpen||busy||!draft.trim()} onClick={send}
-                style={{background:'#25D366',borderColor:'#25D366',color:'#fff',display:'inline-flex',alignItems:'center',gap:5}}>
+                style={{background:'#128C4A',borderColor:'#128C4A',color:'#fff',display:'inline-flex',alignItems:'center',gap:5}}>
                 <Send size={14}/>{busy?'Sending…':'Send'}</button>
             </div>
           </>}

@@ -159,7 +159,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
           <div className="row-acts">
             <button className="btn ghost sm" disabled={!!waBusy} onClick={waSendTest} title="Send the invite template to your own number first">
               {waBusy==='test'?'Sending…':'Test to me'}</button>
-            <button className="btn sm" style={{background:'#25D366',borderColor:'#25D366',color:'#fff',display:'inline-flex',alignItems:'center',gap:5}}
+            <button className="btn sm" style={{background:'#128C4A',borderColor:'#128C4A',color:'#fff',display:'inline-flex',alignItems:'center',gap:5}}
               disabled={!!waBusy||waErr} onClick={waSendAll} title={waErr?WA_PAUSED:"Send the Invite & Earn WhatsApp message to everyone shown who hasn't got it"}>
               <Send size={13}/>{waBusy==='bulk'?'Sending…':`Send invite (${unsentIds.length})`}</button>
             <button className={tab==='pending'?'btn sm':'btn ghost sm'} onClick={()=>setTab('pending')}>Pending</button>
@@ -192,7 +192,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
                     const w=waSent[r.user_id];
                     if(w?.status==='sent') return <span className="badge b-ok" title={'Sent '+new Date(w.created_at).toLocaleString()}>✓ Sent {timeAgo(w.created_at)}</span>;
                     if(!r.user?.phone) return <span className="muted">—</span>;
-                    return <button className="btn ghost sm" style={{color:'#25D366',display:'inline-flex',alignItems:'center',gap:5}}
+                    return <button className="btn ghost sm" style={{color:'#128C4A',display:'inline-flex',alignItems:'center',gap:5}}
                       disabled={!!waBusy||waErr} onClick={()=>waSendOne(r)}
                       title={waErr?WA_PAUSED:w?.status==='failed'?('Last attempt failed: '+(w.error||'')):'Send the Invite & Earn WhatsApp message'}>
                       <WaIcon/>{waBusy===r.user_id?'Sending…':w?.status==='failed'?'Retry':w?.status==='skipped'?'Skipped · retry':'Send'}</button>;
