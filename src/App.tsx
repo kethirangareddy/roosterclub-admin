@@ -9,14 +9,14 @@ function lazyScreen(load:()=>Promise<any>){
     throw err;
   }).then(m=>{ sessionStorage.removeItem('rc_chunk_reload'); return m; }));
 }
-import { supabase } from './supabase';
+import { supabase, signOut } from './supabase';
 import type { Session } from '@supabase/supabase-js';
 import {
   LayoutDashboard, Inbox, ListChecks, Stethoscope, BookOpen, Bird, Siren, ShieldAlert,
   Rocket, Users as UsersIcon, Truck, Store, Star, Megaphone, Gavel, Flag, ShieldCheck, Award, Trophy, BarChart3, MessagesSquare, SlidersHorizontal, Search, Wallet, History as HistoryIcon, Shield, ChevronDown, ChevronRight,
   Wheat, Settings as SettingsIcon, ShoppingBag, Sun,
 } from 'lucide-react';
-import { FeedbackHost, toast } from './feedback';
+import { toast } from './feedback';
 import { DrawerCtx } from './ui';
 import { ChevronLeft, X } from 'lucide-react';
 const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
@@ -243,6 +243,15 @@ export default function App(){
   const [counts,setCounts]=useState<Record<string,any>>({});
   const [menuOpen,setMenuOpen]=useState(false);
   const [cmdk,setCmdk]=useState(false);
+  // Search is a Back step: phone Back closes only the search. Opening a result
+  // replaces that step, so there is no dead Back press afterwards.
+  const cmdkRef=useRef(false); cmdkRef.current=cmdk;
+  function openCmdk(){
+    if(cmdkRef.current) return;
+    if(!history.state?.rcCmdk) history.pushState({...(history.state||{}),rcCmdk:1},'',location.href);
+    setCmdk(true);
+  }
+  function closeCmdk(){ if(history.state?.rcCmdk) history.back(); else setCmdk(false); }
   const [navTick,setNavTick]=useState(0);
   // stack: Receipt-360 → seller 360 etc. Mirrored to ?d= so a 360 survives a
   // refresh, can be shared as a link, and closes on browser Back.
@@ -258,8 +267,10 @@ export default function App(){
       // shared ?d= link). We never go Back past that — it would leave the app.
       const st=history.state;
       const base=st?.rcDetail!=null ? (st.rcBase??0) : detail.length;
-      const { rcZoom:_z, ...keep }=(st||{});
-      history.pushState({...keep,rcDetail:next.length,rcBase:base},'',u);
+      const { rcZoom:_z, rcCmdk:_c, ...keep }=(st||{});
+      // Opened from search or over a zoomed photo: take over that Back step.
+      if(st?.rcCmdk||st?.rcZoom) history.replaceState({...keep,rcDetail:next.length,rcBase:base},'',u);
+      else history.pushState({...keep,rcDetail:next.length,rcBase:base},'',u);
     } else history.replaceState(history.state,'',u);
   }
 
@@ -323,7 +334,7 @@ export default function App(){
   // ⌘K / Ctrl+K opens the palette from anywhere.
   useEffect(()=>{
     function onKey(e:KeyboardEvent){
-      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); setCmdk(v=>!v); }
+      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); if(cmdkRef.current) closeCmdk(); else openCmdk(); }
     }
     window.addEventListener('keydown',onKey);
     return ()=>window.removeEventListener('keydown',onKey);
@@ -343,12 +354,14 @@ export default function App(){
     // Re-tapping the screen you're on refreshes it without adding a Back step.
     // A thread open in Member chats has its own Back step: re-tapping the
     // screen steps back over it instead of leaving a dead Back press.
+    if(history.state?.rcCmdk){ history.replaceState(null,'',u); return; } // jump from search takes over its Back step
     if(k===view && !qp && !detail.length && (history.state?.rcChat||history.state?.rcSel)){ history.back(); return; }
     if(k===view && !qp && !detail.length) history.replaceState(null,'',u); else history.pushState(null,'',u);
   }
   useEffect(()=>{
     const onPop=()=>{
-      setCmdk(false); // Back with search open closes the search too
+      if(!history.state?.rcCmdk) setCmdk(false); // Back closes the search step
+      else if(!cmdkRef.current){ history.back(); return; } // a leftover search step — skip it
       const p=new URLSearchParams(location.search);
       const v=p.get('view') as Key|null;
       setViewRaw(v && KEYS.includes(v) ? v : 'dash');
@@ -513,13 +526,13 @@ export default function App(){
   }}/>;
   if(!session) return <Login/>;
   if(isAdmin===null) return <div className="login"><div className="box">{accessErr
-    ? <>Can't reach the server{online?'':' — you are offline'}.<div style={{marginTop:12}}><button className="btn" onClick={()=>setAccessTry(n=>n+1)}>Retry</button> <button className="btn ghost" onClick={()=>supabase.auth.signOut()}>Sign out</button></div></>
+    ? <>Can't reach the server{online?'':' — you are offline'}.<div style={{marginTop:12}}><button className="btn" onClick={()=>setAccessTry(n=>n+1)}>Retry</button> <button className="btn ghost" onClick={()=>signOut()}>Sign out</button></div></>
     : 'Checking access…'}</div></div>;
   if(isAdmin===false) return (
     <div className="login"><div className="box">
       <div className="logo">Access denied</div>
       <p>{session.user.email} is not an admin.</p>
-      <button className="btn" onClick={()=>supabase.auth.signOut()}>Sign out</button>
+      <button className="btn" onClick={()=>signOut()}>Sign out</button>
     </div></div>
   );
 
@@ -565,7 +578,7 @@ export default function App(){
       {menuOpen && <div className="nav-scrim" onClick={()=>setMenuOpen(false)}/>}
       <aside className={menuOpen?'side open':'side'}>
         <div className="brand"><img className="brand-mark" src="./icon-192.png" alt=""/> Rooster Club</div>
-        <button className="cmdk-launch" onClick={()=>{setCmdk(true);setMenuOpen(false);}}>
+        <button className="cmdk-launch" onClick={()=>{setMenuOpen(false);openCmdk();}}>
           <Search size={14}/> Search anything… <span className="cmdk-kbd">⌘K</span>
         </button>
         <nav className="nav">
@@ -595,7 +608,7 @@ export default function App(){
           </div>
           <div className="kbd-hint" title="g then d/a/r/k… jumps sections · j/k moves the focused row · a approve, r reject">⌨ g+key jump · j/k rows · a/r act</div>
           {session.user.email}
-          <div><button onClick={()=>supabase.auth.signOut()}>Sign out</button></div>
+          <div><button onClick={()=>signOut()}>Sign out</button></div>
         </div>
       </aside>
       <main className="main">
@@ -640,7 +653,7 @@ export default function App(){
       {cmdk && <CommandK onOpenResult={openHit}
         screens={NAV.map(it=>({ view:it.key, label:it.label, hub:hubOf(it.key).label, Icon:it.Icon }))}
         onGo={(v,qp)=>{ setCmdk(false); setView(v as Key,qp); }}
-        onClose={()=>setCmdk(false)}/>}
+        onClose={closeCmdk}/>}
       {/* One side panel for every user / listing / receipt. Opening something
           from inside it adds a breadcrumb step instead of a new popup. */}
       {top && (
@@ -670,7 +683,6 @@ export default function App(){
           </aside>
         </div>
       )}
-      <FeedbackHost/>
     </div>
     </DetailCtx.Provider>
   );

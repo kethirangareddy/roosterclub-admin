@@ -296,7 +296,7 @@ export function LoadError({ what, onRetry }:{ what:string; onRetry?:()=>void }){
   return (
     <div className="empty" style={{ color:'var(--danger)' }}>
       Couldn't load {what} — check the connection.
-      {onRetry && <> <button className="btn ghost sm" style={{ marginLeft:8 }} onClick={onRetry}>Retry</button></>}
+      {onRetry && <> <button className="btn ghost sm" style={{ marginLeft:8 }} onClick={()=>onRetry()}>Retry</button></>}
     </div>
   );
 }

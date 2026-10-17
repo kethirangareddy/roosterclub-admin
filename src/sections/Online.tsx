@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, ChevronLeft } from 'lucide-react';
-import { Empty, Loading, UserLink } from '../ui';
-import { toast } from '../feedback';
+import { Empty, Loading, UserLink, LoadError } from '../ui';
 
 /* Daily active users.
    users.last_seen_at only holds each person's LAST visit, so it can't answer
@@ -45,17 +44,19 @@ export default function Online() {
   const [pickedDay, setPickedDay] = useState<string | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [peopleLoading, setPeopleLoading] = useState(false);
+  const [err, setErr] = useState(false), [peopleErr, setPeopleErr] = useState(false);
+  const [tryN, setTryN] = useState(0), [peopleTry, setPeopleTry] = useState(0); // Retry re-runs the load
 
   useEffect(() => {
     let dead = false;
     setLoading(true);
     supabase.rpc('admin_daily_active', { days: span }).then(({ data, error }) => {
       if (dead) return;
-      if (error) toast('Could not load daily actives: ' + error.message);
+      setErr(!!error);
       setDays((data as Day[]) || []); setLoading(false);
     });
     return () => { dead = true; };
-  }, [span]);
+  }, [span, tryN]);
 
   // Drill into one day. Kept separate from the chart load so switching days
   // doesn't re-fetch the whole range.
@@ -65,11 +66,11 @@ export default function Online() {
     setPeopleLoading(true);
     supabase.rpc('admin_active_users_on', { d: pickedDay }).then(({ data, error }) => {
       if (dead) return;
-      if (error) toast('Could not load that day: ' + error.message);
+      setPeopleErr(!!error);
       setPeople((data as Person[]) || []); setPeopleLoading(false);
     });
     return () => { dead = true; };
-  }, [pickedDay]);
+  }, [pickedDay, peopleTry]);
 
   const peak = Math.max(1, ...days.map(d => d.a_users));
   const today = days.length ? days[days.length - 1] : null;
@@ -92,7 +93,7 @@ export default function Online() {
             {people.length} online{newcomers > 0 ? ` · ${newcomers} joined that day` : ''}
           </span>
         </div>
-        {peopleLoading ? <Loading /> : people.length === 0 ? <Empty text="Nobody was online this day." /> : (
+        {peopleLoading ? <Loading /> : peopleErr ? <LoadError what="that day" onRetry={() => setPeopleTry(n => n + 1)} /> : people.length === 0 ? <Empty text="Nobody was online this day." /> : (
           <table>
             <thead><tr>
               <th>First seen</th><th>User</th><th>Where</th><th>Badge</th><th></th>
@@ -138,7 +139,7 @@ export default function Online() {
           ))}
         </div>
       </div>
-      {loading ? <Loading /> : days.length === 0 ? <Empty text="No activity logged yet." /> : (
+      {loading ? <Loading /> : err ? <LoadError what="daily actives" onRetry={() => setTryN(n => n + 1)} /> : days.length === 0 ? <Empty text="No activity logged yet." /> : (
         <>
           <div className="pulse" style={{ padding: '14px 18px 0', marginBottom: 0 }}>
             <div className="p-item"><span className="p-dot" /> Today <b className="p-val">{today?.a_users ?? 0}</b></div>

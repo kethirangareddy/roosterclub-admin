@@ -7,6 +7,15 @@ export const supabase = createClient(url, anon, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
 });
 
+/** Sign out that also works offline: if the server can't be reached, the
+    saved login is cleared on this device and the page reloads to Login. */
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  if (!error) return;
+  try { Object.keys(localStorage).filter(k => /^sb-.+-auth-token/.test(k)).forEach(k => localStorage.removeItem(k)); } catch {}
+  location.reload();
+}
+
 // users.phone is no longer bulk-readable; admins fetch it via an is_admin()-gated RPC.
 // Returns a map of user_id -> phone for the given ids (empty for non-admins).
 export async function adminPhones(ids: (string | null | undefined)[]): Promise<Record<string, string>> {

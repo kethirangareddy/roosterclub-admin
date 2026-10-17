@@ -72,7 +72,14 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
   // Esc closes the zoomed photo first, not the whole panel behind it.
   useEffect(() => {
     if (!zoom) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.querySelector('.cmdk, .ask-scrim')) { e.preventDefault(); e.stopImmediatePropagation(); closeZoom(); } };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('.cmdk, .ask-scrim')) { e.preventDefault(); e.stopImmediatePropagation(); closeZoom(); }
+      // ⌘K over a zoomed photo: the photo closes and its Back step becomes the search's.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if (history.state?.rcZoom) { const { rcZoom: _z, ...rest } = history.state; history.replaceState({ ...rest, rcCmdk: 1 }, '', location.href); }
+        setZoom(null);
+      }
+    };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [zoom]);
@@ -255,7 +262,7 @@ export default function UserDetail({ userId, onClose }: { userId: string; onClos
 
           {zoom && (
             <div className="zoom-scrim" onClick={closeZoom}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 2000, cursor: 'zoom-out' }}>
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 62, cursor: 'zoom-out' }}>
               <div style={{ color: '#fff', fontWeight: 600, fontSize: 15 }}>{zoom.label} — click anywhere to close</div>
               <img src={zoom.url} onClick={(e) => e.stopPropagation()}
                 style={{ maxWidth: '92vw', maxHeight: '82vh', borderRadius: 8, boxShadow: '0 12px 48px rgba(0,0,0,0.6)', cursor: 'default' }} />
