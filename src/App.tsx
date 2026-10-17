@@ -135,7 +135,8 @@ const GNAV: Record<string,Key> = {
 // Was a hardcoded 8-tile grid that showed a row of zeros for queues that have
 // never had an item. Now it mirrors the desktop attention queue: only what's
 // actually pending, ranked, biggest first.
-const TRIAGE: {key:Key;label:string;Icon:any}[]=[
+const TRIAGE: {key:string;label:string;Icon:any;view?:Key;qp?:Record<string,string>}[]=[
+  {key:'flagged',label:'High risk',Icon:ShieldAlert,view:'users',qp:{tab:'risk'}},
   {key:'support',label:'Support',Icon:MessagesSquare},
   {key:'approvals',label:'Approvals',Icon:Inbox},
   {key:'kyc',label:'Verify',Icon:ShieldCheck},
@@ -152,7 +153,7 @@ const TRIAGE: {key:Key;label:string;Icon:any}[]=[
   {key:'feedorders',label:'Feed orders',Icon:Wheat},
   {key:'vets',label:'Doctors',Icon:Stethoscope},
 ];
-function MobileTriage({counts,go,status,retry}:{counts:Record<string,any>;go:(k:Key)=>void;status:'loading'|'ok'|'error';retry:()=>void}){
+function MobileTriage({counts,go,status,retry}:{counts:Record<string,any>;go:(k:Key,qp?:Record<string,string>)=>void;status:'loading'|'ok'|'error';retry:()=>void}){
   // Never say "all clear" before the numbers are in, or when they failed to load.
   if(status!=='ok') return (
     <div className="mtriage mobile-only">
@@ -169,8 +170,8 @@ function MobileTriage({counts,go,status,retry}:{counts:Record<string,any>;go:(k:
       {items.length===0
         ? <div className="mtriage-clear">Nothing needs you right now.</div>
         : <div className="mtriage-grid">
-            {items.map(({key,label,Icon})=>(
-              <button key={key} className="mtile" onClick={()=>go(key)}>
+            {items.map(({key,label,Icon,view,qp})=>(
+              <button key={key} className="mtile" onClick={()=>go((view||key) as Key,qp)}>
                 <Icon size={20}/>
                 <span className="mtile-l">{label}</span>
                 <span className="mtile-n hot">{counts[key]}</span>
@@ -232,7 +233,9 @@ export default function App(){
   const [isAdmin,setIsAdmin]=useState<boolean|null>(null);
   const [accessErr,setAccessErr]=useState(false);
   const [accessTry,setAccessTry]=useState(0);
-  const [recovery,setRecovery]=useState(false);
+  // Survives a reload (pull-to-refresh, tab discarded) until the new password is saved.
+  const [recovery,setRecovery]=useState(()=>{ try{ return sessionStorage.getItem('rc_recovery')==='1'; }catch{ return false; } });
+  const [recoveryBad,setRecoveryBad]=useState(false);
   const [view,setViewRaw]=useState<Key>(()=>{
     const v=new URLSearchParams(location.search).get('view') as Key|null;
     return v && KEYS.includes(v) ? v : 'dash';
@@ -337,6 +340,9 @@ export default function App(){
     u.search=''; if(keep) u.searchParams.set('view',keep);
     if(qp) Object.entries(qp).forEach(([key,val])=>u.searchParams.set(key,val));
     // Re-tapping the screen you're on refreshes it without adding a Back step.
+    // A thread open in Member chats has its own Back step: re-tapping the
+    // screen steps back over it instead of leaving a dead Back press.
+    if(k===view && !qp && !detail.length && (history.state?.rcChat||history.state?.rcSel)){ history.back(); return; }
     if(k===view && !qp && !detail.length) history.replaceState(null,'',u); else history.pushState(null,'',u);
   }
   useEffect(()=>{
@@ -429,9 +435,12 @@ export default function App(){
       supabase.auth.setSession({
         access_token: h.get('access_token')!,
         refresh_token: h.get('refresh_token')||'',
-      }).finally(()=>{
+      }).then(({error})=>{
         (window as any).__rcNoReload=true; // keep the reset screen through an app update
+        if(error){ setRecoveryBad(true); } // expired / already used link
+        else { try{ sessionStorage.setItem('rc_recovery','1'); }catch{} }
         setRecovery(true);
+      }).finally(()=>{
         history.replaceState(null,'',window.location.pathname+window.location.search);
       });
     }
@@ -484,7 +493,10 @@ export default function App(){
     return ()=>clearInterval(t);
   },[isAdmin]);
 
-  if(recovery) return <ResetPassword onDone={()=>{ (window as any).__rcNoReload=false; setRecovery(false); }}/>;
+  if(recovery) return <ResetPassword expired={recoveryBad} onDone={()=>{
+    (window as any).__rcNoReload=false; try{ sessionStorage.removeItem('rc_recovery'); }catch{}
+    setRecoveryBad(false); setRecovery(false);
+  }}/>;
   if(!session) return <Login/>;
   if(isAdmin===null) return <div className="login"><div className="box">{accessErr
     ? <>Can't reach the server{online?'':' — you are offline'}.<div style={{marginTop:12}}><button className="btn" onClick={()=>setAccessTry(n=>n+1)}>Retry</button></div></>
@@ -592,7 +604,7 @@ export default function App(){
             </div>
           </div>
         )}
-        {view==='dash' && <MobileTriage counts={counts} go={(k)=>setView(k)} status={countsStatus} retry={refreshCounts}/>}
+        {view==='dash' && <MobileTriage counts={counts} go={(k,qp)=>setView(k,qp)} status={countsStatus} retry={refreshCounts}/>}
         {/* Screens load on first visit (the app used to download all 34 up front). */}
         <div key={view+':'+navTick} className="page"><ScreenBoundary><Suspense fallback={<div className="loading">Loading…</div>}>{sections[view]}</Suspense></ScreenBoundary></div>
       </main>

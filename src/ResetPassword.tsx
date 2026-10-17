@@ -4,7 +4,7 @@ import { KeyRound } from 'lucide-react';
 
 // Shown after the user opens the password-recovery email link. A temporary
 // recovery session is already active, so we just set a new password.
-export default function ResetPassword({ onDone }:{ onDone:()=>void }){
+export default function ResetPassword({ onDone, expired=false }:{ onDone:()=>void; expired?:boolean }){
   const [pw,setPw]=useState('');
   const [pw2,setPw2]=useState('');
   const [err,setErr]=useState('');
@@ -20,6 +20,19 @@ export default function ResetPassword({ onDone }:{ onDone:()=>void }){
     if(error){ setErr(error.message); return; }
     onDone(); // recovery session is valid → App drops into the dashboard
   }
+
+  // Leave without changing the password (expired link, or changed your mind).
+  async function backToSignIn(){ await supabase.auth.signOut(); onDone(); }
+
+  if(expired) return (
+    <div className="login">
+      <div className="box">
+        <div className="logo"><KeyRound size={24} style={{verticalAlign:'-4px'}}/> Link expired</div>
+        <p>This reset link has expired or was already used. Go back and use "Forgot password" again to get a new one.</p>
+        <button className="btn" onClick={backToSignIn}>Back to sign in</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="login">
@@ -38,6 +51,7 @@ export default function ResetPassword({ onDone }:{ onDone:()=>void }){
               autoCapitalize="none" autoCorrect="off" spellCheck={false}/></div>
           <button className="btn" disabled={busy}>{busy?'Saving…':'Save password'}</button>
         </form>
+        <button className="btn ghost sm" style={{marginTop:10}} onClick={backToSignIn}>Back to sign in</button>
       </div>
     </div>
   );

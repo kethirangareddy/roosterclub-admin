@@ -71,7 +71,7 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   // Paid sends: only one batch at a time, however fast the buttons are tapped.
   const waSending=useRef(false);
   async function waSend(ids:string[], busyKey:string, resend=false){
-    if(waErr){ toast(WA_PAUSED); return; }
+    if(waErr){ toast(WA_PAUSED,'danger'); return; }
     if(waSending.current){ toast('Another WhatsApp send is still running — wait for it to finish.'); return; }
     waSending.current=true;
     try{ await waSendRun(ids,busyKey,resend); } finally { waSending.current=false; }

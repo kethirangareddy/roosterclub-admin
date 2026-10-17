@@ -44,7 +44,7 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
     // Empty answer keeps the default; anything else must be a real positive number.
     const txt=input.trim();
     const hours=txt===''?24:Number(txt);
-    if(!Number.isFinite(hours) || hours<=0){ toast('Enter a number of hours greater than 0'); return; }
+    if(!Number.isFinite(hours) || hours<=0){ toast('Enter a number of hours greater than 0','danger'); return; }
     const { error }=await supabase.rpc('activate_feature',{ p_request:r.id, p_hours:hours });
     if(error){ toast(error.message); return; }
     await load(); onChange();

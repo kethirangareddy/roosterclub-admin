@@ -84,7 +84,7 @@ export default function Boosts(){
     // Empty answer keeps the default; anything else must be a real positive number.
     const txt=input.trim();
     const days = txt===''?5:Number(txt);
-    if(!Number.isFinite(days) || days<=0){ toast('Enter a number of days greater than 0'); return; }
+    if(!Number.isFinite(days) || days<=0){ toast('Enter a number of days greater than 0','danger'); return; }
     const now=new Date(); const exp=new Date(now.getTime()+days*864e5);
     const { data:{ user } }=await supabase.auth.getUser();
     // Boost the listing FIRST; only mark the payment activated once that worked,
@@ -97,7 +97,7 @@ export default function Boosts(){
       activated_at:now.toISOString(), expires_at:exp.toISOString(), activated_by:user?.id
     }).eq('id',b.id);
     if(e1.error){ toast('Listing boosted, but the payment row could not be marked: '+e1.error.message); }
-    await load();
+    await load(); emitChanged(); // Boosts badge drops now
   }
 
   return (

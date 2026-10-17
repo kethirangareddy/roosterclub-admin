@@ -19,6 +19,20 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   // The thread on screen. A reply that comes back for a thread you've already
   // left (10s polling + slow network) must not paint over the one you opened.
   const selRef=useRef<string|null>(null); selRef.current=sel;
+  // Opening a conversation is a Back step (on phones it looks like its own page),
+  // so the phone's Back returns to the list instead of leaving the screen.
+  function openSel(id:string){
+    if(id===selRef.current) return;
+    if(history.state?.rcSel) history.replaceState(history.state,'',location.href);
+    else history.pushState({...(history.state||{}),rcSel:true},'',location.href);
+    setSel(id);
+  }
+  function closeSel(){ if(history.state?.rcSel) history.back(); else setSel(null); }
+  useEffect(()=>{
+    const onPop=()=>{ if(!history.state?.rcSel) setSel(null); };
+    window.addEventListener('popstate',onPop);
+    return ()=>window.removeEventListener('popstate',onPop);
+  },[]);
 
   // Each conversation keeps its own unsent reply. Before, text typed for one
   // person stayed in the box when you opened another — and Send went to them.
@@ -87,7 +101,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
           <div className="card-h" style={{padding:'10px 12px'}}><h2>Conversations</h2>
             <button className="btn ghost sm" onClick={loadThreads} title="Refresh"><RefreshCw size={13}/></button></div>
           {loading?<Loading/>:listErr&&threads.length===0?<div className="empty" style={{color:'var(--danger)'}}>Couldn't load conversations — check the connection. It retries by itself.</div>:threads.length===0?<Empty text="No messages yet."/>:threads.map(t=>(
-            <div key={t.user_id} onClick={()=>setSel(t.user_id)}
+            <div key={t.user_id} onClick={()=>openSel(t.user_id)}
               style={{padding:'10px 12px',cursor:'pointer',borderTop:'1px solid var(--line,#eee)',background:sel===t.user_id?'rgba(186,117,23,.10)':undefined}}>
               <div style={{display:'flex',justifyContent:'space-between',gap:8}}>
                 <b style={{fontSize:13.5}}>{nameOf(t)}</b>
@@ -106,7 +120,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
         <div style={{display:'flex',flexDirection:'column',minWidth:0}}>
           {!sel?<div style={{margin:'auto'}} className="muted">Pick a conversation</div>:<>
             <div className="card-h" style={{padding:'10px 14px'}}>
-              <button className="btn ghost sm split2-back" onClick={()=>setSel(null)}>← Conversations</button>
+              <button className="btn ghost sm split2-back" onClick={closeSel}>← Conversations</button>
               <h2 style={{fontSize:14}}><UserLink id={sel}><b>{nameOf(cur)}</b></UserLink>
                 {cur?.handle && <span className="muted" style={{fontSize:12,marginLeft:8}}>@{cur.handle}</span>}</h2>
               {Number(cur?.user_unread)>0

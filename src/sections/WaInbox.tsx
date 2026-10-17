@@ -20,6 +20,20 @@ export default function WaInbox(){
   const [busy,setBusy]=useState(false);
   const endRef=useRef<HTMLDivElement>(null);
   const selRef=useRef<string|null>(null); selRef.current=sel;
+  // Opening a conversation is a Back step (on phones it looks like its own page),
+  // so the phone's Back returns to the list instead of leaving the screen.
+  function openSel(id:string){
+    if(id===selRef.current) return;
+    if(history.state?.rcSel) history.replaceState(history.state,'',location.href);
+    else history.pushState({...(history.state||{}),rcSel:true},'',location.href);
+    setSel(id);
+  }
+  function closeSel(){ if(history.state?.rcSel) history.back(); else setSel(null); }
+  useEffect(()=>{
+    const onPop=()=>{ if(!history.state?.rcSel) setSel(null); };
+    window.addEventListener('popstate',onPop);
+    return ()=>window.removeEventListener('popstate',onPop);
+  },[]);
 
   // Each conversation keeps its own unsent reply. Before, text typed for one
   // person stayed in the box when you opened another — and Send went to them.
@@ -80,7 +94,7 @@ export default function WaInbox(){
           <div className="card-h" style={{padding:'10px 12px'}}><h2 style={{display:'flex',alignItems:'center',gap:6}}><WaIcon/> Chats</h2>
             <button className="btn ghost sm" onClick={loadThreads} title="Refresh"><RefreshCw size={13}/></button></div>
           {loading?<Loading/>:listErr&&threads.length===0?<div className="empty" style={{color:'var(--danger)'}}>Couldn't load conversations — check the connection. It retries by itself.</div>:threads.length===0?<Empty text="No WhatsApp messages yet."/>:threads.map(t=>(
-            <div key={t.customer_number} onClick={()=>setSel(t.customer_number)}
+            <div key={t.customer_number} onClick={()=>openSel(t.customer_number)}
               style={{padding:'10px 12px',cursor:'pointer',borderTop:'1px solid var(--line,#eee)',background:sel===t.customer_number?'rgba(37,211,102,.08)':undefined}}>
               <div style={{display:'flex',justifyContent:'space-between',gap:8}}>
                 <b style={{fontSize:13.5}}>{t.full_name||t.customer_name||('+'+t.customer_number)}</b>
@@ -96,7 +110,7 @@ export default function WaInbox(){
         <div style={{display:'flex',flexDirection:'column',minWidth:0}}>
           {!sel?<div style={{margin:'auto'}} className="muted">Pick a chat</div>:<>
             <div className="card-h" style={{padding:'10px 14px'}}>
-              <button className="btn ghost sm split2-back" onClick={()=>setSel(null)}>← Chats</button>
+              <button className="btn ghost sm split2-back" onClick={closeSel}>← Chats</button>
               <h2 style={{fontSize:14}}>{cur?.user_id
                 ? <UserLink id={cur.user_id}><b>{cur.full_name||cur.customer_name}</b></UserLink>
                 : <b>{cur?.customer_name||'Not an app user'}</b>}

@@ -49,7 +49,7 @@ export default function Orders() {
   async function savePay() {
     if (!pay) return;
     const upi = pay.upi_id.trim();
-    if (upi && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upi)) { toast('That does not look like a UPI ID (like name@okhdfcbank).'); return; }
+    if (upi && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upi)) { toast('That does not look like a UPI ID (like name@okhdfcbank).','danger'); return; }
     const value = { upi_id: upi, payee_name: pay.payee_name.trim() || 'Rooster Club', pay_hours: Math.max(1, Number(pay.pay_hours) || 24) };
     const { error } = await supabase.from('app_config').upsert({ key: 'shop_pay', value }, { onConflict: 'key' });
     if (error) { toast('Could not save: ' + error.message); return; }
