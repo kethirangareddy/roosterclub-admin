@@ -75,7 +75,7 @@ export default function WaInbox(){
     <>
       <h1 className="h1">WhatsApp Inbox</h1>
       <p className="sub">Messages people send to 95153 69756. You can reply for free within 24 hours of their last message. Nothing is sent unless you press Send.</p>
-      <div className="card" style={{display:'grid',gridTemplateColumns:'minmax(220px,320px) 1fr',minHeight:460,padding:0,overflow:'hidden'}}>
+      <div className={'card split2'+(sel?' has-sel':'')} style={{display:'grid',gridTemplateColumns:'minmax(220px,320px) 1fr',minHeight:460,padding:0,overflow:'hidden'}}>
         <div style={{borderRight:'1px solid var(--line,#e5e0d3)',overflowY:'auto',maxHeight:620}}>
           <div className="card-h" style={{padding:'10px 12px'}}><h2 style={{display:'flex',alignItems:'center',gap:6}}><WaIcon/> Chats</h2>
             <button className="btn ghost sm" onClick={loadThreads} title="Refresh"><RefreshCw size={13}/></button></div>
@@ -96,6 +96,7 @@ export default function WaInbox(){
         <div style={{display:'flex',flexDirection:'column',minWidth:0}}>
           {!sel?<div style={{margin:'auto'}} className="muted">Pick a chat</div>:<>
             <div className="card-h" style={{padding:'10px 14px'}}>
+              <button className="btn ghost sm split2-back" onClick={()=>setSel(null)}>← Chats</button>
               <h2 style={{fontSize:14}}>{cur?.user_id
                 ? <UserLink id={cur.user_id}><b>{cur.full_name||cur.customer_name}</b></UserLink>
                 : <b>{cur?.customer_name||'Not an app user'}</b>}
@@ -108,7 +109,7 @@ export default function WaInbox(){
               {msgs.map(m=>(
                 <div key={m.id} style={{display:'flex',justifyContent:m.direction==='out'?'flex-end':'flex-start',margin:'6px 0'}}>
                   <div style={{maxWidth:'75%',padding:'8px 11px',borderRadius:10,whiteSpace:'pre-wrap',fontSize:13.5,
-                    background:m.direction==='out'?(m.status==='failed'?'#fde2e2':'#dcf8c6'):'#fff',border:'1px solid rgba(0,0,0,.06)'}}>
+                    background:m.direction==='out'?(m.status==='failed'?'var(--dangerbg)':'var(--okbg)'):'var(--surface)',color:'var(--ink)',border:'1px solid var(--line)'}}>
                     {m.text||`[${m.content_type||'media'}]`}
                     <div className="muted" style={{fontSize:10.5,marginTop:3,textAlign:'right'}}>
                       {new Date(m.created_at).toLocaleString()}{m.direction==='out'?(m.status==='failed'?' · failed':' · sent'):''}

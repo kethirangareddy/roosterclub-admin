@@ -82,7 +82,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     <>
       <h1 className="h1">Support</h1>
       <p className="sub">Messages people send to “Rooster Club Team” from the top of their Chats tab. Your reply reaches them in the app with a notification.</p>
-      <div className="card" style={{display:'grid',gridTemplateColumns:'minmax(220px,320px) 1fr',minHeight:460,padding:0,overflow:'hidden'}}>
+      <div className={'card split2'+(sel?' has-sel':'')} style={{display:'grid',gridTemplateColumns:'minmax(220px,320px) 1fr',minHeight:460,padding:0,overflow:'hidden'}}>
         <div style={{borderRight:'1px solid var(--line,#e5e0d3)',overflowY:'auto',maxHeight:620}}>
           <div className="card-h" style={{padding:'10px 12px'}}><h2>Conversations</h2>
             <button className="btn ghost sm" onClick={loadThreads} title="Refresh"><RefreshCw size={13}/></button></div>
@@ -106,6 +106,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
         <div style={{display:'flex',flexDirection:'column',minWidth:0}}>
           {!sel?<div style={{margin:'auto'}} className="muted">Pick a conversation</div>:<>
             <div className="card-h" style={{padding:'10px 14px'}}>
+              <button className="btn ghost sm split2-back" onClick={()=>setSel(null)}>← Conversations</button>
               <h2 style={{fontSize:14}}><UserLink id={sel}><b>{nameOf(cur)}</b></UserLink>
                 {cur?.handle && <span className="muted" style={{fontSize:12,marginLeft:8}}>@{cur.handle}</span>}</h2>
               {Number(cur?.user_unread)>0
@@ -117,7 +118,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
               {msgs.map(m=>(
                 <div key={m.id} style={{display:'flex',justifyContent:m.from_admin?'flex-end':'flex-start',margin:'6px 0'}}>
                   <div style={{maxWidth:'75%',padding:'8px 11px',borderRadius:10,whiteSpace:'pre-wrap',fontSize:13.5,
-                    background:m.from_admin?'#F6E7C8':'#fff',border:'1px solid rgba(0,0,0,.06)'}}>
+                    background:m.from_admin?'var(--cta-soft)':'var(--surface)',color:'var(--ink)',border:'1px solid var(--line)'}}>
                     {m.body}
                     <div className="muted" style={{fontSize:10.5,marginTop:3,textAlign:'right'}}>
                       {new Date(m.created_at).toLocaleString()}{m.from_admin?' · team':''}

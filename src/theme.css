@@ -727,3 +727,12 @@ td .linkbtn{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:no
 :root[data-theme="dark"] .p-item.bad{border-color:rgba(239,106,90,.34)}
 :root[data-theme="dark"] .copybtn.done{color:var(--ok)}
 :root[data-theme="dark"] .dau-new{background:var(--iris);opacity:.7}
+/* Support / WhatsApp on phones: one pane at a time — the list, or the open
+   conversation with a back button (two columns crushed the chat to 40px). */
+.split2-back{display:none}
+@media (max-width:860px){
+  .split2{grid-template-columns:1fr!important}
+  .split2.has-sel>:first-child{display:none}
+  .split2:not(.has-sel)>:last-child{display:none}
+  .split2-back{display:inline-flex}
+}

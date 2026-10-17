@@ -76,9 +76,9 @@ export default function Listings() {
                 style={{
                   fontSize: 13, fontWeight: active ? 700 : 500, cursor: 'pointer',
                   padding: '6px 14px', borderRadius: 999,
-                  border: '1px solid ' + (active ? '#BA7517' : '#e3d9c9'),
+                  border: '1px solid ' + (active ? '#BA7517' : 'var(--line-2)'),
                   background: active ? '#BA7517' : 'transparent',
-                  color: active ? '#fff' : '#6b5b45',
+                  color: active ? '#fff' : 'var(--muted)',
                 }}>
                 {f.label}
               </button>
