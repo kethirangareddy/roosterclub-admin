@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { BookOpen, Plus } from 'lucide-react';
 import { Modal, Field, Empty, Loading, timeAgo } from '../ui';
@@ -19,7 +19,21 @@ export default function Kukuta(){
   }
   useEffect(()=>{ load(); },[]);
 
+  // One run at a time: a double-click used to save / push twice.
+
+  const saveBusy=useRef(false);
+
   async function save(){
+
+    if(saveBusy.current) return;
+
+    saveBusy.current=true;
+
+    try{ await saveRun(); } finally { saveBusy.current=false; }
+
+  }
+
+  async function saveRun(){
     const v={...edit}; const id=v.id; delete v.id; delete v.created_at;
     if(!v.title?.trim()||!v.body?.trim()){ toast('Title and body are both required.'); return; }
     const { error }= id ? await supabase.from('kukuta_articles').update(v).eq('id',id)

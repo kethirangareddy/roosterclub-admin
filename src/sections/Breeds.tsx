@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Bird, Plus } from 'lucide-react';
 import { Modal, Field, Empty, Loading } from '../ui';
@@ -18,7 +18,21 @@ export default function Breeds(){
   }
   useEffect(()=>{ load(); },[]);
 
+  // One run at a time: a double-click used to save / push twice.
+
+  const saveBusy=useRef(false);
+
   async function save(){
+
+    if(saveBusy.current) return;
+
+    saveBusy.current=true;
+
+    try{ await saveRun(); } finally { saveBusy.current=false; }
+
+  }
+
+  async function saveRun(){
     const v={...edit}; const id=v.id; delete v.id; delete v.created_at;
     if(!v.name?.trim()){ toast('Name required'); return; }
     const { error }= id ? await supabase.from('breed_encyclopedia').update(v).eq('id',id)

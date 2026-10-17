@@ -13,7 +13,8 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
   // j/k + d dismiss. Remove/ban stay click-only — too destructive for a single keystroke.
   const { openUser,openListing }=useDetail();
   useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
-  const [sel]=useRowKeys(rows.length,{
+  const [sel]=useRowKeys(loading?0:rows.length,{ // no shortcuts on rows hidden behind 'Loading…'
+
     d:(i)=>{ const r=rows[i]; if(r?.status==='open') mark(r.id,'dismissed'); },
     x:(i)=>{ const r=rows[i]; if(r?.status==='open') togglePick(r.id); },
     // Enter opens whatever was reported — the listing, or the accused user.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Rocket, Plus, Zap } from 'lucide-react';
 import { Modal, Field, Empty, Loading, inr, timeAgo, UserLink, ListingLink, Copyable } from '../ui';
@@ -40,7 +40,21 @@ export default function Boosts(){
     setAdding({ listing_id:'', level:'mandal', price_paid:bp.mandal??99, upi_ref:'', days:5 });
   }
 
+  // One run at a time: a double-click used to save / push twice.
+
+  const createBusy=useRef(false);
+
   async function create(){
+
+    if(createBusy.current) return;
+
+    createBusy.current=true;
+
+    try{ await createRun(); } finally { createBusy.current=false; }
+
+  }
+
+  async function createRun(){
     const a={...adding};
     if(!a.listing_id){ toast('Pick a listing'); return; }
     const lst=listings.find(l=>l.id===a.listing_id);

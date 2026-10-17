@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Stethoscope, Plus, Star, Check } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, inr } from '../ui';
@@ -24,7 +24,21 @@ export default function Vets({ onChange }:{ onChange?:()=>void }){
   }
   useEffect(()=>{ load(); },[]);
 
+  // One run at a time: a double-click used to save / push twice.
+
+  const saveBusy=useRef(false);
+
   async function save(){
+
+    if(saveBusy.current) return;
+
+    saveBusy.current=true;
+
+    try{ await saveRun(); } finally { saveBusy.current=false; }
+
+  }
+
+  async function saveRun(){
     const v={...edit};
     for(const f of ['name','phone','state','district','mandal'] as const){
       if(!String(v[f]||'').trim()){ toast('Required: name, phone, state, district and mandal.'); return; }

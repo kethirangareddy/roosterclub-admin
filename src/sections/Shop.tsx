@@ -213,6 +213,9 @@ export default function Shop() {
       payload.user_id = user?.id;   // store admin as the owner for house/official products
       const r = await supabase.from('shop_products').insert(payload).select('id').single();
       error = r.error; id = r.data?.id;
+      // Remember the new product straight away, so if the sizes step fails
+      // and you press Save again it updates this product instead of adding a duplicate.
+      if (id) setEdit((cur: any) => cur ? { ...cur, id } : cur);
     }
     if (!error && isApparel && id) error = await saveVariants(id, grid);
     setSaving(false);

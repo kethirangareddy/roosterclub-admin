@@ -36,7 +36,8 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
   const { openUser }=useDetail();
   useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
 
-  const [sel]=useRowKeys(rows.length,{
+  const [sel]=useRowKeys(loading?0:rows.length,{ // no shortcuts on rows hidden behind 'Loading…'
+
     Enter:(i)=>{ const r=rows[i]; if(r && !open) setOpen(r); },
     x:(i)=>{ const r=rows[i]; if(r?.status==='pending') togglePick(r.id); },
     u:(i)=>{ const r=rows[i]; if(r && !open) openUser(r.user_id); },

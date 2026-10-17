@@ -40,7 +40,14 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
     if(error){ toast('Could not delete: '+error.message); return; }
     setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
+  // One run at a time: a double-click used to save / push twice.
+  const saveBusy=useRef(false);
   async function save(){
+    if(saveBusy.current) return;
+    saveBusy.current=true;
+    try{ await saveRun(); } finally { saveBusy.current=false; }
+  }
+  async function saveRun(){
     const v={...edit};
     if(!String(v.name||'').trim()){ toast('Name is required.'); return; }
     if(!String(v.phone||'').trim()){ toast('Phone is required.'); return; }

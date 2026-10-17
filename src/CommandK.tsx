@@ -67,7 +67,7 @@ export default function CommandK({ onOpenResult, onGo, onClose, screens=[] }:{
   // Debounced search — one RPC hits all five tables.
   useEffect(()=>{
     const term=searchTerm.trim();
-    if(term.length<2){ setHits([]); setSel(0); return; }
+    if(term.length<2){ seq.current++; setBusy(false); setHits([]); setSel(0); return; } // drop any search still in flight
     setBusy(true);
     const mine=++seq.current;
     const t=setTimeout(async()=>{

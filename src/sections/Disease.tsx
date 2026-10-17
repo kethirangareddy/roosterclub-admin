@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Siren, Plus, Send } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, timeAgo, UserLink } from '../ui';
@@ -33,7 +33,21 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
   }
   useEffect(()=>{ load(); },[]);
 
+  // One run at a time: a double-click used to save / push twice.
+
+  const saveBusy=useRef(false);
+
   async function save(){
+
+    if(saveBusy.current) return;
+
+    saveBusy.current=true;
+
+    try{ await saveRun(); } finally { saveBusy.current=false; }
+
+  }
+
+  async function saveRun(){
     const v={...edit}; const id=v.id; delete v.id; delete v.created_at; delete v.reported_by; delete v.pushed_at; delete v.reporter;
     if(!v.title?.trim()){ toast('Title required'); return; }
     // Blank region must be NULL, not '' — the app's Alerts list matches state to the
@@ -44,7 +58,14 @@ export default function Disease({ onChange }:{ onChange:()=>void }){
     if(error){ toast(error.message); return; }
     setEdit(null); load(); onChange();
   }
+  // One run at a time: a double-click used to save / push twice.
+  const verifyPushBusy=useRef(false);
   async function verifyPush(r:any){
+    if(verifyPushBusy.current) return;
+    verifyPushBusy.current=true;
+    try{ await verifyPushRun(r); } finally { verifyPushBusy.current=false; }
+  }
+  async function verifyPushRun(r:any){
     // Verify AND actually push the alert to the region via the edge function.
     // (Previously this only flipped verified/pushed_at and never sent a notification.)
     const { data, error }=await supabase.functions.invoke('notify-disease-verified',{ body:{ alert_id:r.id } });

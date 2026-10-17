@@ -14,7 +14,8 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
   useOnChanged(()=>load()); // an action in the side panel (approve, remove, ban…) refreshes this list
   // j/k moves the focused row, a approves, r rejects — queue clearing at typing speed.
   // Enter opens the listing 360, matching a tap on the breed.
-  const [sel]=useRowKeys(rows.length,{
+  const [sel]=useRowKeys(loading?0:rows.length,{ // no shortcuts on rows hidden behind 'Loading…'
+
     a:(i)=>{ const r=rows[i]; if(r && r.approval_status!=='approved') set(r.id,'approved'); },
     r:(i)=>{ const r=rows[i]; if(r && r.approval_status!=='rejected') set(r.id,'rejected'); },
     x:(i)=>{ const r=rows[i]; if(r) togglePick(r.id); },

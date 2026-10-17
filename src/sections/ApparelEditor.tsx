@@ -127,7 +127,11 @@ export function ApparelEditor({ value, onChange, grid, onGrid, upload }: {
       const urls = await upload(files);
       if (!urls.length) return;
       const cur = latest.current;
-      onChange({ ...cur, colours: cur.colours.map(c => c.key === key ? { ...c, images: [...(c.images ?? []), ...urls].slice(0, 8) } : c) });
+      // Match by key; if the colour was renamed meanwhile (its key changes), use its position.
+      const at = cur.colours.findIndex(c => c.key === key);
+      const idx = at >= 0 ? at : (i < cur.colours.length ? i : -1);
+      if (idx < 0) return;
+      onChange({ ...cur, colours: cur.colours.map((c, j) => j === idx ? { ...c, images: [...(c.images ?? []), ...urls].slice(0, 8) } : c) });
     } finally { setBusy(null); }
   }
   function toggleSize(ck: string, s: string) {
