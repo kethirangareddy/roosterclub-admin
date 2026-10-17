@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { MessagesSquare, Pin, Trash2, Eye, VolumeX, Volume2 } from 'lucide-react';
 import { Modal, Empty, Loading, timeAgo, UserLink } from '../ui';
@@ -32,11 +32,16 @@ export default function Community({ onChange }: { onChange?: () => void }) {
     if (error) { toast(error.message); return; }
     setThreads(t => t.map(x => x.id === r.id ? { ...x, pinned: !x.pinned } : x));
   }
+  // Clear the previous thread's replies, and only accept replies for the
+  // thread that is still open.
+  const openThreadId = useRef<string | null>(null);
   async function openReplies(t: any) {
-    setViewThread(t);
+    setViewThread(t); setReplies([]);
+    openThreadId.current = t.id;
     const { data } = await supabase.from('forum_replies')
       .select('*, users!forum_replies_user_id_fkey(id, full_name, handle, forum_muted_until)')
       .eq('thread_id', t.id).order('created_at', { ascending: true });
+    if (openThreadId.current !== t.id) return;
     setReplies(data || []);
   }
   async function removeReply(id: string) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Star, Zap } from 'lucide-react';
 import { Empty, Loading, timeAgo, inr, UserLink, Copyable } from '../ui';
@@ -9,7 +9,9 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
   const [loading,setLoading]=useState(true);
   const [tab,setTab]=useState<'pending'|'active'>('pending');
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load(){
+    const my=++loadReq.current;
     setLoading(true);
     let q=supabase.from('feature_requests')
       .select('*, users:user_id(full_name, handle)')
@@ -17,8 +19,10 @@ export default function Featured({ onChange }:{ onChange:()=>void }){
     if(tab==='pending') q=q.eq('status','pending');
     else q=q.eq('status','active');
     const { data }=await q;
+    if(my!==loadReq.current) return;
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    if(my!==loadReq.current) return;
     setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.user_id]||null}:r.users}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);

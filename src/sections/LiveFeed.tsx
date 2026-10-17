@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Truck, Check, Plus } from 'lucide-react';
 import { Modal, Field, Empty, Loading, loc, inr, timeAgo, Copyable } from '../ui';
@@ -18,10 +18,13 @@ export default function LiveFeed({ onChange }:{ onChange:()=>void }){
 
   useEffect(()=>{ supabase.auth.getUser().then(({data})=>setMeId(data.user?.id??null)); },[]);
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load(){
+    const my=++loadReq.current;
     setLoading(true);
     const { data }=await supabase.from('live_feed_sellers').select('*')
       .eq('approved',tab==='approved').order('created_at',{ascending:false});
+    if(my!==loadReq.current) return;
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);

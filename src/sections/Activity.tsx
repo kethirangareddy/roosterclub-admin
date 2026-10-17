@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { History, Search } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink, ListingLink, ReceiptLink, Copyable, shortId } from '../ui';
@@ -33,9 +33,12 @@ export default function Activity() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load() {
+    const my=++loadReq.current;
     setLoading(true);
     const { data, error } = await supabase.rpc('admin_audit_log', { p_q: q.trim() || null, p_limit: 200 });
+    if(my!==loadReq.current) return;
     if (error) toast('Could not load activity: ' + error.message);
     setRows(data || []); setLoading(false);
   }

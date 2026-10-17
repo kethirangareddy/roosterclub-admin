@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Users as UsersIcon, Search, ShieldCheck, Eye, ShieldAlert, CopyX, Award } from 'lucide-react';
 import { Empty, Loading, loc, timeAgo, useParamState, WaButton, FOUNDER_CAP, UserLink } from '../ui';
@@ -45,24 +45,32 @@ export default function UsersSection(){
   const [lim,setLim]=useState(1000);
   const [total,setTotal]=useState<number|null>(null);
 
+  const reqRef=useRef(0);
   async function load(){
+    // Newest request wins: a slow 'All users' load must never fill the
+    // 'High risk' tab you switched to (with Ban buttons on the wrong people).
+    const my=++reqRef.current; const stale=()=>my!==reqRef.current;
     setLoading(true);
     if(tab==='refs'){
       const { data, error }=await supabase.rpc('admin_referral_pairs');
+      if(stale()) return;
       if(error) toast('Could not load referrals: '+error.message);
       setRefs(data||[]); setLoading(false); return;
     }
     if(tab==='dups'){
       const { data, error }=await supabase.rpc('admin_duplicates');
+      if(stale()) return;
       if(error) toast('Could not load duplicates: '+error.message);
       setDups(data||[]); setLoading(false); return;
     }
     if(tab==='risk'){
       const { data, error }=await supabase.rpc('admin_flagged_users');
+      if(stale()) return;
       if(error) toast('Could not load flagged users: '+error.message);
       setRows(data||[]); setLoading(false); return;
     }
     const { data, error }=await supabase.rpc('admin_users',{ p_q: q.trim()||null, p_sort:'new', p_limit: lim, p_offset: 0 });
+    if(stale()) return;
     if(error) toast('Could not load users: '+error.message);
     let list = data||[];
     // total_n is a window count computed before LIMIT — the real match count.
@@ -70,6 +78,7 @@ export default function UsersSection(){
     // Merge referral info (who invited them + how many they invited) so the
     // list can filter by referral. Additive RPC — keeps admin_users unchanged.
     const { data:refs }=await supabase.rpc('admin_user_referrals');
+    if(stale()) return;
     if(refs){
       const m=new Map<string,any>((refs as any[]).map(r=>[r.id,r]));
       list=list.map((u:any)=>{ const r=m.get(u.id); return r?{...u,referred_by:r.referred_by,referred_count:r.referred_count}:u; });
@@ -79,6 +88,7 @@ export default function UsersSection(){
     const ids=list.map((u:any)=>u.id).filter(Boolean);
     if(ids.length){
       const { data:langs }=await supabase.from('users').select('id,language').in('id',ids);
+      if(stale()) return;
       if(langs){
         const lm=new Map<string,string>((langs as any[]).map(r=>[r.id,r.language]));
         list=list.map((u:any)=>({...u, language:lm.get(u.id)||null}));

@@ -429,12 +429,15 @@ export default function App(){
   // One RPC instead of 11 count round-trips. It also carries the per-table
   // totals the "More" group uses to dim sections that have no rows, and the
   // headline numbers the dashboard used to re-count for itself.
+  const countsReq=useRef(0);
   async function refreshCounts(){
+    const my=++countsReq.current; // an older, slower reply must not overwrite newer counts
     const [{ data, error }, sup]=await Promise.all([
       supabase.rpc('admin_counts'),
       supabase.rpc('admin_support_unread'),
     ]);
     // Keep the last known counts — a transient blip shouldn't blank the sidebar.
+    if(my!==countsReq.current) return;
     if(error){ console.error('refreshCounts failed:', error.message); return; }
     setCounts({ ...((data as any)||{}), support: sup.error ? 0 : Number(sup.data)||0 });
   }

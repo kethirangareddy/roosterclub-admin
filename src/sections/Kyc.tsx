@@ -41,14 +41,23 @@ export default function Kyc({ onChange }:{ onChange?:()=>void }){
     u:(i)=>{ const r=rows[i]; if(r && !open) openUser(r.user_id); },
   });
 
+  // Ticks only ever cover rows you can see: cleared on tab switch, and dropped
+  // when a row leaves the list. (Ticks used to survive a tab switch, so
+  // "Reject all" could hit listings that weren't on screen.)
+  useEffect(()=>{ setPicked(new Set()); },[tab]);
+  useEffect(()=>{ setPicked(p=>{ const ids=new Set(rows.map((r:any)=>r.id)); const s=new Set([...p].filter(id=>ids.has(id))); return s.size===p.size?p:s; }); },[rows]);
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load(){
+    const my=++loadReq.current;
     setLoading(true);
     const { data,error }=await supabase.rpc('admin_kyc_list',{ p_status: tab==='pending'?'pending':'all', p_limit: 200 });
+    if(my!==loadReq.current) return;
     if(error){ toast(error.message); }
     const list:any[]=data||[];
     const phones=await adminPhones(list.map(r=>r.user_id));
+    if(my!==loadReq.current) return;
     list.forEach(r=>{ r.phone=phones[r.user_id]||null; });
     setRows(list); setLoading(false);
   }

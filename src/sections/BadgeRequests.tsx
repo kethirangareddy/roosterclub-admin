@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Award, Check, X, Send } from 'lucide-react';
 import { Empty, Loading, timeAgo, WaButton, WaIcon, FOUNDER_CAP, UserLink, Copyable } from '../ui';
@@ -24,16 +24,20 @@ export default function BadgeRequests({ onChange }:{ onChange?:()=>void }){
   const [fState,setFState]=useState<string>('all'); // location filters
   const [fDist,setFDist]=useState<string>('all');
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load(){
+    const my=++loadReq.current;
     setLoading(true);
     let q=supabase.from('badge_requests')
       .select('*, user:users!badge_requests_user_id_fkey(full_name,handle,badge,state,district,language)')
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('status','pending');
     const { data,error }=await q;
+    if(my!==loadReq.current) return;
     if(error){ toast(error.message); }
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    if(my!==loadReq.current) return;
     setRows(list.map((r:any)=>({...r, user:r.user?{...r.user, phone:phones[r.user_id]||null}:r.user}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);

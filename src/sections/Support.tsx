@@ -18,6 +18,18 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   // left (10s polling + slow network) must not paint over the one you opened.
   const selRef=useRef<string|null>(null); selRef.current=sel;
 
+  // Each conversation keeps its own unsent reply. Before, text typed for one
+  // person stayed in the box when you opened another — and Send went to them.
+  const lenRef=useRef(0);
+  const draftsRef=useRef<Record<string,string>>({});
+  const prevSel=useRef<string|null>(null);
+  useEffect(()=>{
+    if(prevSel.current) draftsRef.current[prevSel.current]=draftRef.current;
+    setDraft(sel?(draftsRef.current[sel]||''):'');
+    prevSel.current=sel; lenRef.current=0;
+  },[sel]);
+  const draftRef=useRef(''); draftRef.current=draft;
+
   async function loadThreads(){
     const { data, error }=await supabase.rpc('admin_support_threads',{ p_limit:200 });
     if(error){ console.error(error.message); setLoading(false); return; }
@@ -30,7 +42,11 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     if(selRef.current!==uid) return;
     if(error){ console.error(error.message); return; }
     setMsgs(data||[]);
-    setTimeout(()=>endRef.current?.scrollIntoView({block:'end'}),50);
+    // Only jump to the bottom when something new arrived (or on first open) —
+    // the 10s refresh used to yank you down while you read older messages.
+    const n=(data||[]).length;
+    if(n>lenRef.current) setTimeout(()=>endRef.current?.scrollIntoView({block:'end'}),50);
+    lenRef.current=n;
     if(markRead){
       await supabase.rpc('admin_support_mark_read',{ p_user:uid });
       setThreads(ts=>ts.map(t=>t.user_id===uid?{...t,admin_unread:0}:t));
@@ -44,13 +60,16 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
   const nameOf=(t:any)=>t?.farm_name||t?.full_name||(t?.handle?'@'+t.handle:'User');
 
   async function send(){
-    const text=draft.trim(); if(!sel||!text) return;
+    const to=sel, text=draft.trim(); if(!to||!text) return;
     setBusy(true);
-    const { error }=await supabase.rpc('admin_support_reply',{ p_user:sel, p_body:text });
+    const { error }=await supabase.rpc('admin_support_reply',{ p_user:to, p_body:text });
     setBusy(false);
     if(error){ toast('Reply failed: '+error.message); return; }
-    setDraft('');
-    loadThread(sel); loadThreads();
+    // Clear the draft of the person it was SENT to — you may have opened
+    // someone else while it was sending.
+    delete draftsRef.current[to];
+    if(selRef.current===to) setDraft('');
+    loadThread(to); loadThreads();
   }
 
   return (

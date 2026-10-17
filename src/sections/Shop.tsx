@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Store, Plus, Pencil, ImagePlus } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, Modal, Field } from '../ui';
@@ -34,14 +34,18 @@ export default function Shop() {
   const [details, setDetails] = useState<DetailsForm | null>(null);
   const isAcc = edit?.category === 'accessories';
 
+  // Only the product you opened last may fill the size/colour grid.
+  const editId = useRef<string | null>(null);
   async function openEdit(row: any | null) {
+    editId.current = row?.id ?? null;
     if (!row) { setEdit({ ...empty }); setApparel(null); setGrid({}); setDetails(null); return; }
     setDetails(row.category === 'accessories' ? toForm(row.details) : null);
     setEdit({ ...empty, ...row, price: row.price ?? '', brand: row.brand ?? '', unit: row.unit ?? '', stock_count: row.stock_count ?? '', description: row.description ?? '', name_te: row.name_te ?? '' });
     if (row.category === 'apparel') {
       const a: ApparelState = row.apparel ? { ...emptyApparel(), ...row.apparel, badge: row.apparel.badge ?? '', model: { ...(row.apparel.model ?? {}) } } : emptyApparel();
-      setApparel(a);
+      setApparel(a); setGrid({});
       const g = await loadVariants(row.id);
+      if (editId.current !== row.id) return;
       setGrid(Object.keys(g).length ? g : defaultGrid(a));
     } else { setApparel(null); setGrid({}); }
   }

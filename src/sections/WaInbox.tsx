@@ -19,16 +19,33 @@ export default function WaInbox(){
   const endRef=useRef<HTMLDivElement>(null);
   const selRef=useRef<string|null>(null); selRef.current=sel;
 
+  // Each conversation keeps its own unsent reply. Before, text typed for one
+  // person stayed in the box when you opened another — and Send went to them.
+  const lenRef=useRef(0);
+  const draftsRef=useRef<Record<string,string>>({});
+  const prevSel=useRef<string|null>(null);
+  useEffect(()=>{
+    if(prevSel.current) draftsRef.current[prevSel.current]=draftRef.current;
+    setDraft(sel?(draftsRef.current[sel]||''):'');
+    prevSel.current=sel; lenRef.current=0;
+  },[sel]);
+  const draftRef=useRef(''); draftRef.current=draft;
+
   async function loadThreads(){
     const { data, error }=await supabase.rpc('admin_wa_threads');
     if(error){ console.error(error.message); setLoading(false); return; }
     setThreads(data||[]); setLoading(false);
   }
   async function loadThread(n:string){
-    const { data }=await supabase.rpc('admin_wa_thread',{ p_number:n });
+    const { data, error }=await supabase.rpc('admin_wa_thread',{ p_number:n });
     if(selRef.current!==n) return; // you've moved to another number since
+    if(error){ console.error(error.message); return; } // keep what's on screen during a blip
     setMsgs(data||[]);
-    setTimeout(()=>endRef.current?.scrollIntoView({block:'end'}),50);
+    // Only jump to the bottom when something new arrived (or on first open) —
+    // the 10s refresh used to yank you down while you read older messages.
+    const len=(data||[]).length;
+    if(len>lenRef.current) setTimeout(()=>endRef.current?.scrollIntoView({block:'end'}),50);
+    lenRef.current=len;
   }
   useEffect(()=>{ loadThreads(); const t=setInterval(loadThreads,20000); return ()=>clearInterval(t); },[]);
   useEffect(()=>{ setMsgs([]); if(!sel) return; loadThread(sel); const t=setInterval(()=>loadThread(sel),10000); return ()=>clearInterval(t); },[sel]);
@@ -38,15 +55,18 @@ export default function WaInbox(){
   const hoursLeft=cur?.last_in_at?Math.max(0,Math.floor((DAY-(Date.now()-new Date(cur.last_in_at).getTime()))/3600000)):0;
 
   async function send(){
-    const text=draft.trim(); if(!sel||!text) return;
-    if(!await ask(`Send this WhatsApp reply to +${sel}?\n\n"${text.slice(0,200)}"`)) return;
+    const to=sel, text=draft.trim(); if(!to||!text) return;
+    if(!await ask(`Send this WhatsApp reply to +${to}?\n\n"${text.slice(0,200)}"`)) return;
     setBusy(true);
-    const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ reply_to:sel, text } });
+    const { data, error }=await supabase.functions.invoke('wa-send-template',{ body:{ reply_to:to, text } });
     setBusy(false);
     if(error || !(data as any)?.ok){
       toast('Reply failed: '+((data as any)?.error||JSON.stringify((data as any)?.response||error?.message)).slice(0,400));
-    } else setDraft('');
-    loadThread(sel); loadThreads();
+    } else {
+      delete draftsRef.current[to];
+      if(selRef.current===to) setDraft('');
+    }
+    loadThread(to); loadThreads();
   }
 
   return (

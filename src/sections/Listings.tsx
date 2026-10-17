@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { ListChecks, Search, Eye } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, useParamState, UserLink } from '../ui';
@@ -19,7 +19,11 @@ export default function Listings() {
   const { openListing } = useDetail();
   useOnChanged(() => load());
 
+  // Only the newest request may fill the table — tapping Pending then Removed
+  // on a slow network used to show Pending's rows under the Removed tab.
+  const reqRef = useRef(0);
   async function load() {
+    const my = ++reqRef.current;
     setLoading(true);
     const nowIso = new Date().toISOString();
     let query = supabase.from('listings')
@@ -32,6 +36,7 @@ export default function Listings() {
     else if (fStatus === 'removed') query = query.eq('status', 'removed');
     if (q.trim()) query = query.or(`breed.ilike.%${q.trim()}%,type.ilike.%${q.trim()}%`);
     const { data, error } = await query;
+    if (my !== reqRef.current) return;
     if (error) toast('Could not load listings: ' + error.message);
     setRows(data || []); setLoading(false);
   }

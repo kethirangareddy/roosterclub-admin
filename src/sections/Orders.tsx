@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { PackageCheck } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, Modal, WaButton, UserLink, Copyable } from '../ui';
@@ -50,7 +50,9 @@ export default function Orders() {
     toast(upi ? 'Saved. Buyers can now pay by UPI.' : 'Saved. UPI payments are closed.');
   }
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load() {
+    const my=++loadReq.current;
     setLoading(true);
     let q = supabase
       .from('shop_orders')
@@ -62,6 +64,7 @@ export default function Orders() {
     else if (filter !== 'all') q = q.eq('status', filter);
 
     const { data, error } = await q;
+    if(my!==loadReq.current) return;
     setLoading(false);
     if (error) { toast('Could not load orders: ' + error.message); return; }
     setRows(data ?? []);

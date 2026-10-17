@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { Check, X, Inbox } from 'lucide-react';
 import { Empty, Loading, loc, inr, timeAgo, useParamState, useRowKeys, UserLink, ListingLink, Copyable } from '../ui';
@@ -20,16 +20,25 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
     Enter:(i)=>{ const r=rows[i]; if(r) openListing(r.id); },
   });
 
+  // Ticks only ever cover rows you can see: cleared on tab switch, and dropped
+  // when a row leaves the list. (Ticks used to survive a tab switch, so
+  // "Reject all" could hit listings that weren't on screen.)
+  useEffect(()=>{ setPicked(new Set()); },[tab]);
+  useEffect(()=>{ setPicked(p=>{ const ids=new Set(rows.map((r:any)=>r.id)); const s=new Set([...p].filter(id=>ids.has(id))); return s.size===p.size?p:s; }); },[rows]);
+  const unpick=(id:string)=>setPicked(p=>{ if(!p.has(id)) return p; const s=new Set(p); s.delete(id); return s; });
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
   async function bulkSet(approval_status:string){
-    const ids=[...picked];
+    const ids=[...picked].filter(id=>rows.some((r:any)=>r.id===id));
+    if(!ids.length) return;
     if(!await ask(`${approval_status==='approved'?'Approve':'Reject'} ${ids.length} listing${ids.length>1?'s':''}?`)) return;
     const { error }=await supabase.from('listings').update({ approval_status }).in('id',ids);
     if(error){ toast('Bulk update failed: '+error.message); return; }
     setPicked(new Set()); load(); onChange();
   }
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load(){
+    const my=++loadReq.current;
     setLoading(true);
     let q=supabase.from('listings')
       .select('id,user_id,breed,type,price,status,approval_status,created_at,state,district,mandal,village,users!listings_user_id_fkey(full_name,handle)')
@@ -39,9 +48,11 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
       .order('created_at',{ascending:false}).limit(100);
     if(tab==='pending') q=q.eq('approval_status','pending');
     const { data, error }=await q;
+    if(my!==loadReq.current) return;
     if(error) toast('Could not load listings: '+error.message);
     const list=data||[];
     const phones=await adminPhones(list.map((r:any)=>r.user_id));
+    if(my!==loadReq.current) return;
     setRows(list.map((r:any)=>({...r, users:r.users?{...r.users, phone:phones[r.user_id]||null}:r.users}))); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
@@ -49,6 +60,7 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
   async function set(id:string, approval_status:string){
     const { error }=await supabase.from('listings').update({ approval_status }).eq('id',id);
     if(error){ toast('Could not update listing: '+error.message); return; }
+    unpick(id);
     setRows(r=>r.filter(x=>x.id!==id || tab==='all'));
     if(tab==='all') load();
     onChange();
@@ -57,7 +69,7 @@ export default function Approvals({ onChange }:{ onChange:()=>void }){
     if(!await ask('Permanently delete this listing?')) return;
     const { error }=await supabase.from('listings').delete().eq('id',id);
     if(error){ toast('Could not delete: '+error.message); return; }
-    setRows(r=>r.filter(x=>x.id!==id)); onChange();
+    unpick(id); setRows(r=>r.filter(x=>x.id!==id)); onChange();
   }
 
   return (

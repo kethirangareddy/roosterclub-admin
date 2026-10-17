@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Flag, Trash2, Ban, X } from 'lucide-react';
 import { Empty, Loading, timeAgo, inr, useParamState, useRowKeys, UserLink, ListingLink } from '../ui';
@@ -20,9 +20,16 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
       if(r.target_type==='listing') openListing(r.listing?.id); else openUser(r.reported_user_id); },
   });
 
+  // Ticks only ever cover rows you can see: cleared on tab switch, and dropped
+  // when a row leaves the list. (Ticks used to survive a tab switch, so
+  // "Reject all" could hit listings that weren't on screen.)
+  useEffect(()=>{ setPicked(new Set()); },[tab]);
+  useEffect(()=>{ setPicked(p=>{ const ids=new Set(rows.map((r:any)=>r.id)); const s=new Set([...p].filter(id=>ids.has(id))); return s.size===p.size?p:s; }); },[rows]);
+  const unpick=(id:string)=>setPicked(p=>{ if(!p.has(id)) return p; const s=new Set(p); s.delete(id); return s; });
   function togglePick(id:string){ setPicked(p=>{ const s=new Set(p); s.has(id)?s.delete(id):s.add(id); return s; }); }
   async function bulkDismiss(){
-    const ids=[...picked];
+    const ids=[...picked].filter(id=>rows.some((r:any)=>r.id===id&&r.status==='open'));
+    if(!ids.length) return;
     if(!await ask(`Dismiss ${ids.length} report${ids.length>1?'s':''}?`)) return;
     const { error }=await supabase.from('reports')
       .update({ status:'dismissed', reviewed_at:new Date().toISOString() }).in('id',ids);
@@ -30,20 +37,23 @@ export default function Reports({ onChange }:{ onChange?:()=>void }){
     setPicked(new Set()); load(); onChange?.();
   }
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load(){
+    const my=++loadReq.current;
     setLoading(true);
     let q=supabase.from('reports').select(
       '*, listing:listings(id,breed,price,status,user_id), reporter:users!reports_reporter_id_fkey(full_name,handle), reported:users!reports_reported_user_id_fkey(full_name,handle)'
     ).order('created_at',{ascending:false}).limit(100);
     if(tab==='open') q=q.eq('status','open');
     const { data,error }=await q;
+    if(my!==loadReq.current) return;
     if(error){ toast(error.message); }
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[tab]);
 
   async function mark(id:string,status:string){
-    const { error }=await supabase.from('reports').update({ status, reviewed_at:new Date().toISOString() }).eq('id',id); if(error){ toast('Could not update report: '+error.message); return; } load(); onChange?.();
+    const { error }=await supabase.from('reports').update({ status, reviewed_at:new Date().toISOString() }).eq('id',id); if(error){ toast('Could not update report: '+error.message); return; } unpick(id); load(); onChange?.();
   }
   async function removeListing(r:any){
     if(!r.listing?.id){ toast('Listing already removed.'); await mark(r.id,'actioned'); return; }

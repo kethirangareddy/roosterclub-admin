@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { IndianRupee, Rocket, Star, Hourglass, RefreshCcw, Users, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { Empty, Loading, inr } from '../ui';
@@ -51,17 +51,25 @@ export default function Money({ openReceipt, go }: { openReceipt: (id: string) =
     return () => { alive = false; };
   }, [days]);
 
+  const wantMonth = useRef<string | null>(null);
+  const wantDay = useRef<string | null>(null);
   async function toggleMonth(month: string) {
     if (openMonth === month) { setOpenMonth(null); setOpenDay(null); return; }
-    setOpenMonth(month); setOpenDay(null);
+    // Clear the old month's rows first, and only accept the reply for the
+    // month that is still open (tapping Sep then Aug showed Sep under Aug).
+    setOpenMonth(month); setOpenDay(null); setDaysRows([]); setDayReceipts([]);
+    wantMonth.current = month;
     const { data, error } = await supabase.rpc('admin_recon_days', { p_month: month });
+    if (wantMonth.current !== month) return;
     if (error) { toast(error.message); return; }
     setDaysRows(data || []);
   }
   async function toggleDay(day: string) {
     if (openDay === day) { setOpenDay(null); return; }
-    setOpenDay(day);
+    setOpenDay(day); setDayReceipts([]);
+    wantDay.current = day;
     const { data, error } = await supabase.rpc('admin_recon_receipts', { p_day: day });
+    if (wantDay.current !== day) return;
     if (error) { toast(error.message); return; }
     setDayReceipts(data || []);
   }

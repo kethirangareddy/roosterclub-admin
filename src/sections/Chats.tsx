@@ -128,13 +128,22 @@ export default function Chats() {
   // row says "chat 2 of 3 between them" instead of looking like a duplicate.
   const pairs = useMemo(() => {
     const m = new Map<string, Thread[]>();
-    rows.forEach(t => { const k = pairKey(t.buyer_id, t.seller_id); m.set(k, [...(m.get(k) || []), t]); });
+    // Siblings for the open thread: every chat of the pair except empty ones
+    // while those are hidden (a "· 0" button opens a blank thread).
+    rows.filter(t => showEmpty || t.msg_count > 0)
+      .forEach(t => { const k = pairKey(t.buyer_id, t.seller_id); m.set(k, [...(m.get(k) || []), t]); });
     return m;
-  }, [rows]);
+  }, [rows, showEmpty]);
   const kindOf = (t: Thread) => t.listing_id ? 'listing' : t.product_id ? 'shop' : 'direct';
   const emptyCount = rows.filter(t => !t.msg_count).length;
   const shown = rows.filter(t => (showEmpty || t.msg_count > 0) && (filter === 'all' || kindOf(t) === filter));
-  const active = activeId ? rows.find(t => t.chat_id === activeId) || null : null;
+  const shownPairs = new Map<string, Thread[]>();
+  shown.forEach(t => { const k = pairKey(t.buyer_id, t.seller_id); shownPairs.set(k, [...(shownPairs.get(k) || []), t]); });
+  // Keep showing the open thread even if a new search no longer lists it.
+  const lastActive = useRef<Thread | null>(null);
+  const found = activeId ? rows.find(t => t.chat_id === activeId) || null : null;
+  if (found) lastActive.current = found;
+  const active = found || (lastActive.current?.chat_id === activeId ? lastActive.current : null);
 
   const list = (
     <div className={'card chat-list' + (wide ? ' pane' : '')}>
@@ -160,7 +169,10 @@ export default function Chats() {
       </div>
       <div className="chat-list-b">
         {loading ? <Loading /> : shown.length === 0 ? <Empty text="No conversations match." /> : shown.map(t => {
-          const group = pairs.get(pairKey(t.buyer_id, t.seller_id)) || [];
+          // Badge counts only what's in this list right now (both filters).
+          // The open thread's "Their other chats" lists every chat the two have
+          // that has messages (plus empty ones when "include empty" is ticked).
+          const group = shownPairs.get(pairKey(t.buyer_id, t.seller_id)) || [];
           const nth = group.length > 1 ? group.findIndex(x => x.chat_id === t.chat_id) + 1 : 0;
           return (
             // ONE tap target: the whole row opens this thread. Names are plain

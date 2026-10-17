@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase, adminPhones } from '../supabase';
 import { ShieldCheck, Check, X } from 'lucide-react';
 import { Empty, Loading, timeAgo, UserLink, Copyable } from '../ui';
@@ -9,16 +9,20 @@ export default function Syndicates({ onChange }: { onChange?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'pending' | 'all'>('pending');
 
+  const loadReq=useRef(0); // newest load wins — a slow reply for the old tab/filter is dropped
   async function load() {
+    const my=++loadReq.current;
     setLoading(true);
     let q = supabase.from('syndicates')
       .select('*, owner:users!syndicates_owner_id_fkey(full_name,handle,badge,state,district)')
       .order('created_at', { ascending: false }).limit(200);
     if (tab === 'pending') q = q.eq('status', 'pending');
     const { data, error } = await q;
+    if(my!==loadReq.current) return;
     if (error) { toast(error.message); }
     const list = data || [];
     const phones = await adminPhones(list.map((r: any) => r.owner_id));
+    if(my!==loadReq.current) return;
     setRows(list.map((r: any) => ({ ...r, owner: r.owner ? { ...r.owner, phone: phones[r.owner_id] || null } : r.owner })));
     setLoading(false);
   }
