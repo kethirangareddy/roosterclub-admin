@@ -315,7 +315,7 @@ export default function AppConfig(){
       </div>
 
       <div style={{position:'sticky',bottom:14,display:'flex',justifyContent:'flex-end'}}>
-        <button className="btn" disabled={saving||dirty.size===0} onClick={save}>
+        <button className="btn" disabled={saving||dirty.size===0||bannerUploading||partnerUploading} title={bannerUploading||partnerUploading?'Wait for the picture to finish uploading':undefined} onClick={save}>
           <Save size={15}/> {saving?'Saving…':dirty.size?`Save ${dirty.size} change${dirty.size>1?'s':''}`:'Saved'}
         </button>
       </div>

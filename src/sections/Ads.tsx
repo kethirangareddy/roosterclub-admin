@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Megaphone, Plus, Pencil, ImagePlus } from 'lucide-react';
 import { Empty, Loading, inr, timeAgo, Modal, Field } from '../ui';
@@ -39,6 +39,7 @@ export default function Ads() {
   const [edit, setEdit] = useState<any | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<'' | 'media' | 'poster'>('');
+  const inflight = useRef({ media: 0, poster: 0 });
 
   async function load() {
     setLoading(true);
@@ -61,7 +62,7 @@ export default function Ads() {
     if (!isVideo && !file.type.startsWith('image/')) { toast('Choose a photo or a video.'); return; }
     if (which === 'poster' && isVideo) { toast('The cover must be a photo.'); return; }
     if (file.size > 40 * 1024 * 1024) { toast('Please keep the file under 40 MB (a 15–30 second video is ideal).'); return; }
-    setUploading(which);
+    inflight.current[which]++; setUploading(which);
     try {
       const ext = (file.name.split('.').pop() || (isVideo ? 'mp4' : 'jpg')).toLowerCase();
       const path = `ads/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -70,7 +71,12 @@ export default function Ads() {
       const url = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
       // Form closed meanwhile → drop the file (it used to reopen a broken form).
       setEdit((cur: any) => !cur ? cur : which === 'media' ? { ...cur, media_url: url, media_type: isVideo ? 'video' : 'photo' } : { ...cur, poster_url: url });
-    } finally { setUploading(''); }
+    } finally {
+      // Several uploads can run at once (video + cover): stay 'uploading' until all finish.
+      inflight.current[which]--;
+      const m = inflight.current;
+      setUploading(m.media > 0 ? 'media' : m.poster > 0 ? 'poster' : '');
+    }
   }
 
   function toggleIn(key: 'placements' | 'target_states' | 'target_types', v: string) {

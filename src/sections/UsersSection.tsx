@@ -88,8 +88,12 @@ export default function UsersSection(){
     // or English to match what they actually read.
     const ids=list.map((u:any)=>u.id).filter(Boolean);
     if(ids.length){
-      const { data:langs }=await supabase.from('users').select('id,language').in('id',ids);
+      // In chunks of 200: 1000 ids in one web address is too long and the
+      // lookup failed silently, so every member got the English invite.
+      const parts=await Promise.all(Array.from({length:Math.ceil(ids.length/200)},(_,k)=>
+        supabase.from('users').select('id,language').in('id',ids.slice(k*200,(k+1)*200))));
       if(stale()) return;
+      const langs=parts.flatMap(p=>p.data||[]);
       if(langs){
         const lm=new Map<string,string>((langs as any[]).map(r=>[r.id,r.language]));
         list=list.map((u:any)=>({...u, language:lm.get(u.id)||null}));

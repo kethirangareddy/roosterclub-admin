@@ -232,8 +232,9 @@ export default function Dashboard({ go, counts }:{
   // Yesterday's signup cohort — did they come back? This is the number that says
   // whether an SMS/ads push bought users or bought installs.
   const y=coh.find(c=>{
-    const d=new Date(); d.setDate(d.getDate()-1);
-    return c.cohort===d.toISOString().slice(0,10);
+    // Yesterday in India time (UTC date was wrong between midnight and 5:30 AM).
+    const d=new Date(Date.now()-864e5);
+    return c.cohort===d.toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
   });
   const d1=y && Number(y.signups)>0 ? pct(Number(y.d1_back),Number(y.signups)) : null;
 

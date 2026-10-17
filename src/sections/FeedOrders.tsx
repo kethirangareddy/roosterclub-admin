@@ -222,9 +222,10 @@ function MillTab() {
     const r1 = await supabase.from('mill_ingredients').upsert(rows);
     const r2 = await supabase.from('mill_addons').upsert(addons.map((a) => ({ ...a, price_per_sack: Number(a.price_per_sack) })));
     const r3 = await supabase.from('app_config').update({ value: cfg, updated_at: new Date().toISOString() }).eq('key', 'custom_feed');
-    setSaving(false);
     const err = r0.error || r1.error || r2.error || r3.error;
-    if (err) toast('Could not save: ' + err.message); else { toast('Saved'); load(); }
+    if (err) { setSaving(false); toast('Could not save: ' + err.message); return; }
+    await load(); // unlock only after the fresh values are on screen
+    setSaving(false); toast('Saved');
   }
   if (!ings || !cfg) return <Loading />;
   const num = (path: string[], v: string) => {
