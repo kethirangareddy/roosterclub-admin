@@ -78,6 +78,7 @@ function useWide(min = 1100) {
 export default function Chats() {
   const [rows, setRows] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadErr, setLoadErr] = useState(false);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState<'all' | 'listing' | 'shop' | 'direct'>('all');
   const [showEmpty, setShowEmpty] = useState(false);
@@ -96,7 +97,8 @@ export default function Chats() {
     if (!quiet) setLoading(true);
     const { data, error } = await supabase.rpc('admin_all_chats', { p_q: qRef.current.trim() || null, p_limit: 300 });
     if (my !== reqRef.current) return; // an older search finished late — ignore it
-    if (error) { if (!quiet) toast('Could not load chats: ' + error.message); setLoading(false); return; }
+    if (error) { if (!quiet) toast('Could not load chats: ' + error.message); setLoadErr(true); setLoading(false); return; }
+    setLoadErr(false);
     setRows(data || []); setLoading(false);
   }
   useEffect(() => {
@@ -210,7 +212,7 @@ export default function Chats() {
   ) : activeId ? (
     <div className="card pane chat-thread">
       {!wide && <button className="btn ghost sm" onClick={close} style={{ margin: 12 }}><ChevronLeft size={14} /> All chats</button>}
-      {loading ? <Loading /> : <Empty text="This conversation isn't in the newest 300. Search one of the names to find it." />}
+      {loading ? <Loading /> : loadErr ? <div className="empty" style={{ color: 'var(--danger)' }}>Couldn't load chats — check the connection; it retries every 30 seconds.</div> : <Empty text="This conversation isn't in the newest 300. Search one of the names to find it." />}
     </div>
   ) : (
     <div className="card pane chat-thread chat-none">

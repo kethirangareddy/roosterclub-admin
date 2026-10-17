@@ -8,6 +8,7 @@ import { toast, ask } from '../feedback';
 export default function Announcements(){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [loadErr,setLoadErr]=useState<string|null>(null);
   const [title,setTitle]=useState('');
   const [body,setBody]=useState('');
   const [state,setState]=useState('');
@@ -20,8 +21,10 @@ export default function Announcements(){
 
   async function load(){
     setLoading(true);
-    const { data }=await supabase.from('announcements').select('*')
+    const { data, error }=await supabase.from('announcements').select('*')
       .order('created_at',{ascending:false}).limit(50);
+    // A failed load must not look like "nothing scheduled" (you'd schedule it twice).
+    setLoadErr(error?error.message:null);
     setRows(data||[]); setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -140,7 +143,7 @@ export default function Announcements(){
 
       <div className="card" style={{marginTop:16}}>
         <div className="card-h"><h2>Sent &amp; scheduled ({rows.length})</h2></div>
-        {loading?<Loading/>:rows.length===0?<Empty text="No announcements yet."/>:(
+        {loading?<Loading/>:loadErr?<div className="empty" style={{color:'var(--danger)'}}>Couldn't load announcements — {loadErr}. <button className="btn ghost sm" onClick={load}>Retry</button></div>:rows.length===0?<Empty text="No announcements yet."/>:(
           <table>
             <thead><tr><th>Title</th><th>Message</th><th>Reach</th><th>Status</th><th>Devices</th><th>When</th><th></th></tr></thead>
             <tbody>

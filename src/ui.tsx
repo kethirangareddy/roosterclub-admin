@@ -286,3 +286,14 @@ export function WaButton({ phone, lang, label, plain=false }:{ phone?:string|nul
     </a>
   );
 }
+
+/** What a list shows when its load FAILED — never the "nothing here" text,
+    which made a failed load look like an empty queue. */
+export function LoadError({ what, onRetry }:{ what:string; onRetry?:()=>void }){
+  return (
+    <div className="empty" style={{ color:'var(--danger)' }}>
+      Couldn't load {what} — check the connection.
+      {onRetry && <> <button className="btn ghost sm" style={{ marginLeft:8 }} onClick={onRetry}>Retry</button></>}
+    </div>
+  );
+}

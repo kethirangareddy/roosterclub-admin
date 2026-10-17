@@ -9,6 +9,8 @@ import { toast } from '../feedback';
 export default function Support({ onChange }:{ onChange?:()=>void }){
   const [threads,setThreads]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
+  const [listErr,setListErr]=useState(false);   // thread list failed
+  const [threadErr,setThreadErr]=useState(false); // open conversation failed
   const [sel,setSel]=useState<string|null>(null);
   const [msgs,setMsgs]=useState<any[]>([]);
   const [draft,setDraft]=useState('');
@@ -32,16 +34,16 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
 
   async function loadThreads(){
     const { data, error }=await supabase.rpc('admin_support_threads',{ p_limit:200 });
-    if(error){ console.error(error.message); setLoading(false); return; }
-    setThreads(data||[]); setLoading(false);
+    if(error){ console.error(error.message); setListErr(true); setLoading(false); return; }
+    setListErr(false); setThreads(data||[]); setLoading(false);
   }
   async function loadThread(uid:string, markRead=false){
     const { data, error }=await supabase.from('support_messages')
       .select('id, from_admin, body, created_at').eq('user_id',uid)
       .order('created_at',{ ascending:true }).limit(500);
     if(selRef.current!==uid) return;
-    if(error){ console.error(error.message); return; }
-    setMsgs(data||[]);
+    if(error){ console.error(error.message); setThreadErr(true); return; }
+    setThreadErr(false); setMsgs(data||[]);
     // Only jump to the bottom when something new arrived (or on first open) —
     // the 10s refresh used to yank you down while you read older messages.
     const n=(data||[]).length;
@@ -54,7 +56,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
     }
   }
   useEffect(()=>{ loadThreads(); const t=setInterval(loadThreads,20000); return ()=>clearInterval(t); },[]);
-  useEffect(()=>{ setMsgs([]); if(!sel) return; loadThread(sel,true); const t=setInterval(()=>{ if(!document.hidden) loadThread(sel,true); },10000); return ()=>clearInterval(t); },[sel]); // polls skip while the tab is hidden, so nothing is marked read unseen
+  useEffect(()=>{ setMsgs([]); setThreadErr(false); if(!sel) return; loadThread(sel,true); const t=setInterval(()=>{ if(!document.hidden) loadThread(sel,true); },10000); return ()=>clearInterval(t); },[sel]); // polls skip while the tab is hidden, so nothing is marked read unseen
 
   const cur=threads.find(t=>t.user_id===sel);
   const nameOf=(t:any)=>t?.farm_name||t?.full_name||(t?.handle?'@'+t.handle:'User');
@@ -80,7 +82,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
         <div style={{borderRight:'1px solid var(--line,#e5e0d3)',overflowY:'auto',maxHeight:620}}>
           <div className="card-h" style={{padding:'10px 12px'}}><h2>Conversations</h2>
             <button className="btn ghost sm" onClick={loadThreads} title="Refresh"><RefreshCw size={13}/></button></div>
-          {loading?<Loading/>:threads.length===0?<Empty text="No messages yet."/>:threads.map(t=>(
+          {loading?<Loading/>:listErr&&threads.length===0?<div className="empty" style={{color:'var(--danger)'}}>Couldn't load conversations — check the connection. It retries by itself.</div>:threads.length===0?<Empty text="No messages yet."/>:threads.map(t=>(
             <div key={t.user_id} onClick={()=>setSel(t.user_id)}
               style={{padding:'10px 12px',cursor:'pointer',borderTop:'1px solid var(--line,#eee)',background:sel===t.user_id?'rgba(186,117,23,.10)':undefined}}>
               <div style={{display:'flex',justifyContent:'space-between',gap:8}}>
@@ -107,6 +109,7 @@ export default function Support({ onChange }:{ onChange?:()=>void }){
                 : null}
             </div>
             <div style={{flex:1,overflowY:'auto',padding:14,maxHeight:480,background:'rgba(0,0,0,.02)'}}>
+              {threadErr&&msgs.length===0&&<div className="empty" style={{color:'var(--danger)'}}>Couldn't load this conversation — check the connection. It retries by itself.</div>}
               {msgs.map(m=>(
                 <div key={m.id} style={{display:'flex',justifyContent:m.from_admin?'flex-end':'flex-start',margin:'6px 0'}}>
                   <div style={{maxWidth:'75%',padding:'8px 11px',borderRadius:10,whiteSpace:'pre-wrap',fontSize:13.5,
