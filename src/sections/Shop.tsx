@@ -5,6 +5,7 @@ import { Empty, Loading, loc, inr, timeAgo, Modal, Field } from '../ui';
 import { AccessoryEditor, DetailsForm, fromForm, toForm } from './AccessoryEditor';
 import { ApparelEditor, ApparelState, StockGrid, apparelPayload, defaultGrid, emptyApparel, loadVariants, saveVariants } from './ApparelEditor';
 import { toast, ask } from '../feedback';
+import CategoryVideos from './CategoryVideos';
 
 // Values MUST match the DB check constraint shop_products_category_check (lowercase).
 const CATEGORIES = [
@@ -16,6 +17,7 @@ const CATEGORIES = [
   { value: 'accessories',     label: 'Accessories' },
   { value: 'cages',           label: 'Cages' },
   { value: 'apparel',         label: 'Apparel' },
+  { value: 'bsf',             label: 'BSF Farming' },
 ];
 const empty = { id: '', name: '', name_te: '', prepaid: true, delivery_included: true, brand: '', category: 'feed', price: '', mrp: '', unit: '', stock_count: '', description: '', image_url: '', images: [] as string[], state: '', district: '', mandal: '', status: 'active' };
 
@@ -236,6 +238,8 @@ export default function Shop() {
           </table>
         )}
       </div>
+
+      <CategoryVideos />
 
       {edit && (
         <Modal title={edit.id ? 'Edit product' : 'Add product'} onClose={() => setEdit(null)}
