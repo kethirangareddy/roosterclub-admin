@@ -210,6 +210,8 @@ export default function Shop() {
         <button className="btn" onClick={() => openEdit(null)}><Plus size={15} style={{ verticalAlign: -3 }} /> Add product</button>
       </div>
 
+      <CategoryVideos />
+
       <div className="card">
         <div className="card-h"><h2><Store size={16} /> Products ({rows.length})</h2></div>
         {loading ? <Loading /> : rows.length === 0 ? <Empty text="No shop products yet. Click “Add product”." /> : (
@@ -238,8 +240,6 @@ export default function Shop() {
           </table>
         )}
       </div>
-
-      <CategoryVideos />
 
       {edit && (
         <Modal title={edit.id ? 'Edit product' : 'Add product'} onClose={() => setEdit(null)}
