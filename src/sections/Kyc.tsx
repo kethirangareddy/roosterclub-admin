@@ -9,6 +9,8 @@ import { toast, ask } from '../feedback';
 /* Verifications (KYC)
    - The list comes from admin_kyc_list (duplicate-ID count, attempts, live-selfie + UIDAI flags).
    - Photos open only in the review panel, through the kyc-admin service: 5-minute links, every view logged.
+   - 24 Oct 2026: when the Aadhaar QR fails, the app sends Aadhaar photo + a second ID (id2_*) + a
+     still selfie ("QR fallback"); the second ID shows as a third photo here.
    - Decisions go through admin_kyc_decide, which sets the badge, stores the reason and sends the user
      a bell + push in their language. */
 
@@ -144,6 +146,7 @@ function Checks({ r }:{ r:any }){
       {r.uidai_verified && r.uidai_detail?.mobile_match!==true && r.uidai_detail?.mobile_check==='last4' && <span className="badge b-info" title="Newer Aadhaar QRs only carry the last 4 mobile digits — these match the account phone">Mobile last 4 ✓</span>}
       {r.uidai_verified && r.uidai_detail?.mobile_match!==true && r.uidai_detail?.mobile_check!=='last4' && <span className="badge b-warn">Mobile ✗</span>}
       <span className={'badge '+(r.liveness_passed?'b-ok':'b-mut')} title="Blink / head-turn check in the app">{r.liveness_passed?'Live ✓':'No live check'}</span>
+      {r.has_id2_photo && <span className="badge b-info" title="Aadhaar QR did not work: Aadhaar photo + a second ID + a still selfie">QR fallback · 2 IDs</span>}
       {r.dup_users>0 && <span className="badge b-danger" title="Same ID details on other accounts">Duplicate ×{r.dup_users}</span>}
       {r.attempts>1 && <span className="badge b-mut">{r.attempts} tries</span>}
     </div>
@@ -151,7 +154,7 @@ function Checks({ r }:{ r:any }){
 }
 
 function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>void }){
-  const [urls,setUrls]=useState<{idUrl?:string|null;selfieUrl?:string|null;idFailed?:boolean;err?:string}|null>(null);
+  const [urls,setUrls]=useState<{idUrl?:string|null;selfieUrl?:string|null;id2Url?:string|null;idFailed?:boolean;err?:string}|null>(null);
   const [rejecting,setRejecting]=useState(false);
   const [reason,setReason]=useState('');
   const [note,setNote]=useState('');
@@ -167,9 +170,9 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
     if(error || (data as any)?.error){ setUrls({ err:'Could not open photos.' }); return; }
     expiry.current=Date.now()+((data as any).expiresIn||300)*1000;
     // The Aadhaar QR photo is JPEG 2000 — decode it so the browser can show it next to the selfie.
-    const [idUrl, selfieUrl]=await Promise.all([displayUrl((data as any).idUrl), displayUrl((data as any).selfieUrl)]);
+    const [idUrl, selfieUrl, id2Url]=await Promise.all([displayUrl((data as any).idUrl), displayUrl((data as any).selfieUrl), displayUrl((data as any).id2Url)]);
     // A stored photo that couldn't be shown is NOT the same as "no photo".
-    setUrls({ idUrl, selfieUrl, idFailed: !!(data as any).idUrl && !idUrl });
+    setUrls({ idUrl, selfieUrl, id2Url, idFailed: !!(data as any).idUrl && !idUrl });
   }
   useEffect(()=>{ fetchUrls(); },[r.id]);
   // Re-render when the photo links run out so the "Links expired" bar shows by itself.
@@ -242,6 +245,7 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
       <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:10,fontSize:13}}>
         <span className={'badge '+(r.status==='approved'?'b-ok':r.status==='rejected'?'b-danger':'b-warn')}>{r.status}</span>
         <b>{ID_LABEL[r.id_type]||r.id_type}</b>{r.id_last4 && <span className="muted">ending {r.id_last4}</span>}
+        {r.id2_type && <><span className="muted">+</span><b>{ID_LABEL[r.id2_type]||r.id2_type}</b>{r.id2_last4 && <span className="muted">ending {r.id2_last4}</span>}</>}
         <Checks r={r}/>
         <button className="btn ghost sm" onClick={()=>openUser(r.user_id)}>Open profile</button>
       </div>
@@ -260,9 +264,10 @@ function Review({ r, onClose, onDone }:{ r:any; onClose:()=>void; onDone:()=>voi
       {!urls ? <Loading/> : urls.err ? <Empty text={urls.err}/> : (
         <>
           {expired && <div className="bulkbar" style={{marginBottom:8}}>Links expired. <button className="btn sm" onClick={fetchUrls}>Reload photos</button></div>}
-          <div style={{display:'grid',gridTemplateColumns:urls.idUrl&&urls.selfieUrl?'1fr 1fr':'1fr',gap:10}}>
+          <div style={{display:'grid',gridTemplateColumns:`repeat(${[urls.idUrl,urls.id2Url,urls.selfieUrl].filter(Boolean).length||1}, minmax(0,1fr))`,gap:10}}>
             {urls.idUrl && <Zoomable url={urls.idUrl} label={r.id_type==='aadhaar_qr'?'Aadhaar photo (from the QR)':(ID_LABEL[r.id_type]||'ID')}/>}
-            {urls.selfieUrl && <Zoomable url={urls.selfieUrl} label="Selfie"/>}
+            {urls.id2Url && <Zoomable url={urls.id2Url} label={`Second ID · ${ID_LABEL[r.id2_type]||r.id2_type||'ID'}`}/>}
+            {urls.selfieUrl && <Zoomable url={urls.selfieUrl} label={r.has_id2_photo?'Selfie (still photo)':'Selfie'}/>}
             {!urls.idUrl && urls.idFailed && <div className="empty" style={{padding:20,color:'var(--danger)'}}>The ID photo is stored but could not be shown. Reload photos — don't approve without comparing faces.</div>}
             {!urls.idUrl && !urls.idFailed && r.id_type==='aadhaar_qr' && <div className="empty" style={{padding:20}}>No photo inside this Aadhaar QR — compare the name and details only.</div>}
           </div>
