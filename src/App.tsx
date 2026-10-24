@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { FeedbackHost } from './feedback';
 import { DrawerCtx } from './ui';
-import { ChevronLeft, X } from 'lucide-react';
+import { ChevronLeft, X, HardDrive } from 'lucide-react';
 const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
 import CommandK, { Hit } from './CommandK';
 import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
@@ -28,6 +28,7 @@ import UserDetail from './sections/UserDetail';
 import Listing360 from './sections/Listing360';
 import Receipt360 from './sections/Receipt360';
 const AppConfig = lazyScreen(() => import('./sections/AppConfig'));
+const Storage = lazyScreen(() => import('./sections/Storage'));
 import Login from './Login';
 import ResetPassword from './ResetPassword';
 const Featured = lazyScreen(() => import('./sections/Featured'));
@@ -59,7 +60,7 @@ const Syndicates = lazyScreen(() => import('./sections/Syndicates'));
 const Ads = lazyScreen(() => import('./sections/Ads'));
 const Support = lazyScreen(() => import('./sections/Support'));
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'ads'|'support';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'storage'|'ads'|'support';
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
@@ -94,6 +95,7 @@ const ITEMS: Record<Key, NavItem> = {
   money:{ key:'money', label:'Money', Icon:Wallet },
   activity:{ key:'activity', label:'Audit log', Icon:HistoryIcon },
   appconfig:{ key:'appconfig', label:'App config', Icon:SlidersHorizontal },
+  storage:{ key:'storage', label:'Storage', Icon:HardDrive },
   vets:{ key:'vets', label:'Doctors', Icon:Stethoscope, totalKey:'vets' },
   breeds:{ key:'breeds', label:'Breeds', Icon:Bird, totalKey:'breeds' },
   kukuta:{ key:'kukuta', label:'Kukuta', Icon:BookOpen, totalKey:'kukuta' },
@@ -110,7 +112,7 @@ export const HUBS: Hub[] = [
   { key:'convos', label:'Conversations', Icon:MessagesSquare, items:['chats','support','whatsapp','community','announce'] },
   { key:'shop', label:'Shop', Icon:ShoppingBag, items:['orders','feedorders','shop'] },
   { key:'insights', label:'Insights', Icon:BarChart3, items:['analytics','money','activity'] },
-  { key:'settings', label:'Settings', Icon:SettingsIcon, items:['appconfig','vets','breeds','kukuta'] },
+  { key:'settings', label:'Settings', Icon:SettingsIcon, items:['appconfig','storage','vets','breeds','kukuta'] },
 ];
 // Only these counts mean "something is waiting for you". admin_counts also
 // returns totals like users=1866 — those must never show as a red badge.
@@ -479,7 +481,7 @@ export default function App(){
     whatsapp:<WaInbox/>,
     ads:<Ads/>,
     theft:<Theft onChange={refreshCounts}/>,
-    appconfig:<AppConfig/>,
+    appconfig:<AppConfig/>, storage:<Storage/>,
   };
 
   const top=detail[detail.length-1];
