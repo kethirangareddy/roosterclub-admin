@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { FeedbackHost } from './feedback';
 import { DrawerCtx } from './ui';
-import { ChevronLeft, X, HardDrive } from 'lucide-react';
+import { ChevronLeft, X, HardDrive, Bot } from 'lucide-react';
 const KIND_LABEL={user:'Member',listing:'Listing',receipt:'Receipt'} as const;
 import CommandK, { Hit } from './CommandK';
 import { DetailCtx, decodeDetail, encodeDetail, type Detail } from './detail';
@@ -29,6 +29,7 @@ import Listing360 from './sections/Listing360';
 import Receipt360 from './sections/Receipt360';
 const AppConfig = lazyScreen(() => import('./sections/AppConfig'));
 const Storage = lazyScreen(() => import('./sections/Storage'));
+const AskBot = lazyScreen(() => import('./sections/AskBot'));
 import Login from './Login';
 import ResetPassword from './ResetPassword';
 const Featured = lazyScreen(() => import('./sections/Featured'));
@@ -60,7 +61,7 @@ const Syndicates = lazyScreen(() => import('./sections/Syndicates'));
 const Ads = lazyScreen(() => import('./sections/Ads'));
 const Support = lazyScreen(() => import('./sections/Support'));
 
-type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'storage'|'ads'|'support';
+type Key = 'dash'|'analytics'|'money'|'activity'|'approvals'|'listings'|'reports'|'kyc'|'badges'|'competitions'|'syndicates'|'featured'|'livefeed'|'shop'|'orders'|'feedorders'|'vets'|'kukuta'|'breeds'|'disease'|'theft'|'boosts'|'users'|'announce'|'auctions'|'community'|'chats'|'whatsapp'|'appconfig'|'storage'|'askbot'|'ads'|'support';
 
 type NavItem = { key:Key; label:string; Icon:any; totalKey?:string };
 
@@ -96,6 +97,7 @@ const ITEMS: Record<Key, NavItem> = {
   activity:{ key:'activity', label:'Audit log', Icon:HistoryIcon },
   appconfig:{ key:'appconfig', label:'App config', Icon:SlidersHorizontal },
   storage:{ key:'storage', label:'Storage', Icon:HardDrive },
+  askbot:{ key:'askbot', label:'Ask bot', Icon:Bot },
   vets:{ key:'vets', label:'Doctors', Icon:Stethoscope, totalKey:'vets' },
   breeds:{ key:'breeds', label:'Breeds', Icon:Bird, totalKey:'breeds' },
   kukuta:{ key:'kukuta', label:'Kukuta', Icon:BookOpen, totalKey:'kukuta' },
@@ -106,7 +108,7 @@ type Hub={ key:HubKey; label:string; Icon:any; items:Key[] };
 /* Six places to go, plus Settings. Every screen belongs to exactly one hub,
    and inside a hub the screens are tabs across the top. */
 export const HUBS: Hub[] = [
-  { key:'today', label:'Today', Icon:Sun, items:['dash'] },
+  { key:'today', label:'Today', Icon:Sun, items:['dash','askbot'] },
   { key:'people', label:'People & Safety', Icon:UsersIcon, items:['users','kyc','badges','reports','theft','disease','syndicates'] },
   { key:'market', label:'Market', Icon:ListChecks, items:['approvals','listings','featured','boosts','ads','auctions','livefeed','competitions'] },
   { key:'convos', label:'Conversations', Icon:MessagesSquare, items:['chats','support','whatsapp','community','announce'] },
@@ -481,7 +483,7 @@ export default function App(){
     whatsapp:<WaInbox/>,
     ads:<Ads/>,
     theft:<Theft onChange={refreshCounts}/>,
-    appconfig:<AppConfig/>, storage:<Storage/>,
+    appconfig:<AppConfig/>, storage:<Storage/>, askbot:<AskBot/>,
   };
 
   const top=detail[detail.length-1];
