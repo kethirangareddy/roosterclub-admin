@@ -9,6 +9,10 @@ import { toast } from '../feedback';
     Nothing the bot does changes data or sends messages. */
 const OLLAMA = 'http://localhost:11434';
 const DEFAULT_MODEL = 'qwen2.5:14b';
+// 8k context keeps the whole 14b model on a 12 GB RTX 3060 (16k pushed 6 layers onto the CPU).
+const CTX = 8192;
+// Keep the model loaded for an hour so each question doesn't reload it (~15 s).
+const KEEP = '1h';
 
 const TOOLS = [
   ['stats', 'Counts for today and the last 7 days: new users, listings, live listings, sold, chats, receipts, shop orders, active users.', {}],
@@ -61,6 +65,8 @@ export default function AskBot() {
       const names: string[] = (j.models ?? []).map((m: any) => m.name);
       setModels(names);
       setStatus('ok');
+      const warm = names.includes(model) ? model : (names.find(n => n.startsWith('qwen')) ?? names[0]);
+      if (warm) fetch(`${OLLAMA}/api/generate`, { method: 'POST', body: JSON.stringify({ model: warm, prompt: '', keep_alive: KEEP, options: { num_ctx: CTX } }) }).catch(() => {});
       if (names.length && !names.includes(model)) setModel(names.find(n => n.startsWith('qwen')) ?? names[0]);
     } catch { setStatus('down'); }
   }
@@ -78,7 +84,7 @@ export default function AskBot() {
         setBusy(round === 0 ? 'Thinking…' : 'Reading data…');
         const r = await fetch(`${OLLAMA}/api/chat`, {
           method: 'POST',
-          body: JSON.stringify({ model, messages: msgs, tools: TOOLS, stream: false, options: { temperature: 0.2, num_ctx: 16384 } }),
+          body: JSON.stringify({ model, messages: msgs, tools: TOOLS, stream: false, keep_alive: KEEP, options: { temperature: 0.2, num_ctx: CTX } }),
         });
         if (!r.ok) throw new Error(`Ollama ${r.status}: ${(await r.text()).slice(0, 200)}`);
         const j = await r.json();
@@ -93,7 +99,7 @@ export default function AskBot() {
           const name = c.function?.name; const args = c.function?.arguments ?? {};
           const { data, error } = await supabase.rpc('admin_bot_tool', { p_name: name, p_args: args });
           const out = error ? { error: error.message } : data;
-          msgs.push({ role: 'tool', tool_name: name, content: JSON.stringify(out).slice(0, 12000) });
+          msgs.push({ role: 'tool', tool_name: name, content: JSON.stringify(out).slice(0, 8000) });
         }
       }
       setChat(c => [...c, { role: 'assistant', content: 'I needed too many steps for that — try asking more simply.' }]);
